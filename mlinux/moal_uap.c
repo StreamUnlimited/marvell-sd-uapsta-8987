@@ -3,7 +3,7 @@
   * @brief This file contains the major functions in UAP
   * driver.
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -836,6 +836,8 @@ woal_uap_dfs_testing(struct net_device *dev, struct ifreq *req)
 			param.fixed_new_chan;
 		priv->phandle->cac_period_jiffies =
 			param.usr_cac_period * HZ / 1000;
+		priv->user_cac_period_msec =
+			cfg11h->param.dfs_testing.usr_cac_period_msec;
 	}
 	status = woal_request_ioctl(priv, ioctl_req, MOAL_IOCTL_WAIT);
 	if (status != MLAN_STATUS_SUCCESS) {
@@ -866,6 +868,63 @@ done:
 	LEAVE();
 	return ret;
 }
+
+#ifdef UAP_CFG80211
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
+/**
+ *  @brief uap channel NOP status check ioctl handler
+ *
+ *  @param priv             A pointer to moal_private structure
+ *  @param wait_option      Wait option
+ *  @param data             BSS control type
+ *  @return                 0 --success, otherwise fail
+ */
+int
+woal_uap_get_channel_nop_info(moal_private *priv, t_u8 wait_option,
+			      mlan_ds_11h_chan_nop_info * ch_info)
+{
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_11h_cfg *ds_11hcfg = NULL;
+
+	int ret = 0;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	if (!ch_info) {
+		PRINTM(MERROR, "Invalid chan_info\n");
+		LEAVE();
+		return -EFAULT;
+	}
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_11h_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	req->req_id = MLAN_IOCTL_11H_CFG;
+	req->action = MLAN_ACT_GET;
+
+	ds_11hcfg = (mlan_ds_11h_cfg *)req->pbuf;
+	ds_11hcfg->sub_command = MLAN_OID_11H_CHAN_NOP_INFO;
+	memcpy(&ds_11hcfg->param.ch_nop_info, ch_info,
+	       sizeof(mlan_ds_11h_chan_nop_info));
+	status = woal_request_ioctl(priv, req, wait_option);
+	if (status == MLAN_STATUS_FAILURE) {
+		ret = -EFAULT;
+		goto done;
+	}
+	memcpy(ch_info, &ds_11hcfg->param.ch_nop_info,
+	       sizeof(mlan_ds_11h_chan_nop_info));
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
+#endif
+#endif
 #endif
 
 /**
@@ -2674,15 +2733,18 @@ done:
 /**
  *  @brief Set 11n status based on the configured security mode
  *
+ *  @param priv     A pointer to moal_private structure
  *  @param sys_cfg  A pointer to mlan_uap_bss_param structure
  *  @param action   MLAN_ACT_DISABLE or MLAN_ACT_ENABLE
  *
  *  @return         MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
  */
 mlan_status
-woal_uap_set_11n_status(mlan_uap_bss_param *sys_cfg, t_u8 action)
+woal_uap_set_11n_status(moal_private *priv, mlan_uap_bss_param *sys_cfg,
+			t_u8 action)
 {
 	mlan_status status = MLAN_STATUS_SUCCESS;
+	mlan_fw_info fw_info;
 
 	ENTER();
 	if (action == MLAN_ACT_DISABLE) {
@@ -2697,14 +2759,9 @@ woal_uap_set_11n_status(mlan_uap_bss_param *sys_cfg, t_u8 action)
 	}
 
 	if (action == MLAN_ACT_ENABLE) {
-		if ((sys_cfg->supported_mcs_set[0] != 0)
-		    || (sys_cfg->supported_mcs_set[4] != 0)
-			) {
-			goto done;
-		} else {
-			sys_cfg->supported_mcs_set[0] = 0xFF;
-			sys_cfg->supported_mcs_set[4] = 0x01;
-		}
+		woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
+		sys_cfg->supported_mcs_set[0] = 0xFF;
+		sys_cfg->supported_mcs_set[4] = 0x01;
 	}
 
 done:
@@ -2772,6 +2829,7 @@ woal_uap_set_11ac_status(moal_private *priv, t_u8 action, t_u8 vht20_40,
 		cfg_11ac->param.vht_cfg.vht_cap_info &= ~VHT_CAP_11AC_MASK;
 		cfg_11ac->param.vht_cfg.vht_rx_mcs =
 			cfg_11ac->param.vht_cfg.vht_tx_mcs = 0xffff;
+		cfg_11ac->param.vht_cfg.skip_usr_11ac_mcs_cfg = MTRUE;
 	} else {
 		if (vht20_40)
 			cfg_11ac->param.vht_cfg.bwcfg = MFALSE;
@@ -3086,13 +3144,15 @@ woal_uap_set_ap_cfg(moal_private *priv, t_u8 *data, int len)
 	if ((sys_config->protocol == PROTOCOL_STATIC_WEP)
 	    || (sys_config->protocol == PROTOCOL_WPA)) {
 		if (MLAN_STATUS_SUCCESS !=
-		    woal_uap_set_11n_status(sys_config, MLAN_ACT_DISABLE)) {
+		    woal_uap_set_11n_status(priv, sys_config,
+					    MLAN_ACT_DISABLE)) {
 			ret = -EFAULT;
 			goto done;
 		}
 	} else {
 		if (MLAN_STATUS_SUCCESS !=
-		    woal_uap_set_11n_status(sys_config, MLAN_ACT_ENABLE)) {
+		    woal_uap_set_11n_status(priv, sys_config,
+					    MLAN_ACT_ENABLE)) {
 			ret = -EFAULT;
 			goto done;
 		}
@@ -3174,7 +3234,7 @@ done:
  */
 mlan_status
 woal_set_get_ap_channel(moal_private *priv, t_u16 action, t_u8 wait_option,
-			mlan_chan_info * uap_channel)
+			chan_band_info * uap_channel)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	mlan_ds_bss *bss = NULL;
@@ -3193,13 +3253,13 @@ woal_set_get_ap_channel(moal_private *priv, t_u16 action, t_u8 wait_option,
 	req->req_id = MLAN_IOCTL_BSS;
 	req->action = action;
 
-	memcpy(&bss->param.ap_channel, uap_channel, sizeof(mlan_chan_info));
+	memcpy(&bss->param.ap_channel, uap_channel, sizeof(chan_band_info));
 	ret = woal_request_ioctl(priv, req, wait_option);
 	if (ret != MLAN_STATUS_SUCCESS)
 		goto done;
 	if (action == MLAN_ACT_GET)
 		memcpy(uap_channel, &bss->param.ap_channel,
-		       sizeof(mlan_chan_info));
+		       sizeof(chan_band_info));
 
 done:
 	if (ret != MLAN_STATUS_PENDING)
@@ -3350,6 +3410,9 @@ woal_uap_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	case UAP_RADIO_CTL:
 		ret = woal_uap_radio_ctl(dev, req);
 		break;
+	case UAPHOSTPKTINJECT:
+		ret = woal_send_host_packet(dev, req);
+		break;
 	case UAP_GET_STA_LIST:
 		ret = woal_uap_get_sta_list_ioctl(dev, req);
 		break;
@@ -3405,7 +3468,7 @@ woal_uap_get_version(moal_private *priv, char *version, int max_len)
 	req->req_id = MLAN_IOCTL_GET_INFO;
 	req->action = MLAN_ACT_GET;
 
-	status = woal_request_ioctl(priv, req, MOAL_PROC_WAIT);
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
 	if (status == MLAN_STATUS_SUCCESS) {
 		PRINTM(MINFO, "MOAL UAP VERSION: %s\n",
 		       info->param.ver_ext.version_str);

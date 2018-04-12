@@ -2,7 +2,7 @@
   *
   * @brief This file contains functions for proc file.
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -120,7 +120,7 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 		seq_printf(sfp, "driver_name = " "\"uap\"\n");
 		woal_uap_get_version(priv, fmt, sizeof(fmt) - 1);
 		if (MLAN_STATUS_SUCCESS !=
-		    woal_uap_get_stats(priv, MOAL_PROC_WAIT, &ustats)) {
+		    woal_uap_get_stats(priv, MOAL_IOCTL_WAIT, &ustats)) {
 			MODULE_PUT;
 			LEAVE();
 			return -EFAULT;
@@ -132,7 +132,7 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 	if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA) {
 		woal_get_version(handle, fmt, sizeof(fmt) - 1);
 		if (MLAN_STATUS_SUCCESS !=
-		    woal_get_bss_info(priv, MOAL_PROC_WAIT, &info)) {
+		    woal_get_bss_info(priv, MOAL_IOCTL_WAIT, &info)) {
 			MODULE_PUT;
 			LEAVE();
 			return -EFAULT;

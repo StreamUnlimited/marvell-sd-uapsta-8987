@@ -3,7 +3,7 @@
  *  @brief This file contains SDIO MMC IF (interface) module
  *  related functions.
  *
- * Copyright (C) 2008-2017, Marvell International Ltd.
+ * Copyright (C) 2008-2018, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -31,6 +31,15 @@ Change log:
 
 /** define marvell vendor id */
 #define MARVELL_VENDOR_ID 0x02df
+
+/* The macros below are hardware platform dependent.
+   The definition should match the actual platform */
+/** Initialize GPIO port */
+#define GPIO_PORT_INIT()
+/** Set GPIO port to high */
+#define GPIO_PORT_TO_HIGH()
+/** Set GPIO port to low */
+#define GPIO_PORT_TO_LOW()
 
 /********************************************************
 		Local Variables
@@ -417,11 +426,13 @@ woal_sdio_suspend(struct device *dev)
 		ret = -EBUSY;
 		goto done;
 	}
+#ifdef STA_SUPPORT
 	for (i = 0; i < MIN(handle->priv_num, MLAN_MAX_BSS_NUM); i++) {
 		if (handle->priv[i] &&
 		    (GET_BSS_ROLE(handle->priv[i]) == MLAN_BSS_ROLE_STA))
 			woal_cancel_scan(handle->priv[i], MOAL_IOCTL_WAIT);
 	}
+#endif
 	handle->suspend_fail = MFALSE;
 	memset(&pm_info, 0, sizeof(pm_info));
 	for (i = 0; i < retry_num; i++) {
@@ -803,6 +814,11 @@ woal_bus_register(void)
 		return MLAN_STATUS_FAILURE;
 	}
 
+	/* init GPIO PORT for wakeup purpose */
+	GPIO_PORT_INIT();
+	/* set default value */
+	GPIO_PORT_TO_HIGH();
+
 	LEAVE();
 	return ret;
 }
@@ -843,6 +859,7 @@ woal_unregister_dev(moal_handle *handle)
 		sdio_set_drvdata(((struct sdio_mmc_card *)handle->card)->func,
 				 NULL);
 
+		GPIO_PORT_TO_LOW();
 		PRINTM(MWARN, "Making the sdio dev card as NULL\n");
 	}
 
@@ -863,6 +880,9 @@ woal_register_dev(moal_handle *handle)
 	struct sdio_func *func;
 
 	ENTER();
+
+	GPIO_PORT_INIT();
+	GPIO_PORT_TO_HIGH();
 
 	func = card->func;
 	sdio_claim_host(func);

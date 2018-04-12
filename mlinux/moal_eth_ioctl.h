@@ -3,7 +3,7 @@
  *
  * @brief This file contains definition for private IOCTL call.
  *
- * Copyright (C) 2014-2017, Marvell International Ltd.
+ * Copyright (C) 2014-2018, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -126,6 +126,7 @@ Change log:
 #define PRIV_CMD_WARMRESET      "warmreset"
 #define PRIV_CMD_TXPOWERCFG     "txpowercfg"
 #define PRIV_CMD_PSCFG          "pscfg"
+#define PRIV_CMD_BCNTIMEOUTCFG     "bcntimeoutcfg"
 #define PRIV_CMD_SLEEPPD        "sleeppd"
 #define PRIV_CMD_TXCONTROL      "txcontrol"
 #define PRIV_CMD_REGRDWR        "regrdwr"
@@ -143,6 +144,7 @@ Change log:
 #define PRIV_CMD_MAC_CTRL       "macctrl"
 #define PRIV_CMD_GETWAP         "getwap"
 #define PRIV_CMD_REGION_CODE    "regioncode"
+#define PRIV_CMD_CFPINFO        "cfpinfo"
 #define PRIV_CMD_FWMACADDR      "fwmacaddr"
 #define PRIV_CMD_OFFCHANNEL     "offchannel"
 #define PRIV_CMD_DSCP_MAP       "dscpmap"
@@ -183,9 +185,6 @@ Change log:
 #endif
 #define PRIV_CMD_SLEEP_PARAMS       "sleepparams"
 #define PRIV_CMD_NET_MON            "netmon"
-#if defined(STA_CFG80211) && defined(UAP_CFG80211)
-#define PRIV_CMD_MONITOR_MODE       "monitormode"
-#endif
 #if defined(DFS_TESTING_SUPPORT)
 #define PRIV_CMD_DFS_TESTING        "dfstesting"
 #endif
@@ -199,6 +198,7 @@ Change log:
 #define PRIV_CMD_PORT_CTRL      "port_ctrl"
 #define PRIV_CMD_PB_BYPASS      "pb_bypass"
 #define PRIV_CMD_COALESCE_STATUS    "coalesce_status"
+#define PRIV_CMD_FW_WAKEUP_METHOD   "fwwakeupmethod"
 #define PRIV_CMD_SD_CMD53_RW        "sdcmd53rw"
 #ifdef RX_PACKET_COALESCE
 #define PRIV_CMD_RX_COAL_CFG "rxpktcoal_cfg"
@@ -235,6 +235,10 @@ Change log:
 #define PRIV_CMD_AUTO_ARP	"auto_arp"
 #endif
 
+#define PRIV_CMD_PER_PKT_CFG    "per_pkt_cfg"
+
+#define PRIV_CMD_DEAUTH_CTRL    "ctrldeauth"
+
 /**Private command ID to set/get independent reset*/
 #define PRIV_CMD_IND_RST_CFG            "indrstcfg"
 
@@ -255,6 +259,13 @@ Change log:
 
 /** Private command ID to get BSS type */
 #define WOAL_GET_BSS_TYPE           (SIOCDEVPRIVATE + 15)
+
+/** Private command ID for robustcoex */
+#define PRIV_CMD_ROBUSTCOEX           "robustcoex"
+
+#define PRIV_CMD_BOOTSLEEP            "bootsleep"
+
+#define PRIV_CMD_GET_CORRELATED_TIME "GET_CORRELATED_TIME"
 
 int woal_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd);
 
@@ -337,10 +348,14 @@ typedef struct _android_wifi_priv_cmd {
 
 /* Generic format for most parameters that fit in an int */
 struct mw_param {
-	t_s32 value;		/* The value of the parameter itself */
-	t_u8 fixed;		/* Hardware should not use auto select */
-	t_u8 disabled;		/* Disable the feature */
-	t_u16 flags;		/* Various specifc flags (if any) */
+  /** The value of the parameter itself */
+	t_s32 value;
+  /** Hardware should not use auto select */
+	t_u8 fixed;
+  /** Disable the feature */
+	t_u8 disabled;
+  /** Various specifc flags (if any) */
+	t_u16 flags;
 };
 
 /*
@@ -348,9 +363,12 @@ struct mw_param {
  *  pointer to memory allocated in user space.
  */
 struct mw_point {
-	t_u8 *pointer;		/* Pointer to the data  (in user space) */
-	t_u16 length;		/* number of fields or size in bytes */
-	t_u16 flags;		/* Optional params */
+  /** Pointer to the data  (in user space) */
+	t_u8 *pointer;
+  /** number of fields or size in bytes */
+	t_u16 length;
+  /** Optional params */
+	t_u16 flags;
 };
 
 /*
@@ -358,43 +376,59 @@ struct mw_point {
  * below.
  */
 union mwreq_data {
-	/* Config - generic */
+    /** Config - generic */
 	char name[IFNAMSIZ];
 
-	struct mw_point essid;	/* Extended network name */
-	t_u32 mode;		/* Operation mode */
-	struct mw_param power;	/* PM duration/timeout */
-	struct sockaddr ap_addr;	/* Access point address */
-	struct mw_param param;	/* Other small parameters */
-	struct mw_point data;	/* Other large parameters */
+    /** Extended network name */
+	struct mw_point essid;
+    /** Operation mode */
+	t_u32 mode;
+    /** PM duration/timeout */
+	struct mw_param power;
+    /** Access point address */
+	struct sockaddr ap_addr;
+    /** Other small parameters */
+	struct mw_param param;
+    /** Other large parameters */
+	struct mw_point data;
 };
 
  /* The structure to exchange data for ioctl */
 struct mwreq {
 	union {
-		char ifrn_name[IFNAMSIZ];	/* if name, e.g. "eth0" */
+	/** if name, e.g. "eth0" */
+		char ifrn_name[IFNAMSIZ];
 	} ifr_ifrn;
 
-	/* Data part */
+    /** Data part */
 	union mwreq_data u;
 };
 
+/** woal HT capacity info structure */
 typedef struct woal_priv_ht_cap_info {
+    /** HT capacity info for bg */
 	t_u32 ht_cap_info_bg;
+    /** HT capacity info for a */
 	t_u32 ht_cap_info_a;
 } woal_ht_cap_info;
 
+/** woal private addba structure */
 typedef struct woal_priv_addba {
+    /** Time out */
 	t_u32 time_out;
+    /** Transmission window size */
 	t_u32 tx_win_size;
+    /** Receiver window size */
 	t_u32 rx_win_size;
+    /** Tx amsdu */
 	t_u32 tx_amsdu;
+    /** Rx amsdu */
 	t_u32 rx_amsdu;
 } woal_addba;
 
 /** data structure for extended channel switch */
 typedef struct woal_priv_extend_chan_switch {
-	/* IEEE element ID = 60 */
+   /** IEEE element ID = 60 */
 	t_u8 element_id;
     /** Element length after id and len, set to 4 */
 	t_u8 len;
@@ -408,9 +442,23 @@ typedef struct woal_priv_extend_chan_switch {
 	t_u8 chan_switch_count;
 } woal_extend_chan_switch;
 
+/** data structure for channel switch */
+typedef struct woal_priv_chan_switch {
+	/* IEEE element ID = 37 */
+	t_u8 element_id;
+	/* Element length after id and len, set to 3 */
+	t_u8 len;
+	/* STA should not transmit any frames if 1 */
+	t_u8 chan_switch_mode;
+	/* Channel # that AP/IBSS is moving to */
+	t_u8 new_channel_num;
+	/* of TBTTs before channel switch */
+	t_u8 chan_switch_count;
+} woal_chan_switch;
+
 /** data structure for cmd txratecfg */
 typedef struct woal_priv_tx_rate_cfg {
-	/* LG rate: 0, HT rate: 1, VHT rate: 2 */
+   /** LG rate: 0, HT rate: 1, VHT rate: 2 */
 	t_u32 rate_format;
     /** Rate/MCS index (0xFF: auto) */
 	t_u32 rate_index;
@@ -420,12 +468,13 @@ typedef struct woal_priv_tx_rate_cfg {
 	t_u32 nss;
 } woal_tx_rate_cfg;
 
+/** woal embedded supplicant structure */
 typedef struct woal_priv_esuppmode_cfg {
-	/* RSN mode */
+    /** RSN mode */
 	t_u16 rsn_mode;
-	/* Pairwise cipher */
+    /** Pairwise cipher */
 	t_u8 pairwise_cipher;
-	/* Group cipher */
+    /** Group cipher */
 	t_u8 group_cipher;
 } woal_esuppmode_cfg;
 
@@ -435,10 +484,26 @@ mlan_status woal_ioctl_aggr_prio_tbl(moal_private *priv, t_u32 action,
 
 int woal_android_priv_cmd(struct net_device *dev, struct ifreq *req);
 
-/* Enum for different CW mode type */
+#define PRIV_CMD_ACS_SCAN "acs"
+
+/** Type definition of mlan_acs_scan */
+typedef struct _acs_result {
+    /** Best Channel Number */
+	t_u8 best_ch;
+    /** Channel Statistics Number */
+	t_u8 ch_stats_num;
+    /** Channel Statistics */
+	ChStat_t ch_stats[0];
+} acs_result, *pacs_result;
+
+#define TLV_TYPE_PER_PKT_CFG 0x0001
+#define TX_PKT_CTRL  MBIT(0)
+#define RX_PKT_INFO  MBIT(1)
+
+/** Enum for different CW mode type */
 typedef enum _cw_modes_e {
 	CWMODE_DISABLE,
 	CWMODE_TXCONTPKT,
 	CWMODE_TXCONTWAVE,
 } cw_modes_e;
-#endif /* _WOAL_ETH_PRIV_H_ */
+#endif /** _WOAL_ETH_PRIV_H_ */

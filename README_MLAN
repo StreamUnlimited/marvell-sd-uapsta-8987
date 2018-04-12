@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2008-2017, Marvell International Ltd.
+ Copyright (C) 2008-2018, Marvell International Ltd.
  All Rights Reserved
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.11.
+	The driver code supports Linux kernel up to 4.14.
 
 2) FOR DRIVER INSTALL
 
@@ -100,6 +100,7 @@
 	  indication_gpio=0xXY <GPIO to indicate wakeup source and its level; high four bits X:
                   level(0/1) for normal wakeup; low four bits Y: GPIO pin number. This parameter
                   only works with specific board and firmware.>
+	  gtk_rekey_offload=0|1|2 <disable gtk_rekey_offload|enable gtk_rekey_offload (default) | enable gtk_rekey_offload in suspend mode only>
       napi=0|1 <disable napi | enable napi>
 	Note: On some platforms (e.g. PXA910/920) double quotation marks ("") need to used
 	for module parameters.
@@ -315,6 +316,13 @@ SYNOPSIS
 	mlanutl mlanX changraph [<load | anpi | anpiload> <loops>]
 	mlanutl mlanX coex_rx_winsize [m]
 	mlanutl mlanX countrycode [l]
+
+	mlanutl	mlanX cfpinfo
+	mlanutl uapX cfpinfo
+
+	mlanutl	mlanX acs [<chX> <chY> ... <chZ>]
+	mlanutl	uapX acs [<chX> <chY> ... <chZ>]
+
 	mlanutl mlanX customie [[[<index>] <mask>] <IEBuffer>]
 	mlanutl mlanX deauth [l]
 	mlanutl uapX deauth [l]
@@ -351,6 +359,7 @@ SYNOPSIS
 	mlanutl mlanX hostcmd <robust_btc.conf> mode_timeshare
 	mlanutl mlanX hostcmd <robust_btc.conf> mode_spatial
 	mlanutl mlanX hostcmd <robust_btc.conf> mode_none
+	mlanutl mlanX hostcmd <robust_btc.conf> gpio_cfg
 	mlanutl mlanX hostcmd <robust_btc.conf> generictime
 	mlanutl mlanX hostcmd <robust_btc.conf> a2dptime
 	mlanutl mlanX hostcmd <robust_btc.conf> inquirytim
@@ -393,17 +402,17 @@ SYNOPSIS
 	mlanutl mlanX mgmtframetx <mgmt_frame.conf>
 	mlanutl mlanX mpactrl [tx_ena] [rx_ena] [tx_size] [rx_size] [tx_ports] [rx_ports]
 	mlanutl mlanX netmon [<act> [<filter> <band> <chan> [offset]]]
-	mlanutl mlanX monitormode [l]
 	mlanutl mlanX offchannel [<l> <m> <n>]
 	mlanutl mlanX otpuserdata <l>
 	mlanutl mlanX passphrase [l]
 	mlanutl mlanX pb_bypass [data_1, data_2, ... data_n]
-	mlanutl mlanX fw_bridge_mode_ctrl [0|1]
 	mlanutl mlanX pmfcfg <mfpc> <mfpr>
 	mlanutl mlanX port_ctrl [n]
 	mlanutl mlanX powercons [n]
 	mlanutl mlanX pscfg [k] [d] [l] ...
+	mlanutl mlanX bcntimeoutcfg [l] [m] [o] [p]
 	mlanutl mlanX psmode [l]
+        mlanutl <interface> robustcoex <gpiocfg> [Enable/Disable] [gpionum] [gpiopolarity]
 	mlanutl mlanX qconfig def [Queue Id: 0-3]
 	mlanutl mlanX qconfig get [Queue Id: 0-3]
 	mlanutl mlanX qconfig set msdu <lifetime in TUs> [Queue Id: 0-3]
@@ -457,6 +466,8 @@ SYNOPSIS
     mlanutl mlanX version
 	mlanutl mlanX vhtcfg <j> <k> [l] [m] [n] [o]
 	mlanutl uapX vhtcfg <j> <k> [l] [m] [n] [o]
+        mlanutl <interface> per_pkt_cfg [tx_rx_control] [type_num] [ether_type1 ether_type2 ...] [tx_rx_control] [type_num] [ether_type1 ether_type2 ...]
+        mlanutl <interface> dot11_txrx <send/recv> <options>
 	mlanutl mlanX wakeupreason
 	mlanutl uapX wakeupreason
 	mlanutl mlanX warmreset
@@ -472,6 +483,12 @@ SYNOPSIS
 	mlanutl mlanX mc_cfg_ext [c] [s] [u] [m] <a> <b> <d> <e>
         mlanutl mlanX get_sensor_temp
         mlanutl <inteface> indrstcfg <ir_mode> [gpio_pin]
+
+        mlanutl <interface> fwwakeupmethod <method> <GPIO_pin>
+
+        mlanutl uapX ctrldeauth <n>
+
+        mlanutl mlanX/uapX bootsleep <1/0>
 
 DESCRIPTION
 	Those commands are used to send additional commands to the Marvell MLAN
@@ -990,6 +1007,26 @@ countrycode
 		mlanutl mlan0 countrycode            : Get current countrycode
 		mlanutl mlan0 countrycode CN         : Set countrycode as China (CN)
 
+cfpinfo
+	This command is used to get region, country, environment codes,
+	channel and power table information from the FW.
+
+	Examples:
+		mlanutl mlan0 cfpinfo		     : Display cfp tables
+		mlanutl uap0 cfpinfo
+
+acs
+	This command is used to issue acs scan, then FW will
+	report the best channel and channel statistics.
+	User could specify channels or not. If channel is not
+	specified, acs scan will be on all supported channels.
+
+	Examples:
+		mlanutl mlan0 acs		     : ACS scan on all supported channels
+		mlanutl uap0 acs		     : ACS scan on all supported channels
+		mlanutl mlan0 acs 5 6 7 8	     : ACS scan on 5 6 7 8 channels
+		mlanutl uap0 acs 1 2 3		     : ACS scan on 1 2 3 channels
+
 customie
 	This command is used to set or get custom IEs for management frames.
 
@@ -1361,6 +1398,44 @@ getlog
 	dot11AMPDUDelimiterCRCErrorCount	Increments when an MPDU delimiter has a CRC error when this is the first
 						CRC error in the received A-MPDU or when the previous delimiter has been decoded correctly
 
+per_pkt_cfg
+--------------
+    mlanutl <interface> per_pkt_cfg [tx_rx_control] [type_num] [ether_type1 ether_type2...] [tx_rx_control] [type_num] [ether_type1 ether_type2 ...]
+    This command is used to set tx/rx per packet Txctl and Rxinfo configuration.
+
+    The supported options are:
+       tx_rx_control :
+                        0 - disable Tx and Rx per packet control
+                        1 - enable Tx per packet control
+                        2 - enable Rx Per packet control
+                        3 - enable Tx and Rx Per packet control
+
+       type_num :       Number of ether_types which support per packet control, the Max is 8.
+       ether_type :     Array of ether_types for which need to do per-packet Tx control or get per-packet Rx info.
+
+       Examples:
+                 mlanutl mlan0/uap0 per_pkt_cfg                        : get the configuration of per-packet control
+                 mlanutl mlan0/uap0 per_pkt_cfg 0                      : disable per-packet control
+                 mlanutl mlan0/uap0 per_pkt_cfg 3 1 0x88dc       : set the Tx and Rx per-packet control configuration
+
+dot11_txrx
+    This command is used to send or receive packets.
+
+    Usage:
+            mlanutl <interface> dot11_txrx <send/recv> <options>
+            interface     : mlanX or uapX
+            options  send : <conf_file>
+            conf_file     : config file name
+            options  recv : <protocol> [ verbose_mode ]
+            protocol      : packet protocol type
+            verbose_mode  : v -- enter verbose mode
+
+    Example:
+            mlanutl mlan0 dot11_txrx send config/tx_ctrl.conf         : To send packets
+            mlanutl mlan0 dot11_txrx recv 0x88dc                         : To receive packets of type 0x88dc
+            mlanutl mlan0 dot11_txrx recv 0x88dc v                      : To receive packets of type 0x88dc and
+                                                                            enter verbose mode
+
 getscantable
 	Display the current contents of the driver scan table
 
@@ -1426,17 +1501,18 @@ getstalist
         mlanutl uap0 getstalist
 
 channel_switch <switch mode> <oper class> <new channel> <switch count>
-    This command is used to do extended channel switch according to spec.
+    This command is used to do channel switch according to spec.
 
     Where the paramters are:
         switch mode : 0 -- no need to block traffic, 1 -- need block traffic
-        oper class  : operating class according to IEEE std802.11 spec
+        oper class  : operating class according to IEEE std802.11 spec, when 0 is used, only CSA IE will be used
         new channel : the channel will switch to
         switch count: channel switch time to send ECSA ie
 
     Example:
         mlanutl uap0 channel_switch 1 115 36 10      :switch to channel 36, oper class 115
         mlanutl uap0 channel_switch 1 81 6 10        :switch to channel 6, oper class 81
+        mlanutl uap0 channel_switch 1 0 6 10         :switch to channel 6
 
 hostcmd 2040coex
 	This command is used to send the 11n 20/40 Coex command to firmware.
@@ -1518,6 +1594,13 @@ hostcmd mode_none
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_timeshare
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_spatial
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_none
+
+hostcmd gpio_cfg
+	This command is used to enable/disable GPIO cfg.
+	gpio_cfg:       enable/disable GPIO cfg for external bt request  (default is enable with High Polarity)
+
+	Usage:
+		mlanutl mlanX hostcmd config/robust_btc.conf gpio_cfg
 
 hostcmd generictime
 hostcmd a2dptime
@@ -1615,6 +1698,8 @@ hscfg
 	parameters is not allowed. Set bit(s) in event_force_ignore means the event(s) will be forced ignore in firmware silently.
 	Set bit(s) in event_use_ext_gap mean the event(s) will use extend gap to inform host. Not set means not handle.
 
+	If type=3, it will set hs_wakeup_interval.
+
         If no parameter provided, get is performed.
 
 	The usages of parameters for "hscfg" are the same as that for "hssetpara" command.
@@ -1623,7 +1708,7 @@ hssetpara
 	This command is used to set host sleep parameters.
 
 	Usage:
-		mlanutl mlanX hssetpara condition [GPIO# [gap]] (optional)[type ind_GPIO# [level]] (optional)[type event_force_ignore event_use_ext_gap ext_gap [gpio_wave]]
+		mlanutl mlanX hssetpara condition [GPIO# [gap]] (optional)[type ind_GPIO# [level]] (optional)[type event_force_ignore event_use_ext_gap ext_gap [gpio_wave]] (optional)[type hs_wakeup_interval]
 
 	This command takes one (condition), two (condition and GPIO#) or three
 	(condition, GPIO# and gap).If more than three parameters, it can set different or multiple features indicating by type and
@@ -1675,6 +1760,9 @@ hssetpara
 	where gpio_wave is used to set GPIO wave level for hscfg extend. 0 means falling edge, 1 means rising edge.
 	This parameter is optional and default value is 0.
 
+	where hs_wakeup_interval is used to set host sleep wakeup interval and the type must set to 3 to indicate
+	this feature. And the value will round to the nearest multiple dtim*beacon_interval in fw. The unit is milliseconds.
+
 	Examples:
 		mlanutl mlan0 hssetpara -1           : Cancel host sleep mode
 		mlanutl mlan0 hssetpara 3            : Broadcast and unicast data
@@ -1721,6 +1809,11 @@ hssetpara
                                                        Extend gap not used
                                                        Not used.
                                                        Falling edge
+		mlanutl mlan0 hssetpara 2 1 0xa0 3 400:  Unicast data
+		                                       Use GPIO 1
+                                                       Gap 160 ms
+                                                       type=3 to set hs_wakeup_interval feature
+                                                       hs_wakeup_interval set to 400ms
 
 	Note: The parameters will be saved in the driver and be used when host suspends.
               The ind_GPIO# and level parameters only work with specific board and firmware.
@@ -1880,7 +1973,7 @@ httxbfcfg
 		arguments should be separated by space.
 
 	Usage:
-		mlanutl mlanX httxbfcfg "<action>[;GlobalData/tsData/interval/txPeerData/snrData]"
+		mlanutl mlanX httxbfcfg "<action>[;GlobalData/tsData/interval/txPeerData/snrData/txSounding]"
 
 	where the parameters are,
 		action: TX beamforming action
@@ -1928,7 +2021,13 @@ httxcfg
 
 	where <m> is <txcfg>
 	This is a bitmap and should be used as following
-		Bit 15-8: Reserved set to 0
+		Bit 15-10: Reserved set to 0
+        Bit 9-8: Rx STBC set to 0x01
+        BIT9 BIT8  Description
+         0    0     No spatial streams
+         0    1     One spatial streams supported
+         1    0     Reserved
+         1    1     Reserved
 		Bit 7: STBC enable/disable
 		Bit 6: Short GI in 40 Mhz enable/disable
 		Bit 5: Short GI in 20 Mhz enable/disable
@@ -2028,21 +2127,30 @@ macctrl
 
 	where <n>
 		bit 0:  Rx enabled
-		bit 1:  Tx enabled
+		bit 1:  Directed Filter enabled
+		bit 2:  LoopBack enabled
 		bit 3:  WEP enabled
 		bit 4:  EthernetII enabled
+		bit 5:  MultiCast enabled
+		bit 6:  BroadCast enabled
 		bit 7:  Promiscuous enabled
-		bit 8:  All multicast enabled
+		bit 8:  All MultiCast enabled
 		bit 9:  RTS/CTS enabled (0: CTS to self)
-		bit 11: Force 11n protection disabled
-		bit 12: Ad-hoc g protection disabled
-		...
+		bit 10: Enforce Protection enabled
+		bit 11: Force 11N Protection enabled
+		bit 12: Rx 802.11 Packets enabled
+		bit 13: Ad-hoc g Protection enabled
+		bit 14: Reserved
+		bit 15: WEP Type
+		bit 16: BandWidth Indication in RTS enabled
+		bit 17: Dynamic BandWidth Indication Mode in RTS enabled
+		bit 18-31: Reserved
 
 	Examples:
 		mlanutl mlan0 macctrl           : Get current MAC control
-		mlanutl mlan0 macctrl 0x13      : Set Tx/Rx on and EthernetII on
-		mlanutl mlan0 macctrl 0x813     : Set Tx/Rx on and EthernetII on
-		                                  Disable force 11n protection
+		mlanutl mlan0 macctrl 0x13      : Set Rx enabled and Directed Filter enabled and EthernetII enabled
+		mlanutl mlan0 macctrl 0x813     : Set Rx enabled and Directed Filter enabled and EthernetII enabled
+		                                  Force 11N Protection enabled
 
 mefcfg
 	This command is used to set MEF settings.
@@ -2152,61 +2260,19 @@ mpactrl
 		                           : Set maximum Tx, Rx ports to 8
 
 netmon
-	This command is used to set/get network monitor configuration.
-	Note: The configuration should be issued when STA is disconnected.
+	This command is used to set/get sniffer mode configuration.
+	Note: The channel and band config is optional. If not specified, or if
+	any STA/uAP/STA+uAP connection is active, sniffer activity will be started
+	on the current config set in the FW.
+	'rtap' monitor interface will be created on enabling sniffer activity and
+	should be made 'up' for capturing in a sniffer app.
 
 	Usage:
-		mlanutl mlanX netmon [<act> [<filter> <band> <chan> [offset]]]
+        mlanutl <interface> netmon [<act> [<filter>]]
+		mlanutl mlanX netmon [<act> [<filter>] [<band> <chan> [offset]]]
 
 	Where the parameters are:
-		<act>    : (1/0) enable/disable the network monitor activity
-		<filter> : network monitor fitler flag
-		    bit 0: (1/0) enable/disable management frame
-		    bit 1: (1/0) enable/disable control frame
-		    bit 2: (1/0) enable/disable data frame
-		<band>   : 802.11 band
-		    bit 0: B
-		    bit 1: G
-		    bit 2: A
-		    bit 3: GN
-		    bit 4: AN
-			 bit 5: AC 2.4G
-             bit 6: AC 5G
-		<chan>   : channel to monitor
-		[offset] : secondary channel bandwidth
-			0 - Bandwidth 20Mhz
-			1 - HT Bandwidth 40Mhz sec channel above
-			3 - HT Bandwidth 40Mhz sec channel below
-			4 - VHT Bandwidth 80Mhz
-
-	Examples:
-		mlanutl mlan0 netmon             : Get the current network monitor configuration
-		mlanutl mlan0 netmon 0           : Disable network monitor activity
-		mlanutl mlan0 netmon 1 4 11 6    : Enable network monitor activity, set filter
-		                                  data frame, band B/G/GN and channel 6
-		mlanutl mlan0 netmon 1 7 20 64 1 : Enable network monitor activity, set filter
-		                                  management, control and data frame, band A/AN,
-		                                  channel 64 and secondary channel above
-
-monitormode
-	This command is used to set/get monitor mode.
-	Note: The enable monitor mode setting should be issued when no active interface exist.
-              Before we want to use sniffer mode, need enable monitor mode.
-              After this can only use sniffer mode, don't make STA/P2P/UAP work.
-              When sniffer mode using done, should disable monitor mode.
-
-	Usage:
-		mlanutl mlanX monitormode [l]
-
-	where the parameter:
-		[l]
-			0 : Disable monitor mode
-			1 : Enable monitor mode
-			<none>: Get monitor mode
-
-	Examples:
-		mlanutl mlan0 monitormode   : Get monitor mode.
-		mlanutl mlan0 monitormode 1 : Enable monitor mode.
+        <interface> : mlanX, uapX
 
 offchannel
 	This command is used to set/cancel the offchannel configuration.
@@ -2362,6 +2428,25 @@ pscfg
 		                                  10 beacon intervals and beacon miss interval to 20,
 		                                  all the other configurations are unchanged
 		mlanutl mlan0 pscfg 0 0 0 0 0 50 : Set delay to PS to 50 ms, keep the others unchanged
+
+bcntimeoutcfg
+	This command is used to set Beacon timeout parameters.
+
+	Usage:
+		mlanutl mlanX bcntimeoutcfg [l] [m] [o] [p]
+
+	Where the parameters:
+		[l]: Beacon miss timeout period Rx window (in ms)
+		[m]: Beacon miss timeout period (unit in beacon interval)
+		[o]: Beacon reacquire timeout period Rx window (unit in beacon interval)
+		[p]: Beacon reacquire timeout period (unit in beacon interval)
+		Please note that it would be better [m]+[p] not exceed 64.
+	Examples:
+		mlanutl mlan0 bcntimeoutcfg 10 30 2 30    : Set beacon timeout configure to
+		                                            Beacon miss timeout period Rx window      : 10 (ms)
+		                                            Beacon miss timeout period                : 30 (Beacon Interval)
+		                                            Beacon reacquire timeout period Rx window : 2  (Beacon Interval)
+		                                            Beacon reacquire timeout period           : 30 (Beacon Interval)
 
 psmode
 	This command is used to set/get the IEEE PS mode configuration.
@@ -3342,6 +3427,46 @@ indrstcfg
             mlanutl mlan0 indrstcfg         : Get the status and the pin used for reset pin
             mlanutl mlan0 indrstcfg 2       : Enable in band reset mode
 
+    This command is used to set FW wakeup method and GPIO pin
+    Usage :
+            mlanutl <interface> fwwakeupmethod <method> <GPIO_pin>
+            interface : mlanX
+            method:
+                        1       -- Firmware wakeup through the interface command interrupt
+                                -- (default setting for SDIO/PCIe/USB)
+                        2       -- Firmware wakeup through the GPIO pin
+            GPIO_pin:  If firware wakeup throug GPIO pin, [g] is GPIO pin number
+    Example :
+            mlanutl mlan0 fwwakeupmethod     : Get current wakeup method
+            mlanutl mlan0 fwwakeupmethod 1   : Set wakeup method is interface method
+            mlanutl mlan0 fwwakeupmethod 2 5 : Set wakeup method is GPIO method and GPIO pin is 5.
+
+robustcoex
+    This command is used to set robust coex.
+
+    Usage :
+            mlanutl <interface> robustcoex <gpiocfg> [Enable/Disable] [gpionum] [gpiopolarity]
+            Enable/Disable : 0 -- Disable ; 1 -- Enable
+            gpionum : Number of gpio
+            gpiopolarity : polarity of gpio
+
+    Example :
+            mlanutl mlan0 robustcoex gpiocfg 1 4 1 : Enable robustcoex gpio, set gpionum to 4 and gpiopolarity to 1
+            mlanutl mlan0 robustcoex gpiocfg 0     : Disable robustcoex gpio
+
+ctrldeauth
+    This command is used to set/get firmware ctrldeauth setting
+    Usage :
+            mlanutl uapX ctrldeauth <n>
+
+    Where value of n is :
+            0 -- Firmware will use default behavior
+            1 -- Firmware will not send deauth packet when uap move to another channel.
+
+    Example :
+            mlanutl uap0 ctrldeauth   : Get current setting
+            mlanutl uap0 ctrldeauth   : Firmware will not send deauth packet when uap move to different channel.
+
 cwmode
     This command is used to set Cont. Tx/Wave mode.
 
@@ -3354,5 +3479,18 @@ cwmode
     Example:
             mlanutl mlan0 cwmode config/cwmode.conf                       : Enable/Disable Cont Tx/Wave mode.
             mlanutl mlan0 cwmode                                          : Get current Tx mode
+
+bootsleep
+    This command is used to set and get boot sleep configure.
+
+    Usage :
+            mlanutl mlanX/uapX bootsleep <enable>
+            <enable> :  enable boot sleep
+                     :  0 - disable boot sleep
+                     :  1 - enable boot sleep
+
+    Example :
+            mlanutl mlan0/uap0 bootsleep 1       : Enable boot sleep
+            mlanutl mlan0/uap0 bootsleep         : Get boot sleep configure
 
 ===============================================================================

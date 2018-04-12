@@ -2,7 +2,7 @@
   *
   * @brief This file contains the CFG80211 specific defines.
   *
-  * Copyright (C) 2011-2017, Marvell International Ltd.
+  * Copyright (C) 2011-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -54,6 +54,7 @@
 #define IE_MASK_WPS						0x0001
 #define IE_MASK_P2P						0x0002
 #define IE_MASK_WFD						0x0004
+#define IE_MASK_VENDOR					0x0008
 
 #define MRVL_PKT_TYPE_MGMT_FRAME 0xE5
 
@@ -81,7 +82,10 @@ t_u8 woal_band_cfg_to_ieee_band(t_u32 band);
 int woal_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 				      struct net_device *dev,
 				      enum nl80211_iftype type,
-				      u32 *flags, struct vif_params *params);
+#if CFG80211_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+				      u32 *flags,
+#endif
+				      struct vif_params *params);
 
 int woal_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed);
 
@@ -178,6 +182,11 @@ int woal_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 				       t_u8 key_index);
 #endif
 
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
+int woal_cfg80211_set_rekey_data(struct wiphy *wiphy, struct net_device *dev,
+				 struct cfg80211_gtk_rekey_data *data);
+#endif
+
 void woal_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
 				       struct wireless_dev *wdev,
@@ -229,7 +238,9 @@ struct wireless_dev *woal_cfg80211_add_virtual_intf(struct wiphy *wiphy,
 						    unsigned char
 						    name_assign_type,
 						    enum nl80211_iftype type,
+#if CFG80211_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
 						    u32 *flags,
+#endif
 						    struct vif_params *params);
 #else
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
@@ -430,5 +441,18 @@ void woal_cfg80211_setup_vht_cap(moal_private *priv,
 				 struct ieee80211_sta_vht_cap *vht_cap);
 #endif
 int woal_cfg80211_assoc(moal_private *priv, void *sme, t_u8 wait_option);
+
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#define REGULATORY_CFG_LEN  (NL80211_MAX_SUPP_REG_RULES << 1)
+enum marvell_channel_flags {
+	MARVELL_CHANNEL_PASSIVE = BIT(0),
+	MARVELL_CHANNEL_DFS = BIT(1),
+	MARVELL_CHANNEL_NOHT40 = BIT(2),
+	MARVELL_CHANNEL_NOHT80 = BIT(3),
+	MARVELL_CHANNEL_DISABLED = BIT(7),
+};
+#endif
+
+t_u8 woal_get_second_channel_offset(int chan);
 
 #endif /* _MOAL_CFG80211_H_ */

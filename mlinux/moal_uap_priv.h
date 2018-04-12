@@ -2,7 +2,7 @@
   *
   * @brief This file contains definition for extended private IOCTL call.
   *
-  * Copyright (C) 2010-2017, Marvell International Lt.
+  * Copyright (C) 2010-2018, Marvell International Lt.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991

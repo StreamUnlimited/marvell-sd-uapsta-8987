@@ -2,7 +2,7 @@
   *
   * @brief This file contains wireless extension standard ioctl functions
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -3099,7 +3099,7 @@ struct iw_statistics *
 woal_get_wireless_stats(struct net_device *dev)
 {
 	moal_private *priv = (moal_private *)netdev_priv(dev);
-	t_u16 wait_option = MOAL_WSTATS_WAIT;
+	t_u16 wait_option = MOAL_IOCTL_WAIT;
 
 	ENTER();
 

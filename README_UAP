@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2009-2017, Marvell International Ltd.
+ Copyright (C) 2009-2018, Marvell International Ltd.
  All Rights Reserved
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src.
 		make [clean] build
 	The driver binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.11.
+	The driver code supports Linux kernel up to 4.14.
 
 2) FOR DRIVER INSTALL
 
@@ -290,6 +290,7 @@ sys_cfg_antenna_ctl <ANTENNA> [MODE]
 sys_cfg_rts_threshold [RTS_THRESHOLD]
 sys_cfg_frag_threshold [FRAG_THRESHOLD]
 sys_cfg_rsn_replay_prot [1|0]
+sys_cfg_tx_beacon_rate [TX_BEACON_RATE]
 sys_cfg_mcbc_data_rate [MCBC_DATA_RATE]
 sys_cfg_pkt_fwd_ctl [PKT_FWD_CTRL]
 sys_cfg_sta_ageout_timer [STA_AGEOUT_TIMER]
@@ -913,6 +914,34 @@ sys_cfg_rsn_replay_prot
 
 	./uaputl.exe sys_cfg_rsn_replay_prot
 		Get RSN replay protection setting
+
+sys_cfg_tx_beacon_rate
+--------------------
+    "./uaputl.exe sys_cfg_tx_beacon_rate [TX_BEACON_RATE]"
+
+    This command is used to set or get the Tx beacon rate settings.
+
+    The supported options are:
+        0     - Auto rate
+        >0    - Set specified beacon rate
+        empty - Get current beacon rate
+
+    Tx beacon rate is represented in units of 500 kbps. While setting Tx beacon
+    rates, only zero or rates currently configured are allowed.
+
+	Following is the list of supported rates in units of 500 Kbps:
+	    2,    4,    11,   22,   12,   18,   24,   36,   48,   72,   96,   108
+	    0x02, 0x04, 0x0b, 0x16, 0x0C, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c
+
+    Example:
+	./uaputl.exe sys_cfg_tx_beacon_rate 0x04
+		Set AP Tx beacon rate to 2 M
+
+   	./uaputl.exe sys_cfg_tx_beacon_rate 4
+		Set AP Tx data beacon to 2 M
+
+	./uaputl.exe sys_cfg_tx_beacon_rate
+		Get AP Tx beacon rate
 
 sys_cfg_mcbc_data_rate
 ----------------------
@@ -2110,7 +2139,13 @@ httxcfg
 
 	where <m> is <txcfg>
 	This is a bitmap and should be used as following
-		Bit 15-8: Reserved set to 0
+		Bit 15-10: Reserved set to 0
+        Bit 9-8: Rx STBC set to 0x01
+        BIT9 BIT8  Description
+        0    0     No spatial streams
+        0    1     One spatial streams supported
+        1    0     Reserved
+        1    1     Reserved
 		Bit 7: STBC enable/disable
 		Bit 6: Short GI in 40 Mhz enable/disable
 		Bit 5: Short GI in 20 Mhz enable/disable

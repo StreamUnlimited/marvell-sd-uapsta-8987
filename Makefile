@@ -1,6 +1,6 @@
 # File: Makefile
 #
-# Copyright (C) 2008-2017, Marvell International Ltd.
+# Copyright (C) 2008-2018, Marvell International Ltd.
 #
 # This software file (the "File") is distributed by Marvell International
 # Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -536,6 +536,8 @@ clean:
 	-find . -name "Module.symvers" -exec rm {} \;
 	-find . -name "Module.markers" -exec rm {} \;
 	-find . -name "modules.order" -exec rm {} \;
+	-find . -name ".*.dwo" -exec rm {} \;
+	-find . -name "*dwo" -exec rm {} \;
 	-rm -rf .tmp_versions
 ifneq ($(APPDIR),)
 ifeq ($(CONFIG_STA_SUPPORT),y)
@@ -572,6 +574,8 @@ distclean:
 	-find . -name "*.ko" -exec rm {} \;
 	-find . -name ".*.cmd" -exec rm {} \;
 	-find . -name "*.mod.c" -exec rm {} \;
+	-find . -name ".*.dwo" -exec rm {} \;
+	-find . -name "*dwo" -exec rm {} \;
 	-rm -rf .tmp_versions
 ifneq ($(APPDIR),)
 ifeq ($(CONFIG_STA_SUPPORT),y)

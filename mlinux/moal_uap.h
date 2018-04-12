@@ -2,7 +2,7 @@
   *
   * @brief This file contains uap driver specific defines etc.
   *
-  * Copyright (C) 2009-2017, Marvell International Ltd.
+  * Copyright (C) 2009-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -122,6 +122,7 @@ typedef struct _wapi_key_msg {
 /** wapi mode certificate */
 #define WAPI_MODE_CERT   0x08
 
+/** TX rate cfg structure */
 typedef struct _tx_rate_cfg_t {
     /** sub command */
 	int subcmd;
@@ -139,7 +140,7 @@ typedef struct _tx_rate_cfg_t {
 	t_u16 bitmap_rates[MAX_BITMAP_RATES_SIZE];
 } tx_rate_cfg_t;
 
-/* */
+/** CAC timer status structure */
 typedef struct _cac_timer_status {
 	/** subcmd */
 	t_u32 subcmd;
@@ -160,6 +161,7 @@ typedef struct _cac_timer_status {
 
 /** uap get station list */
 #define UAP_GET_STA_LIST            (SIOCDEVPRIVATE + 11)
+#define UAPHOSTPKTINJECT            WOAL_MGMT_FRAME_TX_IOCTL
 
 /** Private command ID to set/get custom IE buffer */
 #define	UAP_CUSTOM_IE               (SIOCDEVPRIVATE + 13)
@@ -270,6 +272,7 @@ typedef struct _fw_info {
 	t_u32 hw_dot_11n_dev_cap;
 } fw_info;
 
+/** HT TX cfg header parameter structure */
 typedef struct _ht_tx_cfg_para_hdr {
     /** Sub command */
 	t_u32 subcmd;
@@ -277,6 +280,7 @@ typedef struct _ht_tx_cfg_para_hdr {
 	t_u32 action;
 } ht_tx_cfg_para_hdr;
 
+/** TX beamformer parameter header structure */
 typedef struct _tx_bf_cfg_para_hdr {
     /** Sub command */
 	t_u32 subcmd;
@@ -284,6 +288,7 @@ typedef struct _tx_bf_cfg_para_hdr {
 	t_u32 action;
 } tx_bf_cfg_para_hdr;
 
+/** VHT cfg parameter header structure */
 typedef struct _vht_cfg_para_hdr {
     /** Sub command */
 	t_u32 subcmd;
@@ -291,6 +296,7 @@ typedef struct _vht_cfg_para_hdr {
 	t_u32 action;
 } vht_cfg_para_hdr;
 
+/** UAP operation parameter header structure */
 typedef struct _uap_oper_para_hdr {
     /** Sub command */
 	t_u32 subcmd;
@@ -342,6 +348,7 @@ typedef struct _mgmt_frame_ctrl {
 	t_u32 mask;
 } mgmt_frame_ctrl;
 
+/** SNMP mib parameter structure */
 typedef struct _snmp_mib_para {
     /** subcmd */
 	t_u32 subcmd;
@@ -371,7 +378,7 @@ typedef struct _dfs_testing_param {
     /** Set/Get */
 	t_u32 action;
     /** user CAC period (msec) */
-	t_u16 usr_cac_period;
+	t_u32 usr_cac_period;
     /** user NOP period (sec) */
 	t_u16 usr_nop_period;
     /** don't change channel on radar */
@@ -415,9 +422,17 @@ int woal_set_get_uap_power_mode(moal_private *priv, t_u32 action,
 void woal_uap_set_multicast_list(struct net_device *dev);
 int woal_uap_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd);
 int woal_uap_bss_ctrl(moal_private *priv, t_u8 wait_option, int data);
+#ifdef UAP_CFG80211
+#if defined(DFS_TESTING_SUPPORT)
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
+int woal_uap_get_channel_nop_info(moal_private *priv, t_u8 wait_option,
+				  mlan_ds_11h_chan_nop_info * ch_info);
+#endif
+#endif
+#endif
 mlan_status woal_set_get_ap_channel(moal_private *priv, t_u16 action,
 				    t_u8 wait_option,
-				    mlan_chan_info * uap_channel);
+				    chan_band_info * uap_channel);
 #ifdef CONFIG_PROC_FS
 void woal_uap_get_version(moal_private *priv, char *version, int max_len);
 #endif
@@ -442,7 +457,8 @@ int woal_uap_set_ap_cfg(moal_private *priv, t_u8 *data, int len);
 int woal_uap_set_11ac_status(moal_private *priv, t_u8 action, t_u8 vht20_40,
 			     IEEEtypes_VHTCap_t *vhtcap_ie);
 int woal_set_uap_ht_tx_cfg(moal_private *priv, Band_Config_t bandcfg, t_u8 en);
-mlan_status woal_uap_set_11n_status(mlan_uap_bss_param *sys_cfg, t_u8 action);
+mlan_status woal_uap_set_11n_status(moal_private *priv,
+				    mlan_uap_bss_param *sys_cfg, t_u8 action);
 #ifdef UAP_WEXT
 void woal_ioctl_get_uap_info_resp(moal_private *priv, mlan_ds_get_info *info);
 int woal_set_get_custom_ie(moal_private *priv, t_u16 mask, t_u8 *ie,

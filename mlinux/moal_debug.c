@@ -2,7 +2,7 @@
   *
   * @brief This file contains functions for debug proc file.
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -642,7 +642,7 @@ woal_log_read(struct seq_file *sfp, void *data)
 
 	memset(&stats, 0x00, sizeof(stats));
 	if (MLAN_STATUS_SUCCESS !=
-	    woal_get_stats_info(priv, MOAL_PROC_WAIT, &stats)) {
+	    woal_get_stats_info(priv, MOAL_IOCTL_WAIT, &stats)) {
 		PRINTM(MERROR,
 		       "woal_log_read: Get log: Failed to get stats info!");
 		MODULE_PUT;
@@ -845,7 +845,7 @@ woal_debug_read(struct seq_file *sfp, void *data)
 
 	priv->phandle->driver_state = woal_check_driver_status(priv->phandle);
 	/* Get debug information */
-	if (woal_get_debug_info(priv, MOAL_PROC_WAIT, &info))
+	if (woal_get_debug_info(priv, MOAL_IOCTL_WAIT, &info))
 		goto exit;
 
 	for (i = 0; i < (unsigned int)items_priv->num_of_items; i++) {
@@ -1041,7 +1041,7 @@ woal_debug_write(struct file *f, const char __user * buf, size_t count,
 		return 0;
 	}
 
-	if (woal_get_debug_info(priv, MOAL_PROC_WAIT, &info)) {
+	if (woal_get_debug_info(priv, MOAL_IOCTL_WAIT, &info)) {
 		kfree(pdata);
 		MODULE_PUT;
 		LEAVE();

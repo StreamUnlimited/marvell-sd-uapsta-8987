@@ -2,7 +2,7 @@
   *
   * @brief This file contains the functions for CFG80211.
   *
-  * Copyright (C) 2011-2017, Marvell International Ltd.
+  * Copyright (C) 2011-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -124,6 +124,8 @@ extern const struct net_device_ops woal_netdev_ops;
 #endif
 #endif
 
+/** gtk rekey offload mode */
+extern int gtk_rekey_offload;
 /********************************************************
 				Local Functions
 ********************************************************/
@@ -471,10 +473,15 @@ woal_clear_all_mgmt_ies(moal_private *priv, t_u8 wait_option)
 		mask |= MGMT_MASK_PROBE_RESP;
 	if (priv->assocresp_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK)
 		mask |= MGMT_MASK_ASSOC_RESP;
+	if (priv->proberesp_p2p_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK)
+		mask |= MGMT_MASK_PROBE_RESP;
+	if (priv->beacon_vendor_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK)
+		mask |= MGMT_MASK_PROBE_RESP;
 	if (mask) {
-		PRINTM(MCMND, "Clear IES: 0x%x 0x%x 0x%x 0x%x\n",
+		PRINTM(MCMND, "Clear IES: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		       priv->beacon_index, priv->probereq_index,
-		       priv->proberesp_index, priv->assocresp_index);
+		       priv->proberesp_index, priv->assocresp_index,
+		       priv->proberesp_p2p_index, priv->beacon_vendor_index);
 		woal_cfg80211_mgmt_frame_ie(priv, NULL, 0, NULL, 0, NULL, 0,
 					    NULL, 0, mask, wait_option);
 	}
@@ -482,6 +489,8 @@ woal_clear_all_mgmt_ies(moal_private *priv, t_u8 wait_option)
 	priv->beacon_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
 	priv->proberesp_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
 	priv->assocresp_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
+	priv->proberesp_p2p_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
+	priv->beacon_vendor_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
 }
 
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
@@ -887,7 +896,10 @@ done:
 int
 woal_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 				  struct net_device *dev,
-				  enum nl80211_iftype type, u32 *flags,
+				  enum nl80211_iftype type,
+#if CFG80211_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+				  u32 *flags,
+#endif
 				  struct vif_params *params)
 {
 	int ret = 0;
@@ -1178,8 +1190,8 @@ woal_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 				kfree(sys_cfg);
 				goto fail;
 			}
-			kfree(sys_cfg);
 		}
+		kfree(sys_cfg);
 	}
 #endif
 #endif
@@ -1385,6 +1397,107 @@ woal_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 	PRINTM(MINFO, "set default mgmt key, key index=%d\n", key_index);
 
 	return 0;
+}
+#endif
+
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
+/**
+ *  @brief  Set GTK rekey data to driver
+ *
+ *  @param priv         A pointer to moal_private structure
+ *  @param gtk_rekey     A pointer to mlan_ds_misc_gtk_rekey_data structure
+ *  @param action           MLAN_ACT_SET or MLAN_ACT_GET
+ *
+ *  @return             0 --success, otherwise fail
+ */
+mlan_status
+woal_set_rekey_data(moal_private *priv, mlan_ds_misc_gtk_rekey_data * gtk_rekey,
+		    t_u8 action)
+{
+	mlan_ioctl_req *req;
+	mlan_ds_misc_cfg *misc_cfg;
+	int ret = 0;
+	mlan_status status;
+
+	ENTER();
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+
+	if (NULL == req) {
+		ret = -ENOMEM;
+	} else {
+		misc_cfg = (mlan_ds_misc_cfg *)req->pbuf;
+		misc_cfg->sub_command = MLAN_OID_MISC_GTK_REKEY_OFFLOAD;
+		req->req_id = MLAN_IOCTL_MISC_CFG;
+
+		req->action = action;
+		if (action == MLAN_ACT_SET)
+			memcpy(&misc_cfg->param.gtk_rekey, gtk_rekey,
+			       sizeof(mlan_ds_misc_gtk_rekey_data));
+
+		status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+		if (MLAN_STATUS_SUCCESS != status)
+			ret = -EFAULT;
+		if (status != MLAN_STATUS_PENDING)
+			kfree(req);
+	}
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief Give the data necessary for GTK rekeying to the driver
+ *
+ * @param wiphy         A pointer to wiphy structure
+ * @param dev           A pointer to net_device structure
+ * @param data        A pointer to cfg80211_gtk_rekey_data structure
+ *
+ * @return              0 -- success, otherwise fail
+ */
+int
+woal_cfg80211_set_rekey_data(struct wiphy *wiphy, struct net_device *dev,
+			     struct cfg80211_gtk_rekey_data *data)
+{
+	int ret = 0;
+	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
+	mlan_ds_misc_gtk_rekey_data rekey;
+	mlan_fw_info fw_info;
+
+	ENTER();
+
+	if (gtk_rekey_offload == GTK_REKEY_OFFLOAD_DISABLE) {
+		PRINTM(MMSG,
+		       "woal_cfg80211_set_rekey_data return: gtk_rekey_offload is DISABLE\n");
+		LEAVE();
+		return ret;
+	}
+
+	woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
+	if (!fw_info.fw_supplicant_support) {
+		LEAVE();
+		return -1;
+	}
+
+	memcpy(rekey.kek, data->kek, MLAN_KEK_LEN);
+	memcpy(rekey.kck, data->kck, MLAN_KCK_LEN);
+	memcpy(rekey.replay_ctr, data->replay_ctr, MLAN_REPLAY_CTR_LEN);
+
+	memcpy(&priv->gtk_rekey_data, &rekey,
+	       sizeof(mlan_ds_misc_gtk_rekey_data));
+	if (gtk_rekey_offload == GTK_REKEY_OFFLOAD_SUSPEND) {
+		priv->gtk_data_ready = MTRUE;
+		LEAVE();
+		return ret;
+	}
+
+	if (MLAN_STATUS_SUCCESS !=
+	    woal_set_rekey_data(priv, &rekey, MLAN_ACT_SET)) {
+		ret = -EFAULT;
+	}
+
+	LEAVE();
+	return ret;
 }
 #endif
 
@@ -2800,16 +2913,17 @@ done:
 #endif
 
 /**
- * @brief Find first P2P ie
+ * @brief get specific ie
  *
  * @param ie              Pointer to IEs
  * @param len             Total length of ie
  * @param ie_out		  Pointer to out IE buf
+ * @param mask            IE mask
  *
  * @return                out IE length
  */
 static t_u16
-woal_get_first_p2p_ie(const t_u8 *ie, int len, t_u8 *ie_out)
+woal_get_specific_ie(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 mask)
 {
 	int left_len = len;
 	const t_u8 *pos = ie;
@@ -2817,8 +2931,12 @@ woal_get_first_p2p_ie(const t_u8 *ie, int len, t_u8 *ie_out)
 	t_u8 id = 0;
 	t_u16 out_len = 0;
 	IEEEtypes_VendorSpecific_t *pvendor_ie = NULL;
+	const u8 wps_oui[4] = { 0x00, 0x50, 0xf2, 0x04 };
 	const u8 p2p_oui[4] = { 0x50, 0x6f, 0x9a, 0x09 };
+	const u8 wfd_oui[4] = { 0x50, 0x6f, 0x9a, 0x0a };
+	const t_u8 wmm_oui[4] = { 0x00, 0x50, 0xf2, 0x02 };
 
+	ENTER();
 	while (left_len >= 2) {
 		length = *(pos + 1);
 		id = *pos;
@@ -2827,17 +2945,51 @@ woal_get_first_p2p_ie(const t_u8 *ie, int len, t_u8 *ie_out)
 		if (id == VENDOR_SPECIFIC_221) {
 			pvendor_ie = (IEEEtypes_VendorSpecific_t *)pos;
 			if (!memcmp
-			    (pvendor_ie->vend_hdr.oui, p2p_oui,
+			    (pvendor_ie->vend_hdr.oui, wmm_oui,
 			     sizeof(pvendor_ie->vend_hdr.oui)) &&
-			    pvendor_ie->vend_hdr.oui_type == p2p_oui[3]) {
+			    pvendor_ie->vend_hdr.oui_type == wmm_oui[3]) {
+				PRINTM(MIOCTL, "find WMM IE\n");
+			} else if (!memcmp
+				   (pvendor_ie->vend_hdr.oui, p2p_oui,
+				    sizeof(pvendor_ie->vend_hdr.oui)) &&
+				   pvendor_ie->vend_hdr.oui_type ==
+				   p2p_oui[3]) {
+				if (mask & IE_MASK_P2P) {
+		    /** only get first p2p ie here */
+					memcpy(ie_out + out_len, pos,
+					       length + 2);
+					out_len += length + 2;
+					break;
+				}
+			} else if (!memcmp
+				   (pvendor_ie->vend_hdr.oui, wps_oui,
+				    sizeof(pvendor_ie->vend_hdr.oui)) &&
+				   pvendor_ie->vend_hdr.oui_type ==
+				   wps_oui[3]) {
+				if (mask & IE_MASK_WPS) {
+					memcpy(ie_out + out_len, pos,
+					       length + 2);
+					out_len += length + 2;
+				}
+			} else if (!memcmp
+				   (pvendor_ie->vend_hdr.oui, wfd_oui,
+				    sizeof(pvendor_ie->vend_hdr.oui)) &&
+				   pvendor_ie->vend_hdr.oui_type ==
+				   wfd_oui[3]) {
+				if (mask & IE_MASK_WFD) {
+					memcpy(ie_out + out_len, pos,
+					       length + 2);
+					out_len += length + 2;
+				}
+			} else if (mask & IE_MASK_VENDOR) {
 				memcpy(ie_out + out_len, pos, length + 2);
 				out_len += length + 2;
-				break;
 			}
 		}
 		pos += (length + 2);
 		left_len -= (length + 2);
 	}
+	LEAVE();
 	return out_len;
 }
 
@@ -2878,6 +3030,7 @@ woal_find_ie(const t_u8 *ie, int len, const t_u8 *spec_ie, int spec_len)
 /**
  * @brief Filter specific IE in ie buf
  *
+ * @param priv            pointer to moal private structure
  * @param ie              Pointer to IEs
  * @param len             Total length of ie
  * @param ie_out		  Pointer to out IE buf
@@ -2888,8 +3041,9 @@ woal_find_ie(const t_u8 *ie, int len, const t_u8 *spec_ie, int spec_len)
  * @return                out IE length
  */
 static t_u16
-woal_filter_beacon_ies(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 wps_flag,
-		       const t_u8 *dup_ie, int dup_ie_len)
+woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
+		       t_u8 *ie_out, t_u16 wps_flag, const t_u8 *dup_ie,
+		       int dup_ie_len)
 {
 	int left_len = len;
 	const t_u8 *pos = ie;
@@ -2902,6 +3056,7 @@ woal_filter_beacon_ies(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 wps_flag,
 	const u8 wfd_oui[4] = { 0x50, 0x6f, 0x9a, 0x0a };
 	const t_u8 wmm_oui[4] = { 0x00, 0x50, 0xf2, 0x02 };
 	t_u8 find_p2p_ie = MFALSE;
+	t_u8 enable_11d = MFALSE;
 
 	/* ERP_INFO/EXTENDED_SUPPORT_RATES/HT_CAPABILITY/HT_OPERATION/WMM
 	 * and WPS/P2P/WFD IE will be fileter out */
@@ -2918,6 +3073,9 @@ woal_filter_beacon_ies(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 wps_flag,
 			continue;
 		}
 		switch (id) {
+		case COUNTRY_INFO:
+			enable_11d = MTRUE;
+			break;
 		case EXTENDED_SUPPORTED_RATES:
 		case WLAN_EID_ERP_INFO:
 		case HT_CAPABILITY:
@@ -2934,32 +3092,38 @@ woal_filter_beacon_ies(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 wps_flag,
 			if (!memcmp
 			    (pvendor_ie->vend_hdr.oui, wmm_oui,
 			     sizeof(pvendor_ie->vend_hdr.oui)) &&
-			    pvendor_ie->vend_hdr.oui_type == wmm_oui[3])
+			    pvendor_ie->vend_hdr.oui_type == wmm_oui[3]) {
 				break;
+			}
 			/* filter out wps ie */
-			if ((!memcmp
-			     (pvendor_ie->vend_hdr.oui, wps_oui,
-			      sizeof(pvendor_ie->vend_hdr.oui)) &&
-			     pvendor_ie->vend_hdr.oui_type == wps_oui[3]) &&
-			    (wps_flag & IE_MASK_WPS))
-				break;
+			else if (!memcmp
+				 (pvendor_ie->vend_hdr.oui, wps_oui,
+				  sizeof(pvendor_ie->vend_hdr.oui)) &&
+				 pvendor_ie->vend_hdr.oui_type == wps_oui[3]) {
+				if (wps_flag & IE_MASK_WPS)
+					break;
+			}
 			/* filter out first p2p ie */
-			if ((!memcmp
-			     (pvendor_ie->vend_hdr.oui, p2p_oui,
-			      sizeof(pvendor_ie->vend_hdr.oui)) &&
-			     pvendor_ie->vend_hdr.oui_type == p2p_oui[3])) {
+			else if (!memcmp
+				 (pvendor_ie->vend_hdr.oui, p2p_oui,
+				  sizeof(pvendor_ie->vend_hdr.oui)) &&
+				 pvendor_ie->vend_hdr.oui_type == p2p_oui[3]) {
 				if (!find_p2p_ie && (wps_flag & IE_MASK_P2P)) {
 					find_p2p_ie = MTRUE;
 					break;
 				}
 			}
 			/* filter out wfd ie */
-			if ((!memcmp
-			     (pvendor_ie->vend_hdr.oui, wfd_oui,
-			      sizeof(pvendor_ie->vend_hdr.oui)) &&
-			     pvendor_ie->vend_hdr.oui_type == wfd_oui[3]) &&
-			    (wps_flag & IE_MASK_WFD))
+			else if (!memcmp
+				 (pvendor_ie->vend_hdr.oui, wfd_oui,
+				  sizeof(pvendor_ie->vend_hdr.oui)) &&
+				 pvendor_ie->vend_hdr.oui_type == wfd_oui[3]) {
+				if (wps_flag & IE_MASK_WFD)
+					break;
+			} else if (wps_flag & IE_MASK_VENDOR) {
+				//filter out vendor IE
 				break;
+			}
 			memcpy(ie_out + out_len, pos, length + 2);
 			out_len += length + 2;
 			break;
@@ -2971,6 +3135,9 @@ woal_filter_beacon_ies(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 wps_flag,
 		pos += (length + 2);
 		left_len -= (length + 2);
 	}
+
+	if (enable_11d)
+		woal_set_11d(priv, MOAL_IOCTL_WAIT, MTRUE);
 	return out_len;
 }
 
@@ -3096,9 +3263,11 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 	t_u16 beacon_wps_index = priv->beacon_wps_index;
 	t_u16 proberesp_p2p_index = priv->proberesp_p2p_index;
 	t_u16 assocrep_qos_map_index = priv->assocresp_qos_map_index;
+	t_u16 beacon_vendor_index = priv->beacon_vendor_index;
 
 	ENTER();
 
+	/* we need remove vendor IE from beacon extra IE, vendor IE will be configure through proberesp_vendor_index */
 	if (mask & MGMT_MASK_BEACON_WPS_P2P) {
 		beacon_ies_data = kzalloc(sizeof(custom_ie), GFP_KERNEL);
 		if (!beacon_ies_data) {
@@ -3118,9 +3287,15 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 #endif
 			beacon_ies_data->ie_index = beacon_wps_index;
 			beacon_ies_data->mgmt_subtype_mask = MGMT_MASK_BEACON;
-			beacon_ies_data->ie_length = beacon_ies_len;
-			pos = beacon_ies_data->ie_buffer;
-			memcpy(pos, beacon_ies, beacon_ies_len);
+			beacon_ies_data->ie_length =
+				woal_filter_beacon_ies(priv, beacon_ies,
+						       beacon_ies_len,
+						       beacon_ies_data->
+						       ie_buffer,
+						       IE_MASK_VENDOR, NULL, 0);
+			DBG_HEXDUMP(MCMD_D, "beacon extra ie",
+				    beacon_ies_data->ie_buffer,
+				    beacon_ies_data->ie_length);
 		} else {
 			/* clear the beacon wps ies */
 			if (beacon_wps_index > MAX_MGMT_IE_INDEX) {
@@ -3147,7 +3322,8 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			ret = -EFAULT;
 		}
 		priv->beacon_wps_index = beacon_wps_index;
-		PRINTM(MIOCTL, "beacon_wps_index=0x%x\n", beacon_wps_index);
+		PRINTM(MCMND, "beacon_wps_index=0x%x len=%d\n",
+		       beacon_wps_index, beacon_ies_data->ie_length);
 		goto done;
 	}
 
@@ -3169,6 +3345,9 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			assocresp_ies_data->ie_length = assocresp_ies_len;
 			pos = assocresp_ies_data->ie_buffer;
 			memcpy(pos, assocresp_ies, assocresp_ies_len);
+			DBG_HEXDUMP(MCMD_D, "Qos Map",
+				    assocresp_ies_data->ie_buffer,
+				    assocresp_ies_data->ie_length);
 		} else {
 			/* clear the assoc response qos map ie */
 			if (assocrep_qos_map_index > MAX_MGMT_IE_INDEX) {
@@ -3193,8 +3372,8 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			ret = -EFAULT;
 		}
 		priv->assocresp_qos_map_index = assocrep_qos_map_index;
-		PRINTM(MIOCTL, "qos map ie index=0x%x\n",
-		       assocrep_qos_map_index);
+		PRINTM(MCMND, "qos map ie index=0x%x len=%d\n",
+		       assocrep_qos_map_index, assocresp_ies_data->ie_length);
 		goto done;
 	}
 
@@ -3241,19 +3420,66 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 
 	if (beacon_ies_data) {
 		if (beacon_ies && beacon_ies_len) {
+			/* set the probe response/beacon vendor ies which includes wpa IE */
+			beacon_ies_data->ie_index = beacon_vendor_index;
+			beacon_ies_data->mgmt_subtype_mask =
+				MGMT_MASK_PROBE_RESP | MGMT_MASK_BEACON;
+			if (MLAN_CUSTOM_IE_AUTO_IDX_MASK == beacon_vendor_index)
+				beacon_ies_data->mgmt_subtype_mask |=
+					MLAN_CUSTOM_IE_NEW_MASK;
+			beacon_ies_data->ie_length =
+				woal_get_specific_ie(beacon_ies, beacon_ies_len,
+						     beacon_ies_data->ie_buffer,
+						     IE_MASK_VENDOR);
+			DBG_HEXDUMP(MCMD_D, "beacon vendor IE",
+				    beacon_ies_data->ie_buffer,
+				    beacon_ies_data->ie_length);
+		} else if (beacon_vendor_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK) {
+			/* clear the beacon vendor ies */
+			if (beacon_vendor_index > MAX_MGMT_IE_INDEX) {
+				PRINTM(MERROR,
+				       "Invalid beacon_vendor_index for mgmt frame ie.\n");
+				goto done;
+			}
+			beacon_ies_data->ie_index = beacon_vendor_index;
+			beacon_ies_data->mgmt_subtype_mask =
+				MLAN_CUSTOM_IE_DELETE_MASK;
+			beacon_ies_data->ie_length = 0;
+			beacon_vendor_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
+		}
+		if (MLAN_STATUS_SUCCESS !=
+		    woal_cfg80211_custom_ie(priv, beacon_ies_data,
+					    &beacon_vendor_index, NULL,
+					    &proberesp_index, NULL,
+					    &assocresp_index, NULL,
+					    &probereq_index, wait_option)) {
+			PRINTM(MERROR, "Fail to set beacon vendor IE\n");
+			ret = -EFAULT;
+			goto done;
+		}
+		priv->beacon_vendor_index = beacon_vendor_index;
+		PRINTM(MCMND, "beacon_vendor=0x%x len=%d\n",
+		       beacon_vendor_index, beacon_ies_data->ie_length);
+		memset(beacon_ies_data, 0x00, sizeof(custom_ie));
+		if (beacon_ies && beacon_ies_len) {
 			/* set the beacon ies */
+			/* we need remove vendor IE from beacon tail, vendor/wpa IE will be configure through beacon_vendor_index */
 			beacon_ies_data->ie_index = beacon_index;
 			beacon_ies_data->mgmt_subtype_mask = MGMT_MASK_BEACON |
 				MGMT_MASK_ASSOC_RESP | MGMT_MASK_PROBE_RESP;
 			beacon_ies_data->ie_length =
-				woal_filter_beacon_ies(beacon_ies,
+				woal_filter_beacon_ies(priv, beacon_ies,
 						       beacon_ies_len,
 						       beacon_ies_data->
 						       ie_buffer,
 						       IE_MASK_WPS | IE_MASK_WFD
-						       | IE_MASK_P2P,
+						       | IE_MASK_P2P |
+						       IE_MASK_VENDOR,
 						       proberesp_ies,
 						       proberesp_ies_len);
+			DBG_HEXDUMP(MCMD_D, "beacon ie",
+				    beacon_ies_data->ie_buffer,
+				    beacon_ies_data->ie_length);
 		} else {
 			/* clear the beacon ies */
 			if (beacon_index > MAX_MGMT_IE_INDEX) {
@@ -3277,10 +3503,13 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			proberesp_ies_data->mgmt_subtype_mask =
 				MGMT_MASK_PROBE_RESP;
 			proberesp_ies_data->ie_length =
-				woal_get_first_p2p_ie(proberesp_ies,
-						      proberesp_ies_len,
-						      proberesp_ies_data->
-						      ie_buffer);
+				woal_get_specific_ie(proberesp_ies,
+						     proberesp_ies_len,
+						     proberesp_ies_data->
+						     ie_buffer, IE_MASK_P2P);
+			DBG_HEXDUMP(MCMD_D, "proberesp p2p ie",
+				    proberesp_ies_data->ie_buffer,
+				    proberesp_ies_data->ie_length);
 		} else if (proberesp_p2p_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK) {
 			/* clear the probe response p2p ies */
 			if (proberesp_p2p_index > MAX_MGMT_IE_INDEX) {
@@ -3305,7 +3534,8 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			goto done;
 		}
 		priv->proberesp_p2p_index = proberesp_p2p_index;
-		PRINTM(MIOCTL, "proberesp_p2p=0x%x\n", proberesp_p2p_index);
+		PRINTM(MCMND, "proberesp_p2p=0x%x len=%d\n",
+		       proberesp_p2p_index, proberesp_ies_data->ie_length);
 		memset(proberesp_ies_data, 0x00, sizeof(custom_ie));
 		if (proberesp_ies && proberesp_ies_len) {
 			/* set the probe response ies */
@@ -3316,11 +3546,15 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 				proberesp_ies_data->mgmt_subtype_mask |=
 					MLAN_CUSTOM_IE_NEW_MASK;
 			proberesp_ies_data->ie_length =
-				woal_filter_beacon_ies(proberesp_ies,
+				woal_filter_beacon_ies(priv, proberesp_ies,
 						       proberesp_ies_len,
 						       proberesp_ies_data->
-						       ie_buffer, IE_MASK_P2P,
-						       NULL, 0);
+						       ie_buffer,
+						       IE_MASK_P2P |
+						       IE_MASK_VENDOR, NULL, 0);
+			DBG_HEXDUMP(MCMD_D, "proberesp ie",
+				    proberesp_ies_data->ie_buffer,
+				    proberesp_ies_data->ie_length);
 		} else {
 			/* clear the probe response ies */
 			if (proberesp_index > MAX_MGMT_IE_INDEX) {
@@ -3347,6 +3581,9 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			assocresp_ies_data->ie_length = assocresp_ies_len;
 			pos = assocresp_ies_data->ie_buffer;
 			memcpy(pos, assocresp_ies, assocresp_ies_len);
+			DBG_HEXDUMP(MCMD_D, "assocresp ie",
+				    assocresp_ies_data->ie_buffer,
+				    assocresp_ies_data->ie_length);
 		} else {
 			/* clear the assoc response ies */
 			if (assocresp_index > MAX_MGMT_IE_INDEX) {
@@ -3374,7 +3611,8 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			if (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT) {
 				/* filter out P2P/WFD ie */
 				probereq_ies_data->ie_length =
-					woal_filter_beacon_ies(probereq_ies,
+					woal_filter_beacon_ies(priv,
+							       probereq_ies,
 							       probereq_ies_len,
 							       probereq_ies_data->
 							       ie_buffer,
@@ -3392,6 +3630,9 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			}
 #endif /* KERNEL_VERSION */
 #endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
+			DBG_HEXDUMP(MCMD_D, "probereq ie",
+				    probereq_ies_data->ie_buffer,
+				    probereq_ies_data->ie_length);
 		} else {
 			/* clear the probe req ies */
 			if (probereq_index > MAX_MGMT_IE_INDEX) {
@@ -3418,15 +3659,27 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 		ret = -EFAULT;
 		goto done;
 	}
-	if (beacon_ies_data)
+	if (beacon_ies_data) {
 		priv->beacon_index = beacon_index;
-	if (assocresp_ies_data)
+		PRINTM(MCMND, "beacon ie length = %d\n",
+		       beacon_ies_data->ie_length);
+	}
+	if (assocresp_ies_data) {
 		priv->assocresp_index = assocresp_index;
-	if (proberesp_ies_data)
+		PRINTM(MCMND, "assocresp ie length = %d\n",
+		       assocresp_ies_data->ie_length);
+	}
+	if (proberesp_ies_data) {
 		priv->proberesp_index = proberesp_index;
-	if (probereq_ies_data)
+		PRINTM(MCMND, "proberesp ie length = %d\n",
+		       proberesp_ies_data->ie_length);
+	}
+	if (probereq_ies_data) {
 		priv->probereq_index = probereq_index;
-	PRINTM(MIOCTL, "beacon=%x assocresp=%x proberesp=%x probereq=%x\n",
+		PRINTM(MCMND, "probereq ie length = %d\n",
+		       probereq_ies_data->ie_length);
+	}
+	PRINTM(MCMND, "beacon=%x assocresp=%x proberesp=%x probereq=%x\n",
 	       beacon_index, assocresp_index, proberesp_index, probereq_index);
 done:
 	kfree(beacon_ies_data);
@@ -3525,7 +3778,7 @@ woal_cfg80211_setup_vht_cap(moal_private *priv,
 	req->action = MLAN_ACT_GET;
 	cfg_11ac->param.vht_cfg.band = BAND_SELECT_A;
 	cfg_11ac->param.vht_cfg.txrx = MLAN_RADIO_RX;
-	status = woal_request_ioctl(priv, req, MOAL_CMD_WAIT);
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
 	if (MLAN_STATUS_SUCCESS != status) {
 		PRINTM(MERROR, "Fail to get vht_cfg\n");
 		goto done;
@@ -3613,3 +3866,51 @@ done:
 	return status;
 }
 #endif
+
+/**
+ * @brief Get second channel offset
+ *
+ * @param chan             channel num
+ * @return                second channel offset
+ */
+t_u8
+woal_get_second_channel_offset(int chan)
+{
+	t_u8 chan2Offset = SEC_CHAN_NONE;
+
+	switch (chan) {
+	case 36:
+	case 44:
+	case 52:
+	case 60:
+	case 100:
+	case 108:
+	case 116:
+	case 124:
+	case 132:
+	case 140:
+	case 149:
+	case 157:
+		chan2Offset = SEC_CHAN_ABOVE;
+		break;
+	case 40:
+	case 48:
+	case 56:
+	case 64:
+	case 104:
+	case 112:
+	case 120:
+	case 128:
+	case 136:
+	case 144:
+	case 153:
+	case 161:
+		chan2Offset = SEC_CHAN_BELOW;
+		break;
+	case 165:
+		/* Special Case: 20Mhz-only Channel */
+		chan2Offset = SEC_CHAN_NONE;
+		break;
+	}
+	return chan2Offset;
+}

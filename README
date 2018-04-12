@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2008-2017, Marvell International Ltd.
+ Copyright (C) 2008-2018, Marvell International Ltd.
  All Rights Reserved
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.11.
+	The driver code supports Linux kernel up to 4.14.
 
 2) FOR DRIVER INSTALL
 
@@ -85,7 +85,7 @@
 		Bit 1: uAP WEXT
 		Bit 2: STA CFG80211
 		Bit 3: uAP CFG80211
-	  cfg80211_drcs=1|0 <Enable DRCS support (default) | Disable DRCS support>
+	cfg80211_drcs=1|0 <Enable DRCS support (default) | Disable DRCS support>
 	  reg_alpha2=<Regulatory alpha2 (default NULL)>
 	  wq_sched_prio: Priority for work queue
 	  wq_sched_policy: Scheduling policy for work queue
@@ -301,6 +301,7 @@ SYNOPSIS
 	iwpriv mlanX scancfg [t] [m] [p] [s] [a] [b] [ext]
 	iwpriv mlanX sleeppd [n]
 	iwpriv mlanX pscfg [k] [d] [l] ...
+        iwpriv mlanX fwwakeupmethod [n] [g]
 	iwpriv mlanX associate "<bssid> <ssid>"
 	iwpriv mlanX sleepparams [<p1> <p2> <p3> <p4> <p5> <p6>]
 	iwpriv mlanX netmon [<act> [<filter> <band> <chan> [offset]]]
@@ -1465,6 +1466,21 @@ pscfg
 		                                  all the other configurations are unchanged
 		iwpriv mlan0 pscfg 0 0 0 0 0 50 : Set delay to PS to 50 ms, keep the others unchanged
 
+fwwakeupmethod
+	This command is used to set/get the firmware wakeup method.
+
+	where value is:
+	        [n]:
+		1	-- Firmware wakeup through the interface command interrupt
+			    -- (default setting for SDIO/PCIe/USB)
+		2	-- Firmware wakeup through the GPIO pin
+		[g]:If firware wakeup throug GPIO pin, [g] is GPIO pin number
+
+	Examples:
+		iwpriv mlan0 fwwakeupmethod     : Get current firmware wakeup method
+		iwpriv mlan0 fwwakeupmethod 1    : Set firmware wakeup method to Interface mode
+		iwpriv mlan0 fwwakeupmethod 2 5  : Set firmware wakeup method to GPIO mode, GPIO_pin=5
+
 getkey
 	This command is used to get PTK/GTK
 
@@ -1495,18 +1511,26 @@ sleepparams
 		iwpriv mlan0 sleepparams 10 1000 2000 1 0 128 : Set sleepclock configuration
 
 netmon
-	This command is used to set/get network monitor configuration.
-	Note: The configuration should be issued when STA is disconnected.
+	This command is used to set/get sniffer mode configuration.
+	Note: The channel and band config is optional. If not specified, or if
+	any STA/uAP/STA+uAP connection is active, sniffer activity will be started
+	on the current config set in the FW.
+	'rtap' monitor interface will be created on enabling sniffer activity and
+	should be made 'up' for capturing in a sniffer app.
 
 	Usage:
-		iwpriv mlanX netmon [<act> [<filter> <band> <chan> [offset]]]
+		iwpriv <interface> netmon [<act> [<filter>]]
+		iwpriv <interface> netmon [<act> [<filter>] [<band> <chan> [offset]]]
 
 	Where the parameters are:
-		<act>    : (1/0) enable/disable the network monitor activity
+		<interface> : mlanX, uapX
+		<act>    : (1/0) enable/disable sniffer activity
 		<filter> : network monitor filer flag
 		    bit 0: (1/0) enable/disable management frame
 		    bit 1: (1/0) enable/disable control frame
 		    bit 2: (1/0) enable/disable data frame
+			bit 3: (1/0) enable/disable frames destined to active connection only
+			bit 4: (1/0) enable/disable decrypted unicast data/mgmt frames
 		<band>   : 802.11 band
 		    bit 0: B
 		    bit 1: G
@@ -1523,13 +1547,21 @@ netmon
 			4 - VHT Bandwidth 80Mhz
 
 	Examples:
-		iwpriv mlan0 netmon             : Get the current network monitor configuration
+		iwpriv mlan0 netmon             : Get the current sniffer mode configuration
 		iwpriv mlan0 netmon 0           : Disable network monitor activity
-		iwpriv mlan0 netmon 1 4 11 6    : Enable network monitor activity, set filter
-		                                  data frame, band B/G/GN and channel 6
-		iwpriv mlan0 netmon 1 7 20 64 1 : Enable network monitor activity, set filter
-		                                  management, control and data frame, band A/AN,
-		                                  channel 64 and secondary channel above
+		iwpriv uap0 netmon 1 7          : Enable sniffer activity on current channel set in FW,
+											set filter data, control, management frame.
+		iwpriv mlan0 netmon 1 4 11 6    : Enable sniffer activity in absence of active connection,
+											set filter data frame, band B/G/GN and channel 6
+		iwpriv mlan0 netmon 1 7 20 64 1 : Enable sniffer activity in absence of active connection,
+											set filter management, control and data frame, band A/AN,
+											channel 64 and secondary channel above
+		iwpriv uap0 netmon 1 0x0c        : Enable sniffer activity, set filter data frames
+											destined to the active uAP connection only
+
+		iwpriv mlan0 netmon 1 0x1d       : Enable sniffer activity, set filter decrypted data and
+											management frames destined to the active STA connection
+											only
 
 authtype
 	This command is used to set/get authentication type.

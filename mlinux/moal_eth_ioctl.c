@@ -2,7 +2,7 @@
   *
   * @brief This file contains private ioctl functions
   *
-  * Copyright (C) 2014-2017, Marvell International Ltd.
+  * Copyright (C) 2014-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -38,6 +38,15 @@ Change log:
 #include    "moal_uap.h"
 #endif
 #include	"moal_sdio.h"
+#ifdef STA_CFG80211
+#include    "moal_sta_cfg80211.h"
+#endif
+#ifdef STA_CFG80211
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#include    "moal_cfgvendor.h"
+#endif
+#endif
+
 /********************************************************
 			Local Variables
 ********************************************************/
@@ -3315,6 +3324,68 @@ done:
 }
 
 /**
+ *  @brief Get cfp information
+ *
+ *  @param priv         A pointer to moal_private structure
+ *  @param respbuf      A pointer to response buffer
+ *  @param respbuflen   Available length of response buffer
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+int
+woal_priv_get_cfpinfo(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int ret = 0;
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_misc_cfg *cfp_misc = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+	int header = 0, data_length = 0;
+
+	ENTER();
+
+	if (!respbuf) {
+		PRINTM(MERROR, "response buffer is not available!\n");
+		ret = -EINVAL;
+		goto done;
+	}
+	header = strlen(CMD_MARVELL) + strlen(PRIV_CMD_CFPINFO);
+	data_length = strlen(respbuf) - header;
+
+	/* Allocate an IOCTL request buffer */
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	/* Fill request buffer */
+	cfp_misc = (mlan_ds_misc_cfg *)req->pbuf;
+	cfp_misc->sub_command = MLAN_OID_MISC_CFP_INFO;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+	req->action = MLAN_ACT_GET;
+
+	/* Send IOCTL request to MLAN */
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+	if (respbuflen < req->data_read_written) {
+		PRINTM(MERROR, "response buffer length is too short!\n");
+		ret = -EINVAL;
+		goto done;
+	}
+	memcpy(respbuf, (t_u8 *)req->pbuf, req->data_read_written);
+	ret = req->data_read_written;
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+
+	LEAVE();
+	return ret;
+}
+
+/**
  *  @brief Set/Get TCP Ack enhancement configurations
  *
  *  @param priv         A pointer to moal_private structure
@@ -3823,6 +3894,7 @@ done:
 
 #define PARAMETER_GPIO_INDICATION 1
 #define PARAMETER_EXTEND_HSCFG 2
+#define PARAMETER_HS_WAKEUP_INTERVAL 3
 /**
  *  @brief Set/Get Host Sleep configuration
  *
@@ -3837,7 +3909,7 @@ int
 woal_priv_hscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen,
 		BOOLEAN invoke_hostcmd)
 {
-	int data[11] = { 0 };
+	int data[13] = { 0 };
 	int *temp_data, type;
 	int user_data_len = 0;
 	int ret = 0;
@@ -3888,7 +3960,7 @@ woal_priv_hscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen,
 	if (user_data_len == 0) {
 		action = MLAN_ACT_GET;
 	} else {
-		if (user_data_len >= 1 && user_data_len <= 11) {
+		if (user_data_len >= 1 && user_data_len <= 13) {
 			action = MLAN_ACT_SET;
 		} else {
 			PRINTM(MERROR, "Invalid arguments\n");
@@ -3927,7 +3999,7 @@ woal_priv_hscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen,
 	user_data_len = user_data_len - 3;
 	if (user_data_len > 0) {
 		temp_data = data + 3;
-		while (user_data_len > 0 && temp_data) {
+		while ((user_data_len > 0) && temp_data) {
 			type = *temp_data;
 			switch (type) {
 			case PARAMETER_GPIO_INDICATION:
@@ -3981,6 +4053,18 @@ woal_priv_hscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen,
 				user_data_len = user_data_len - 5;
 				temp_data++;
 				break;
+			case PARAMETER_HS_WAKEUP_INTERVAL:
+				if (user_data_len >= 2)
+					hscfg.hs_wake_interval = *(++temp_data);
+				else {
+					PRINTM(MERROR,
+					       "Invaild number of parameters\n");
+					ret = -EINVAL;
+					goto done;
+				}
+				user_data_len = user_data_len - 2;
+				temp_data++;
+				break;
 			default:
 				PRINTM(MERROR, "Unsupported type\n");
 				ret = -EINVAL;
@@ -4028,7 +4112,7 @@ done:
 int
 woal_priv_hssetpara(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 {
-	int data[11] = { 0 };
+	int data[13] = { 0 };
 	int user_data_len = 0;
 	int ret = 0;
 
@@ -4053,7 +4137,7 @@ woal_priv_hssetpara(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		return -EINVAL;
 	}
 
-	if (user_data_len >= 1 && user_data_len <= 11) {
+	if (user_data_len >= 1 && user_data_len <= 13) {
 		sprintf(respbuf, "%s%s%s", CMD_MARVELL, PRIV_CMD_HSCFG,
 			respbuf + (strlen(CMD_MARVELL) +
 				   strlen(PRIV_CMD_HSSETPARA)));
@@ -4640,15 +4724,14 @@ woal_priv_set_auth(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 static int
 woal_priv_get_ap(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 {
-	struct mwreq *mwr;
-	t_u8 *data_ptr;
 	int ret = 0;
 	mlan_bss_info bss_info;
+	struct mwreq *mwr;
+	t_u8 *data_ptr;
 
 	ENTER();
 
 	data_ptr = respbuf + (strlen(CMD_MARVELL) + strlen(PRIV_CMD_GET_AP));
-
 	mwr = (struct mwreq *)data_ptr;
 
 	memset(&bss_info, 0, sizeof(bss_info));
@@ -4663,6 +4746,7 @@ woal_priv_get_ap(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 	} else {
 		memset(mwr->u.ap_addr.sa_data, 0, MLAN_MAC_ADDR_LENGTH);
 	}
+
 	mwr->u.ap_addr.sa_family = ARPHRD_ETHER;
 	ret = strlen(CMD_MARVELL) + strlen(PRIV_CMD_GET_AP) +
 		sizeof(struct mwreq);
@@ -5176,6 +5260,74 @@ woal_priv_pscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		req->req_id = MLAN_IOCTL_PM_CFG;
 		req->action = MLAN_ACT_SET;
 		status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	}
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief Set/Get PS configuration parameters
+ *
+ * @param priv         A pointer to moal_private structure
+ * @param respbuf      A pointer to response buffer
+ * @param respbuflen   Available length of response buffer
+ *
+ * @return         0 --success, otherwise fail
+ */
+static int
+woal_priv_bcntimeoutcfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int data[4] = { 0 }, ret = 0;
+	mlan_ds_pm_cfg *pm_cfg = NULL;
+	mlan_ioctl_req *req = NULL;
+	int allowed = 4;
+	int i = 0;
+	int user_data_len = 0, header_len = 0;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_BCNTIMEOUTCFG);
+
+	memset((char *)data, 0, sizeof(data));
+	parse_arguments(respbuf + header_len, data, ARRAY_SIZE(data),
+			&user_data_len);
+	if (user_data_len != allowed) {
+		PRINTM(MERROR, "Invalid args num: input=%d allowed=%d\n",
+		       user_data_len, allowed);
+		ret = -EINVAL;
+		goto done;
+	}
+	for (i = 0; i < allowed; i++) {
+		if (data[i] <= 0) {
+			PRINTM(MERROR, "Invalid data[%d]=%d\n", i, data[i]);
+			ret = -EINVAL;
+			goto done;
+		}
+	}
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_pm_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	pm_cfg = (mlan_ds_pm_cfg *)req->pbuf;
+	pm_cfg->sub_command = MLAN_OID_PM_CFG_BCN_TIMEOUT;
+	req->req_id = MLAN_IOCTL_PM_CFG;
+	req->action = MLAN_ACT_SET;
+	pm_cfg->param.bcn_timeout.bcn_miss_tmo_window = (t_u16)data[0];
+	pm_cfg->param.bcn_timeout.bcn_miss_tmo_period = (t_u16)data[1];
+	pm_cfg->param.bcn_timeout.bcn_rq_tmo_window = (t_u16)data[2];
+	pm_cfg->param.bcn_timeout.bcn_rq_tmo_period = (t_u16)data[3];
+
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
 	}
 
 done:
@@ -5791,6 +5943,188 @@ done:
 	return ret;
 }
 #endif
+
+/**
+ *  @brief Get/Set deauth control
+ *
+ *  @param priv         A pointer to moal_private structure
+ *  @param respbuf      A pointer to response buffer
+ *  @param respbuflen   Available length of response buffer
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_deauth_ctrl(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	mlan_ds_snmp_mib *cfg = NULL;
+	mlan_ioctl_req *req = NULL;
+	int ret = 0, header_len = 0, data = 0, user_data_len = 0;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_snmp_mib));
+	if (req == NULL) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	cfg = (mlan_ds_snmp_mib *)req->pbuf;
+	cfg->sub_command = MLAN_OID_SNMP_MIB_CTRL_DEAUTH;
+	req->req_id = MLAN_IOCTL_SNMP_MIB;
+
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_DEAUTH_CTRL);
+
+	if (strlen(respbuf) == header_len) {
+		/* GET operation */
+		req->action = MLAN_ACT_GET;
+	} else {
+		/* SET operation */
+		parse_arguments(respbuf + header_len, &data,
+				sizeof(data) / sizeof(int), &user_data_len);
+		if (user_data_len != 1) {
+			PRINTM(MERROR, "Invalid number of args! %d\n",
+			       user_data_len);
+			ret = -EINVAL;
+			goto done;
+		}
+		req->action = MLAN_ACT_SET;
+		cfg->param.deauthctrl = (t_u8)data;
+	}
+
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+	data = (int)cfg->param.deauthctrl;
+	memcpy(respbuf, &data, sizeof(data));
+	ret = sizeof(data);
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
+
+#define MRVL_TLV_HEADER_SIZE 4
+/**
+ *  @brief              Get/Set per packet Txctl and Rxinfo configuration
+ *
+ *  @param priv         A pointer to moal_private structure
+ *  @param respbuf      A pointer to response buffer
+ *  @param respbuflen   Available length of response buffer
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_per_pkt_cfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	mlan_ds_misc_cfg *misc = NULL;
+	mlan_ioctl_req *req = NULL;
+	int ret = 0;
+	t_u8 *pos = NULL;
+	int left_len, header_len = 0;
+	mlan_per_pkt_cfg *perpkt = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_PER_PKT_CFG);
+	pos = respbuf + header_len;
+	left_len = respbuflen - header_len;
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	misc = (mlan_ds_misc_cfg *)req->pbuf;
+	misc->sub_command = MLAN_OID_MISC_PER_PKT_CFG;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+
+	if (*pos == 0) {
+		/* GET operation */
+		pos++;
+		if (priv->tx_protocols.protocol_num) {
+			perpkt = (mlan_per_pkt_cfg *) pos;
+			perpkt->type = TLV_TYPE_PER_PKT_CFG;
+			perpkt->tx_rx_control = TX_PKT_CTRL;
+			perpkt->proto_type_num =
+				priv->tx_protocols.protocol_num;
+			memcpy(perpkt->ether_type, priv->tx_protocols.protocols,
+			       perpkt->proto_type_num * sizeof(t_u16));
+			perpkt->len =
+				(perpkt->proto_type_num + 1) * sizeof(t_u16);
+			pos += perpkt->len + MRVL_TLV_HEADER_SIZE;
+		}
+		if (priv->rx_protocols.protocol_num) {
+			perpkt = (mlan_per_pkt_cfg *) pos;
+			perpkt->type = TLV_TYPE_PER_PKT_CFG;
+			perpkt->tx_rx_control = RX_PKT_INFO;
+			perpkt->proto_type_num =
+				priv->rx_protocols.protocol_num;
+			memcpy(perpkt->ether_type, priv->rx_protocols.protocols,
+			       perpkt->proto_type_num * sizeof(t_u16));
+			perpkt->len =
+				(perpkt->proto_type_num + 1) * sizeof(t_u16);
+			pos += perpkt->len + MRVL_TLV_HEADER_SIZE;
+		}
+		ret = pos - respbuf;
+		goto done;
+	} else if (*pos == 1) {
+		/* SET operation */
+		req->action = MLAN_ACT_SET;
+		pos++;
+		left_len--;
+		while (*pos == TLV_TYPE_PER_PKT_CFG && (left_len > 2)) {
+			perpkt = (mlan_per_pkt_cfg *) pos;
+			if (perpkt->tx_rx_control & TX_PKT_CTRL) {
+				priv->tx_protocols.protocol_num =
+					perpkt->proto_type_num;
+				if (perpkt->proto_type_num <=
+				    MAX_NUM_ETHER_TYPE)
+					memcpy(priv->tx_protocols.protocols,
+					       perpkt->ether_type,
+					       perpkt->proto_type_num *
+					       sizeof(t_u16));
+			}
+			if (perpkt->tx_rx_control & RX_PKT_INFO) {
+				priv->rx_protocols.protocol_num =
+					perpkt->proto_type_num;
+				if (perpkt->proto_type_num <=
+				    MAX_NUM_ETHER_TYPE)
+					memcpy(priv->rx_protocols.protocols,
+					       perpkt->ether_type,
+					       perpkt->proto_type_num *
+					       sizeof(t_u16));
+			}
+			if (!perpkt->tx_rx_control) {
+				memset(&priv->tx_protocols, 0,
+				       sizeof(dot11_protocol));
+				memset(&priv->rx_protocols, 0,
+				       sizeof(dot11_protocol));
+			}
+			pos += perpkt->len + MRVL_TLV_HEADER_SIZE;
+			left_len -= (perpkt->len + MRVL_TLV_HEADER_SIZE);
+		}
+	}
+	misc->param.txrx_pkt_ctrl = perpkt->tx_rx_control;
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
 
 /**
  *  @brief Set/Get Mgmt Frame passthru mask
@@ -8571,6 +8905,9 @@ woal_priv_net_monitor_ioctl(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 	mlan_ds_misc_cfg *misc = NULL;
 	mlan_ds_misc_net_monitor *net_mon = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+	moal_handle *handle = priv->phandle;
+	monitor_iface *mon_if = NULL;
+	struct net_device *ndev = NULL;
 
 	ENTER();
 
@@ -8592,18 +8929,20 @@ woal_priv_net_monitor_ioctl(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		/* SET operation */
 		parse_arguments(respbuf + header_len, data, ARRAY_SIZE(data),
 				&user_data_len);
-		if (user_data_len == 1 || user_data_len == 4 ||
-		    user_data_len == 5) {
+		if (user_data_len == 1 || user_data_len == 2 ||
+		    user_data_len == 4 || user_data_len == 5) {
 			if (data[0] != MTRUE && data[0] != MFALSE) {
 				PRINTM(MERROR,
-				       "NET_MON: Activity should be enable(=1)/disable(=0)\n");
+				       "NET_MON: Activity should be enable(=1)/"
+				       "disable(=0)\n");
 				ret = -EINVAL;
 				goto done;
 			}
 			net_mon->enable_net_mon = data[0];
 			if (data[0] == MTRUE) {
 				int i;
-				if (user_data_len != 4 && user_data_len != 5) {
+				if (user_data_len != 2 && user_data_len != 4
+				    && user_data_len != 5) {
 					PRINTM(MERROR,
 					       "NET_MON: Invalid number of args!\n");
 					ret = -EINVAL;
@@ -8611,26 +8950,33 @@ woal_priv_net_monitor_ioctl(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 				}
 				/* Supported filter flags */
 				if (!data[1] || data[1] &
-				    ~(MLAN_NETMON_DATA_FRAME |
-				      MLAN_NETMON_MANAGEMENT_FRAME |
-				      MLAN_NETMON_CONTROL_FRAME)) {
+				    ~(MLAN_NETMON_DATA | MLAN_NETMON_MANAGEMENT
+				      | MLAN_NETMON_CONTROL | MLAN_NETMON_NOPROM
+				      | MLAN_NETMON_DECRYPTED)) {
 					PRINTM(MERROR,
 					       "NET_MON: Invalid filter flag\n");
 					ret = -EINVAL;
 					goto done;
 				}
-				/* Supported bands */
-				for (i = 0; i < sizeof(SupportedAdhocBand); i++)
-					if (data[2] == SupportedAdhocBand[i])
-						break;
-				if (i == sizeof(SupportedAdhocBand)) {
-					PRINTM(MERROR,
-					       "NET_MON: Invalid band\n");
-					ret = -EINVAL;
-					goto done;
+				if (user_data_len > 2) {
+					/* Supported bands */
+					for (i = 0;
+					     i < sizeof(SupportedAdhocBand);
+					     i++)
+						if (data[2] ==
+						    SupportedAdhocBand[i])
+							break;
+					if (i == sizeof(SupportedAdhocBand)) {
+						PRINTM(MERROR,
+						       "NET_MON: Invalid band\n");
+						ret = -EINVAL;
+						goto done;
+					}
 				}
 				/* Supported channel */
-				if (data[3] < 1 || data[3] > MLAN_MAX_CHANNEL) {
+				if (user_data_len > 3 &&
+				    (data[3] < 1 ||
+				     data[3] > MLAN_MAX_CHANNEL)) {
 					PRINTM(MERROR,
 					       "NET_MON: Invalid channel number\n");
 					ret = -EINVAL;
@@ -8674,8 +9020,48 @@ woal_priv_net_monitor_ioctl(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
 	if (status != MLAN_STATUS_SUCCESS) {
+		PRINTM(MERROR, "NET_MON: woal_request_ioctl fail\n");
 		ret = -EFAULT;
 		goto done;
+	}
+
+	if (req->action == MLAN_ACT_SET) {
+		if (data[0]) {
+			/* Enable sniffer mode */
+			if (!handle->mon_if) {
+				mon_if = woal_prepare_mon_if(priv, "rtap", 0);
+				if (!mon_if) {
+					PRINTM(MFATAL,
+					       "Prepare mon_if fail.\n");
+					ret = -EFAULT;
+					goto done;
+				}
+				ndev = mon_if->mon_ndev;
+				ret = register_netdevice(ndev);
+				if (ret) {
+					PRINTM(MFATAL,
+					       "register net_device failed, ret=%d\n",
+					       ret);
+					free_netdev(ndev);
+					ret = -EFAULT;
+					goto done;
+				}
+				handle->mon_if = mon_if;
+			}
+			/* Save band channel config */
+			handle->mon_if->band_chan_cfg.band = net_mon->band;
+			handle->mon_if->band_chan_cfg.channel =
+				net_mon->channel;
+			handle->mon_if->band_chan_cfg.chan_bandwidth =
+				net_mon->chan_bandwidth;
+		} else {
+			/* Disable sniffer mode */
+			if (handle->mon_if) {
+				ndev = handle->mon_if->mon_ndev;
+				handle->mon_if = NULL;
+				unregister_netdevice(ndev);
+			}
+		}
 	}
 
 	data[0] = net_mon->enable_net_mon;
@@ -8694,70 +9080,6 @@ done:
 	LEAVE();
 	return ret;
 }
-
-#if defined(STA_CFG80211) && defined(UAP_CFG80211)
-/**
- * @brief Set/Get monitor mode
- *
- * @param priv         A pointer to moal_private structure
- * @param respbuf      A pointer to response buffer
- * @param respbuflen   Available length of response buffer
- *
- * @return         0 --success, otherwise fail
- */
-static int
-woal_priv_set_get_monitor_mode(moal_private *priv, t_u8 *respbuf,
-			       t_u32 respbuflen)
-{
-	int ret = 0;
-	int data = 0;
-	int user_data_len = 0, header_len = 0;
-	t_u32 action = MLAN_ACT_GET;
-
-	ENTER();
-
-	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_MONITOR_MODE);
-
-	if (strlen(respbuf) == header_len) {
-		/* GET operation */
-		user_data_len = 0;
-		action = MLAN_ACT_GET;
-	} else {
-		/* SET operation */
-		parse_arguments(respbuf + header_len, &data,
-				sizeof(data) / sizeof(int), &user_data_len);
-		action = MLAN_ACT_SET;
-	}
-
-	if (sizeof(int) * user_data_len > sizeof(data)) {
-		PRINTM(MERROR, "Too many arguments\n");
-		ret = -EINVAL;
-		goto done;
-	}
-
-	if (action == MLAN_ACT_SET) {
-		if (data == 1) {
-			priv->phandle->wiphy->interface_modes |=
-				MBIT(NL80211_IFTYPE_MONITOR);
-		} else if (data == 0) {
-			priv->phandle->wiphy->interface_modes &=
-				~(MBIT(NL80211_IFTYPE_MONITOR));
-		} else {
-			PRINTM(MERROR, "Invalid input arguments\n");
-			ret = -EINVAL;
-			goto done;
-		}
-	}
-	data = ! !(priv->phandle->wiphy->
-		   interface_modes & MBIT(NL80211_IFTYPE_MONITOR));
-
-	ret = sprintf(respbuf, "Monitor mode: %d\n", data) + 1;
-
-done:
-	LEAVE();
-	return ret;
-}
-#endif
 
 #if defined(DFS_TESTING_SUPPORT)
 /**
@@ -8807,13 +9129,15 @@ woal_priv_dfs_testing(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 			ret = -EINVAL;
 			goto done;
 		}
-		if ((unsigned)data[0] > 0xFFFF) {
-			PRINTM(MERROR, "The maximum user CAC is 65535 msec.\n");
+		if ((unsigned)data[0] > 0xFFFFF) {
+			PRINTM(MERROR,
+			       "The maximum user CAC is 1048575 msec (17 mins approx).\n");
 			ret = -EINVAL;
 			goto done;
 		}
-		if ((unsigned)data[1] > 0xFFFF) {
-			PRINTM(MERROR, "The maximum user NOP is 65535 sec.\n");
+		if ((unsigned)data[1] > 0xFFFFF) {
+			PRINTM(MERROR,
+			       "The maximum user NOP is 1048575 msec (17 mins approx).\n");
 			ret = -EINVAL;
 			goto done;
 		}
@@ -8824,14 +9148,18 @@ woal_priv_dfs_testing(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 			goto done;
 		}
 		ds_11hcfg->param.dfs_testing.usr_cac_period_msec =
-			(t_u16)data[0];
+			(t_u32)data[0];
 		ds_11hcfg->param.dfs_testing.usr_nop_period_sec =
-			(t_u16)data[1];
+			(t_u32)data[1];
 		ds_11hcfg->param.dfs_testing.usr_no_chan_change =
 			data[2] ? 1 : 0;
 		ds_11hcfg->param.dfs_testing.usr_fixed_new_chan = (t_u8)data[3];
 		priv->phandle->cac_period_jiffies = (t_u16)data[0] * HZ / 1000;
 		req->action = MLAN_ACT_SET;
+#ifdef UAP_SUPPORT
+		priv->user_cac_period_msec =
+			ds_11hcfg->param.dfs_testing.usr_cac_period_msec;
+#endif
 	}
 
 	/* Send IOCTL request to MLAN */
@@ -9590,7 +9918,6 @@ woal_priv_tx_bf_cfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 	bf_snr = bf_cfg.body.bf_snr;
 	bf_periodicity = bf_cfg.body.bf_periodicity;
 	bf_global = &bf_cfg.body.bf_global_cfg;
-
 	/* Total characters in buffer */
 	char_count = strlen(respbuf) - header_len;
 	copy_len = char_count;
@@ -9778,92 +10105,31 @@ woal_priv_tx_bf_cfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		goto done;
 	}
 
-	if (action == MLAN_ACT_GET) {
-		copy_len = 0;
-		memset(buf, 0, sizeof(buf));
-		switch (bf_action) {
-		case BF_GLOBAL_CONFIGURATION:
-			copy_len +=
-				sprintf(buf + copy_len, "%d ",
-					(int)bf_global->bf_enbl);
-			copy_len +=
-				sprintf(buf + copy_len, "%d ",
-					(int)bf_global->sounding_enbl);
-			copy_len +=
-				sprintf(buf + copy_len, "%d ",
-					(int)bf_global->fb_type);
-			copy_len +=
-				sprintf(buf + copy_len, "%d ",
-					(int)bf_global->snr_threshold);
-			copy_len +=
-				sprintf(buf + copy_len, "%d ",
-					(int)bf_global->sounding_interval);
-			copy_len +=
-				sprintf(buf + copy_len, "%d ",
-					(int)bf_global->bf_mode);
-			break;
-		case SET_GET_BF_PERIODICITY:
-			copy_len += sprintf(buf + copy_len,
-					    "%02x:%02x:%02x:%02x:%02x:%02x",
-					    bf_periodicity->peer_mac[0],
-					    bf_periodicity->peer_mac[1],
-					    bf_periodicity->peer_mac[2],
-					    bf_periodicity->peer_mac[3],
-					    bf_periodicity->peer_mac[4],
-					    bf_periodicity->peer_mac[5]);
-			copy_len += sprintf(buf + copy_len, "%c", ' ');
-			copy_len +=
-				sprintf(buf + copy_len, "%d",
-					bf_periodicity->interval);
-			break;
-		case TX_BF_FOR_PEER_ENBL:
-			for (i = 0; i < bf_cfg.no_of_peers; i++) {
-				copy_len += sprintf(buf + copy_len,
-						    "%02x:%02x:%02x:%02x:%02x:%02x",
-						    tx_bf_peer->peer_mac[0],
-						    tx_bf_peer->peer_mac[1],
-						    tx_bf_peer->peer_mac[2],
-						    tx_bf_peer->peer_mac[3],
-						    tx_bf_peer->peer_mac[4],
-						    tx_bf_peer->peer_mac[5]);
-				copy_len += sprintf(buf + copy_len, "%c", ' ');
-				copy_len +=
-					sprintf(buf + copy_len, "%d;",
-						tx_bf_peer->bf_enbl);
-				copy_len +=
-					sprintf(buf + copy_len, "%d;",
-						tx_bf_peer->sounding_enbl);
-				copy_len +=
-					sprintf(buf + copy_len, "%d ",
-						tx_bf_peer->fb_type);
-				tx_bf_peer++;
-			}
-			break;
-		case SET_SNR_THR_PEER:
-			for (i = 0; i < bf_cfg.no_of_peers; i++) {
-				copy_len += sprintf(buf + copy_len,
-						    "%02x:%02x:%02x:%02x:%02x:%02x",
-						    bf_snr->peer_mac[0],
-						    bf_snr->peer_mac[1],
-						    bf_snr->peer_mac[2],
-						    bf_snr->peer_mac[3],
-						    bf_snr->peer_mac[4],
-						    bf_snr->peer_mac[5]);
-				copy_len += sprintf(buf + copy_len, "%c", ';');
-				copy_len +=
-					sprintf(buf + copy_len, "%d",
-						bf_snr->snr);
-				copy_len += sprintf(buf + copy_len, "%c", ' ');
-				bf_snr++;
-			}
-			break;
-		}
-		buf[copy_len] = '\0';
+	switch (bf_action) {
+	case BF_GLOBAL_CONFIGURATION:
+		memcpy(respbuf, bf_global, sizeof(mlan_bf_global_cfg_args));
+		ret = sizeof(mlan_bf_global_cfg_args);
+		break;
+	case TRIGGER_SOUNDING_FOR_PEER:
+		memcpy(respbuf, bf_sound, sizeof(mlan_bf_global_cfg_args));
+		ret = sizeof(mlan_bf_global_cfg_args);
+		break;
+	case SET_GET_BF_PERIODICITY:
+		memcpy(respbuf, bf_periodicity,
+		       sizeof(mlan_bf_periodicity_args));
+		ret = sizeof(mlan_bf_periodicity_args);
+		break;
+	case TX_BF_FOR_PEER_ENBL:
+		memcpy(respbuf, tx_bf_peer, sizeof(mlan_tx_bf_peer_args));
+		ret = sizeof(mlan_tx_bf_peer_args);
+		break;
+	case SET_SNR_THR_PEER:
+		memcpy(respbuf, bf_snr, sizeof(mlan_snr_thr_args));
+		ret = sizeof(mlan_snr_thr_args);
+		break;
+	default:
+		ret = 0;
 	}
-
-	memcpy(respbuf, buf, copy_len);
-	ret = copy_len;
-
 done:
 	LEAVE();
 	return ret;
@@ -10155,6 +10421,254 @@ woal_priv_coalescing_status(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 done:
 	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief               Set/Get module configuration
+ * @param priv          Pointer to moal_private structure
+ * @param respbuf       Pointer to response buffer
+ * @param resplen       Response buffer length
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_fw_wakeup_method(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int header_len = 0, user_data_len = 0;
+	int ret = 0, data[2];
+	mlan_ds_pm_cfg *pm_cfg = NULL;
+	mlan_ioctl_req *req = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_pm_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	pm_cfg = (mlan_ds_pm_cfg *)req->pbuf;
+
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_FW_WAKEUP_METHOD);
+	if (strlen(respbuf) == header_len) {
+		/* GET operation */
+		user_data_len = 0;
+		req->action = MLAN_ACT_GET;
+	} else {
+		/* SET operation */
+		parse_arguments(respbuf + header_len, data,
+				sizeof(data) / sizeof(int), &user_data_len);
+		if (user_data_len > 2) {
+			PRINTM(MERROR, "Invalid parameter number\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		if (data[0] != FW_WAKEUP_METHOD_INTERFACE &&
+		    data[0] != FW_WAKEUP_METHOD_GPIO) {
+			PRINTM(MERROR, "Invalid FW wake up method:%d\n",
+			       data[0]);
+			ret = -EINVAL;
+			goto done;
+		}
+		if (data[0] == FW_WAKEUP_METHOD_GPIO) {
+			if (user_data_len == 1) {
+				PRINTM(MERROR,
+				       "Please provide gpio pin number for FW_WAKEUP_METHOD gpio\n");
+				ret = -EINVAL;
+				goto done;
+			}
+			pm_cfg->param.fw_wakeup_params.gpio_pin = data[1];
+		}
+
+		req->action = MLAN_ACT_SET;
+		pm_cfg->param.fw_wakeup_params.method = data[0];
+	}
+
+	pm_cfg->sub_command = MLAN_OID_PM_CFG_FW_WAKEUP_METHOD;
+	req->req_id = MLAN_IOCTL_PM_CFG;
+
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+	data[0] = ((mlan_ds_pm_cfg *)req->pbuf)->param.fw_wakeup_params.method;
+	data[1] =
+		((mlan_ds_pm_cfg *)req->pbuf)->param.fw_wakeup_params.gpio_pin;
+	memcpy(respbuf, &data, sizeof(data));
+	ret = sizeof(int) * 2;
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief               Set Robustcoex gpiocfg
+ * @param priv          Pointer to moal_private structure
+ * @param respbuf       Pointer to response buffer
+ * @param resplen       Response buffer length
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_robustcoex(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int header_len = 0, user_data_len = 0;
+	int ret = 0, data[3];
+	mlan_ds_misc_cfg *robust_coex_cfg = NULL;
+	mlan_ioctl_req *req = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	robust_coex_cfg = (mlan_ds_misc_cfg *)req->pbuf;
+	while (respbuf[0] == ' ') {
+    /** skip space */
+		respbuf++;
+	}
+
+	if (strncmp(respbuf, "gpiocfg", strlen("gpiocfg")) == 0) {
+		header_len = strlen("gpiocfg") + 1;
+		parse_arguments(respbuf + header_len, data,
+				sizeof(data) / sizeof(int), &user_data_len);
+		if (user_data_len > 3) {
+			PRINTM(MERROR, "Invalid parameter number\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		if (data[0] != ROBUSTCOEX_GPIOCFG_ENABLE &&
+		    data[0] != ROBUSTCOEX_GPIOCFG_DISABLE) {
+			PRINTM(MERROR, "Invalid parameter number\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		if (data[0] == ROBUSTCOEX_GPIOCFG_ENABLE) {
+			if (user_data_len != 3) {
+				PRINTM(MMSG,
+				       "Please provide gpio num and gpio polarity for ROBUSTCOEX_GPIOCFG_ENABLE\n");
+				ret = -EINVAL;
+				goto done;
+			}
+			robust_coex_cfg->param.robustcoexparams.method =
+				ROBUSTCOEX_GPIO_CFG;
+			robust_coex_cfg->param.robustcoexparams.enable =
+				ROBUSTCOEX_GPIOCFG_ENABLE;
+			robust_coex_cfg->param.robustcoexparams.gpio_num =
+				data[1];
+			robust_coex_cfg->param.robustcoexparams.gpio_polarity =
+				data[2];
+		} else {
+			robust_coex_cfg->param.robustcoexparams.method =
+				ROBUSTCOEX_GPIO_CFG;
+			robust_coex_cfg->param.robustcoexparams.enable =
+				ROBUSTCOEX_GPIOCFG_DISABLE;
+			robust_coex_cfg->param.robustcoexparams.gpio_num = 0;
+			robust_coex_cfg->param.robustcoexparams.gpio_polarity =
+				0;
+		}
+		req->action = MLAN_ACT_SET;
+		req->req_id = MLAN_IOCTL_MISC_CFG;
+		robust_coex_cfg->sub_command = MLAN_OID_MISC_ROBUSTCOEX;
+	} else {
+		PRINTM(MERROR, "Invalid parameter\n");
+		ret = -EFAULT;
+		goto done;
+	}
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+
+}
+
+/**
+ * @brief               Set and get boot sleep configure
+ * @param priv          Pointer to moal_private structure
+ * @param respbuf       Pointer to response buffer
+ * @param resplen       Response buffer length
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_bootsleep(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int ret = MLAN_STATUS_SUCCESS;
+	int user_data_len = 0;
+	int header_len = 0;
+	int allowed = 1;
+	int data[1] = { 0 };
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_misc_cfg *misc = NULL;
+
+	ENTER();
+
+	if (!priv || !priv->phandle) {
+		PRINTM(MERROR, "priv or handle is null\n");
+		ret = -EFAULT;
+		goto done;
+	}
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		LEAVE();
+		return -ENOMEM;
+	}
+
+	misc = (mlan_ds_misc_cfg *)req->pbuf;
+	misc->sub_command = MLAN_OID_MISC_BOOT_SLEEP;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_BOOTSLEEP);
+
+	if (strlen(respbuf) == header_len) {
+		req->action = MLAN_ACT_GET;
+	} else {
+		req->action = MLAN_ACT_SET;
+		parse_arguments(respbuf + header_len, data, ARRAY_SIZE(data),
+				&user_data_len);
+		if (user_data_len != allowed) {
+			PRINTM(MERROR, "Invalid number of args! %d\n",
+			       user_data_len);
+			ret = -EINVAL;
+			goto done;
+		}
+		misc->param.boot_sleep = data[0] ? 1 : 0;
+		PRINTM(MIOCTL, "boot sleep cfg:%u\n", misc->param.boot_sleep);
+	}
+
+	ret = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT_TIMEOUT);
+	if (ret != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+	memcpy(respbuf, &misc->param.boot_sleep,
+	       sizeof(misc->param.boot_sleep));
+	ret = sizeof(misc->param.boot_sleep);
+
+	PRINTM(MIOCTL, "boot sleep cfg: 0x%u\n", misc->param.boot_sleep);
+
+done:
+	if (ret != MLAN_STATUS_PENDING)
 		kfree(req);
 	LEAVE();
 	return ret;
@@ -10883,6 +11397,7 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 	int user_data_len = 0;
 	int data[4] = { 0 };
 	woal_extend_chan_switch *ext_chan_switch = NULL;
+	woal_chan_switch *chan_switch = NULL;
 	custom_ie *pcust_chansw_ie = NULL;
 	mlan_ioctl_req *ioctl_req = NULL;
 	mlan_ds_misc_cfg *misc = NULL;
@@ -10924,10 +11439,8 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 
 	pcust_chansw_ie = (custom_ie *)&misc->param.cust_ie.ie_data_list[0];
 	pcust_chansw_ie->ie_index = 0xffff;	/*Auto index */
-	pcust_chansw_ie->ie_length = sizeof(woal_extend_chan_switch);
+	pcust_chansw_ie->ie_length = sizeof(woal_chan_switch);
 	pcust_chansw_ie->mgmt_subtype_mask = MGMT_MASK_BEACON | MGMT_MASK_PROBE_RESP;	/*Add IE for BEACON/probe resp */
-	ext_chan_switch =
-		(woal_extend_chan_switch *) pcust_chansw_ie->ie_buffer;
 
 	parse_arguments(respbuf + strlen(CMD_MARVELL) +
 			strlen(PRIV_CMD_EXTEND_CHAN_SWITCH), data,
@@ -10938,33 +11451,49 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 		ret = -EINVAL;
 		goto done;
 	}
+	chan_switch = (woal_chan_switch *) pcust_chansw_ie->ie_buffer;
+	chan_switch->element_id = CHANNEL_SWITCH_ANN;
+	chan_switch->len = 3;
+	chan_switch->chan_switch_mode = data[0];
+	chan_switch->new_channel_num = data[2];
+	chan_switch->chan_switch_count = data[3];
+	DBG_HEXDUMP(MCMD_D, "CSA IE", (t_u8 *)pcust_chansw_ie->ie_buffer,
+		    pcust_chansw_ie->ie_length);
 
-	ext_chan_switch->element_id = EXTEND_CHANNEL_SWITCH_ANN;
-	ext_chan_switch->len = 4;
-	ext_chan_switch->chan_switch_mode = data[0];
-	ext_chan_switch->new_oper_class = data[1];
-	ext_chan_switch->new_channel_num = data[2];
-	ext_chan_switch->chan_switch_count = data[3];
-	if (ext_chan_switch->new_channel_num >= 52 &&
-	    ext_chan_switch->new_channel_num <= 144) {
+	if (data[1] != 0) {
+		pcust_chansw_ie->ie_length += sizeof(woal_extend_chan_switch);
+		ext_chan_switch =
+			(woal_extend_chan_switch *) (pcust_chansw_ie->
+						     ie_buffer +
+						     sizeof(woal_chan_switch));
+		ext_chan_switch->element_id = EXTEND_CHANNEL_SWITCH_ANN;
+		ext_chan_switch->len = 4;
+		ext_chan_switch->chan_switch_mode = data[0];
+		ext_chan_switch->new_oper_class = data[1];
+		ext_chan_switch->new_channel_num = data[2];
+		ext_chan_switch->chan_switch_count = data[3];
+		if (woal_check_valid_channel_operclass(priv, data[2], data[1])) {
+			PRINTM(MERROR, "Wrong channel switch parameters!\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		DBG_HEXDUMP(MCMD_D, "ECSA IE",
+			    (t_u8 *)(pcust_chansw_ie->ie_buffer +
+				     sizeof(woal_chan_switch)),
+			    pcust_chansw_ie->ie_length -
+			    sizeof(woal_chan_switch));
+	}
+	if (data[2] >= 52 && data[2] <= 144) {
 		PRINTM(MERROR, "Switch to DFS channel is not allowed!\n");
 		ret = -EINVAL;
 		goto done;
 	}
-	if (woal_check_valid_channel_operclass(priv, data[2], data[1])) {
-		PRINTM(MERROR, "Wrong channel switch parameters!\n");
-		ret = -EINVAL;
-		goto done;
-	}
-	if (ext_chan_switch->chan_switch_mode) {
+	if (data[0]) {
 		if (netif_carrier_ok(priv->netdev))
 			netif_carrier_off(priv->netdev);
 		woal_stop_queue(priv->netdev);
 		priv->uap_tx_blocked = MTRUE;
 	}
-
-	DBG_HEXDUMP(MCMD_D, "ECSA IE", (t_u8 *)pcust_chansw_ie->ie_buffer,
-		    pcust_chansw_ie->ie_length);
 
 	status = woal_request_ioctl(priv, ioctl_req, MOAL_IOCTL_WAIT);
 	if (status != MLAN_STATUS_SUCCESS) {
@@ -10977,9 +11506,7 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 	/* wait for channel switch to complete  */
 	wait_event_interruptible_timeout(priv->phandle->chsw_wait_q,
 					 priv->phandle->chsw_wait_q_woken,
-					 (u32)HZ *
-					 (ext_chan_switch->chan_switch_count +
-					  2) * 110 / 1000);
+					 (u32)HZ * (data[3] + 2) * 110 / 1000);
 
 	pcust_chansw_ie->ie_index = 0xffff;	/*Auto index */
 	pcust_chansw_ie->mgmt_subtype_mask = 0;
@@ -11184,6 +11711,150 @@ done:
 	return ret;
 }
 #endif
+
+/**
+ * @brief               Issue ACS command to FW to get best channel and channel stats
+ *
+ * @param priv          Pointer to moal_private structure
+ * @param respbuf       Pointer to response buffer
+ * @param resplen       Response buffer length
+
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_acs(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int header_len = 0;
+	int data[MAX_BG_CHANNEL + 1];
+	int user_data_len = 0;
+	int ret = 0;
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_misc_cfg *misc = NULL;
+	mlan_ds_misc_acs *acs = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+	int i = 0, j = 0;
+	int ch_cnt = 0;
+	int resp_len = 0;
+	acs_result *pacs_result = NULL;
+
+	ENTER();
+
+	memset(data, 0, sizeof(data));
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_ACS_SCAN);
+
+	parse_arguments(respbuf + header_len, data, ARRAY_SIZE(data),
+			&user_data_len);
+	if (user_data_len < 0 || user_data_len > MAX_CH_STATS) {
+		PRINTM(MERROR, "Invalid number of parameters\n");
+		ret = -EINVAL;
+		goto done;
+	}
+
+    /** Input format: [channels on 2.4G] */
+    /** Check validity of input channels if enable */
+	if (user_data_len < 2 && user_data_len != 0) {
+		PRINTM(MERROR,
+		       "If specify channels, at least specify 2 channels.\n");
+		ret = -EINVAL;
+		goto done;
+	}
+	for (i = 0; i < user_data_len; i++) {
+		if (data[i] < 1 || data[i] > MAX_BG_CHANNEL) {
+			PRINTM(MERROR, "Invalid input channel %d.\n", data[i]);
+			ret = -EINVAL;
+			goto done;
+		}
+		for (j = 0; j < i; j++) {
+			if (data[j] == data[i]) {
+				PRINTM(MERROR, "Duplicate input channel %d.\n",
+				       data[i]);
+				ret = -EINVAL;
+				goto done;
+			}
+		}
+		ch_cnt++;
+	}
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+	req->action = MLAN_ACT_SET;
+	misc = (mlan_ds_misc_cfg *)req->pbuf;
+	misc->sub_command = MLAN_OID_MISC_ACS;
+	acs = &(misc->param.acs);
+#if defined(STA_CFG80211) || defined(UAP_CFG80211)
+	acs->scan_chan_gap = priv->phandle->scan_chan_gap;
+#endif
+	for (i = 0; i < ch_cnt; i++)
+		acs->ch_stats[i].chan_num = data[i];
+	acs->ch_stats_num = ch_cnt;
+
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+	resp_len = sizeof(acs_result) + acs->ch_stats_num * sizeof(ChStat_t);
+	if (respbuflen < resp_len) {
+		PRINTM(MERROR, "response buffer length is too short!\n");
+		ret = -EINVAL;
+		goto done;
+	}
+
+    /** Fill respond buf */
+	pacs_result = (acs_result *) respbuf;
+	pacs_result->best_ch = acs->best_ch;
+	pacs_result->ch_stats_num = acs->ch_stats_num;
+	memcpy(pacs_result->ch_stats, acs->ch_stats,
+	       sizeof(ChStat_t) * pacs_result->ch_stats_num);
+
+	ret = resp_len;
+
+done:
+	if (req && status != MLAN_STATUS_PENDING)
+		kfree(req);
+
+	LEAVE();
+	return ret;
+}
+
+static int
+woal_get_correlated_time(moal_private *priv, t_u8 *buf, t_u32 respbuflen)
+{
+	mlan_ioctl_req *req = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+	mlan_ds_misc_cfg *rate = NULL;
+	int ret = 1;
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	rate = (mlan_ds_misc_cfg *)req->pbuf;
+	rate->sub_command = MLAN_OID_MISC_GET_CORRELATED_TIME;;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+	req->action = MLAN_ACT_GET;
+
+	status = woal_request_ioctl(priv, req, MOAL_NO_WAIT);
+	if (status == MLAN_STATUS_FAILURE) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+
+}
 
 /**
  *  @brief Set priv command for Android
@@ -11498,6 +12169,12 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			len = woal_priv_set_get_countrycode(priv, buf,
 							    priv_cmd.total_len);
 			goto handled;
+		} else if (strnicmp(buf + strlen(CMD_MARVELL), PRIV_CMD_CFPINFO,
+				    strlen(PRIV_CMD_CFPINFO)) == 0) {
+			/* CFP info */
+			len = woal_priv_get_cfpinfo(priv, buf,
+						    priv_cmd.total_len);
+			goto handled;
 		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_TCPACKENH,
 			    strlen(PRIV_CMD_TCPACKENH)) == 0) {
@@ -11649,6 +12326,13 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			    strlen(PRIV_CMD_PSCFG)) == 0) {
 			/* PS configurations */
 			len = woal_priv_pscfg(priv, buf, priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL), PRIV_CMD_BCNTIMEOUTCFG,
+			    strlen(PRIV_CMD_BCNTIMEOUTCFG)) == 0) {
+			/* Beacon timeout configurations */
+			len = woal_priv_bcntimeoutcfg(priv, buf,
+						      priv_cmd.total_len);
 			goto handled;
 		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_SLEEPPD,
@@ -12019,20 +12703,6 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			len = woal_priv_net_monitor_ioctl(priv, buf,
 							  priv_cmd.total_len);
 			goto handled;
-#if defined(STA_CFG80211) && defined(UAP_CFG80211)
-		} else if (strnicmp
-			   (buf + strlen(CMD_MARVELL), PRIV_CMD_MONITOR_MODE,
-			    strlen(PRIV_CMD_MONITOR_MODE)) == 0) {
-			if (IS_STA_CFG80211(cfg80211_wext)) {
-				/* Set/Get monitor mode */
-				len = woal_priv_set_get_monitor_mode(priv, buf,
-								     priv_cmd.
-								     total_len);
-			} else
-				len = sprintf(buf,
-					      "CFG80211 is not enabled\n") + 1;
-			goto handled;
-#endif
 #if defined(DFS_TESTING_SUPPORT)
 		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_DFS_TESTING,
@@ -12098,6 +12768,23 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 						  priv_cmd.total_len);
 			goto handled;
 		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL), PRIV_CMD_ROBUSTCOEX,
+			    strlen(PRIV_CMD_ROBUSTCOEX)) == 0) {
+			/* Set Robustcoex GPIOcfg */
+			pdata = buf + strlen(CMD_MARVELL) +
+				strlen(PRIV_CMD_ROBUSTCOEX);
+			len = priv_cmd.total_len - strlen(PRIV_CMD_ROBUSTCOEX) -
+				strlen(CMD_MARVELL);
+			len = woal_priv_robustcoex(priv, pdata, len);
+			goto handled;
+
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL), PRIV_CMD_BOOTSLEEP,
+			    strlen(PRIV_CMD_BOOTSLEEP)) == 0) {
+			len = woal_priv_bootsleep(priv, buf,
+						  priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_PORT_CTRL,
 			    strlen(PRIV_CMD_PORT_CTRL)) == 0) {
 			/* Set/Get Port Control mode */
@@ -12117,6 +12804,14 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			/* Control Coalescing status Enable/Disable */
 			len = woal_priv_coalescing_status(priv, buf,
 							  priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL),
+			    PRIV_CMD_FW_WAKEUP_METHOD,
+			    strlen(PRIV_CMD_FW_WAKEUP_METHOD)) == 0) {
+			/* Set/Get module configuration */
+			len = woal_priv_fw_wakeup_method(priv, buf,
+							 priv_cmd.total_len);
 			goto handled;
 #if defined(WIFI_DIRECT_SUPPORT)
 #endif
@@ -12206,6 +12901,31 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			/* Set/Get out band independent reset */
 			len = woal_priv_ind_rst_cfg(priv, buf,
 						    priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL), PRIV_CMD_PER_PKT_CFG,
+			    strlen(PRIV_CMD_PER_PKT_CFG)) == 0) {
+			/* Get/Set per packet Txctl and Rxinfo configuration */
+			len = woal_priv_per_pkt_cfg(priv, buf,
+						    priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL), PRIV_CMD_DEAUTH_CTRL,
+			    strlen(PRIV_CMD_DEAUTH_CTRL)) == 0) {
+			len = woal_priv_deauth_ctrl(priv, buf,
+						    priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL), PRIV_CMD_ACS_SCAN,
+			    strlen(PRIV_CMD_ACS_SCAN)) == 0) {
+			len = woal_priv_acs(priv, buf, priv_cmd.total_len);
+			goto handled;
+		} else if (strnicmp
+			   (buf + strlen(CMD_MARVELL),
+			    PRIV_CMD_GET_CORRELATED_TIME,
+			    strlen(PRIV_CMD_GET_CORRELATED_TIME)) == 0) {
+			len = woal_get_correlated_time(priv, buf,
+						       priv_cmd.total_len);
 			goto handled;
 		} else {
 			PRINTM(MERROR,

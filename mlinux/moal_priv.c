@@ -2,7 +2,7 @@
   *
   * @brief This file contains standard ioctl functions
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1918,8 +1918,8 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 
 	if (!user_data_len) {
 		req->action = MLAN_ACT_GET;
-	} else if (user_data_len == 1 || user_data_len == 4
-		   || user_data_len == 5) {
+	} else if (user_data_len == 1 || user_data_len == 2 ||
+		   user_data_len == 4 || user_data_len == 5) {
 		if (copy_from_user(data, wrq->u.data.pointer, copy_len)) {
 			PRINTM(MERROR, "Copy from user failed\n");
 			ret = -EFAULT;
@@ -1934,33 +1934,39 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 		net_mon->enable_net_mon = data[0];
 		if (data[0] == MTRUE) {
 			int i;
-			if (user_data_len != 4 && user_data_len != 5) {
+			if (user_data_len != 2 && user_data_len != 4
+			    && user_data_len != 5) {
 				PRINTM(MERROR,
 				       "NET_MON: Invalid number of args!\n");
 				ret = -EINVAL;
 				goto done;
 			}
+
 			/* Supported filter flags */
 			if (!data[1] || data[1] &
-			    ~(MLAN_NETMON_DATA_FRAME |
-			      MLAN_NETMON_MANAGEMENT_FRAME |
-			      MLAN_NETMON_CONTROL_FRAME)) {
+			    ~(MLAN_NETMON_DATA | MLAN_NETMON_MANAGEMENT |
+			      MLAN_NETMON_CONTROL | MLAN_NETMON_NOPROM |
+			      MLAN_NETMON_DECRYPTED)) {
 				PRINTM(MERROR,
 				       "NET_MON: Invalid filter flag\n");
 				ret = -EINVAL;
 				goto done;
 			}
-			/* Supported bands */
-			for (i = 0; i < sizeof(SupportedAdhocBand); i++)
-				if (data[2] == SupportedAdhocBand[i])
-					break;
-			if (i == sizeof(SupportedAdhocBand)) {
-				PRINTM(MERROR, "NET_MON: Invalid band\n");
-				ret = -EINVAL;
-				goto done;
+			if (user_data_len > 2) {
+				/* Supported bands */
+				for (i = 0; i < sizeof(SupportedAdhocBand); i++)
+					if (data[2] == SupportedAdhocBand[i])
+						break;
+				if (i == sizeof(SupportedAdhocBand)) {
+					PRINTM(MERROR,
+					       "NET_MON: Invalid band\n");
+					ret = -EINVAL;
+					goto done;
+				}
 			}
 			/* Supported channel */
-			if (data[3] < 1 || data[3] > MLAN_MAX_CHANNEL) {
+			if (user_data_len > 3 &&
+			    (data[3] < 1 || data[3] > MLAN_MAX_CHANNEL)) {
 				PRINTM(MERROR,
 				       "NET_MON: Invalid channel number\n");
 				ret = -EINVAL;
@@ -3138,6 +3144,96 @@ woal_sleep_pd(moal_private *priv, struct iwreq *wrq)
 			goto done;
 		}
 		wrq->u.data.length = 1;
+	}
+
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief Set/Get module configuration
+ *
+ * @param priv     A pointer to moal_private structure
+ * @param wrq      A pointer to iwreq structure
+ *
+ * @return         0 --success, otherwise fail
+ */
+static int
+woal_fw_wakeup_method(moal_private *priv, struct iwreq *wrq)
+{
+	int ret = 0, data[2];
+	mlan_ds_pm_cfg *pm_cfg = NULL;
+	mlan_ioctl_req *req = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_pm_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	pm_cfg = (mlan_ds_pm_cfg *)req->pbuf;
+
+	if (wrq->u.data.length > 2) {
+		ret = -EINVAL;
+		goto done;
+	}
+	if (!wrq->u.data.length) {
+		req->action = MLAN_ACT_GET;
+	} else {
+		req->action = MLAN_ACT_SET;
+		if (copy_from_user
+		    (data, wrq->u.data.pointer,
+		     sizeof(int) * wrq->u.data.length)) {
+			PRINTM(MINFO, "Copy from user failed\n");
+			ret = -EFAULT;
+			goto done;
+		}
+		if (data[0] != FW_WAKEUP_METHOD_INTERFACE &&
+		    data[0] != FW_WAKEUP_METHOD_GPIO) {
+			PRINTM(MERROR, "Invalid FW wake up method:%d\n",
+			       data[0]);
+			ret = -EINVAL;
+			goto done;
+		}
+		if (data[0] == FW_WAKEUP_METHOD_GPIO) {
+			if (wrq->u.data.length == 1) {
+				PRINTM(MERROR,
+				       "Please provide gpio pin number for FW_WAKEUP_METHOD gpio\n");
+				ret = -EINVAL;
+				goto done;
+			}
+			pm_cfg->param.fw_wakeup_params.gpio_pin = data[1];
+		}
+
+		pm_cfg->param.fw_wakeup_params.method = data[0];
+	}
+
+	pm_cfg->sub_command = MLAN_OID_PM_CFG_FW_WAKEUP_METHOD;
+	req->req_id = MLAN_IOCTL_PM_CFG;
+
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+	data[0] = ((mlan_ds_pm_cfg *)req->pbuf)->param.fw_wakeup_params.method;
+	data[1] =
+		((mlan_ds_pm_cfg *)req->pbuf)->param.fw_wakeup_params.gpio_pin;
+
+	if (data[0] == FW_WAKEUP_METHOD_INTERFACE)
+		wrq->u.data.length = 1;
+	else
+		wrq->u.data.length = 2;
+	if (copy_to_user
+	    (wrq->u.data.pointer, data, sizeof(int) * wrq->u.data.length)) {
+		ret = -EFAULT;
+		goto done;
 	}
 
 done:
@@ -6731,6 +6827,9 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 			break;
 		case WOAL_SLEEP_PD:
 			ret = woal_sleep_pd(priv, wrq);
+			break;
+		case WOAL_FW_WAKEUP_METHOD:
+			ret = woal_fw_wakeup_method(priv, wrq);
 			break;
 		case WOAL_AUTH_TYPE:
 			ret = woal_auth_type(priv, wrq);

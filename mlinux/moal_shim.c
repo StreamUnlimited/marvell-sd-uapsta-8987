@@ -2,7 +2,7 @@
   *
   * @brief This file contains the callback functions registered to MLAN
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -34,6 +34,7 @@ Change log:
 #include "moal_cfgvendor.h"
 #endif
 extern int drv_mode;
+#include <asm/div64.h>
 
 /********************************************************
 		Local Variables
@@ -630,14 +631,14 @@ moal_ioctl_complete(IN t_void *pmoal_handle,
 		wait->condition = MTRUE;
 		wait->status = status;
 		if (wait->wait_timeout) {
-			wake_up(wait->wait);
+			wake_up(&wait->wait);
 		} else {
 			if ((status != MLAN_STATUS_SUCCESS) &&
 			    (pioctl_req->status_code ==
 			     MLAN_ERROR_CMD_TIMEOUT)) {
 				PRINTM(MERROR, "IOCTL: command timeout\n");
 			} else {
-				wake_up_interruptible(wait->wait);
+				wake_up_interruptible(&wait->wait);
 			}
 		}
 		spin_unlock_irqrestore(&handle->driver_lock, flags);
@@ -875,6 +876,8 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 	t_u8 bw = 0;
 	t_u8 gi = 0;
 	t_u8 ldpc = 0;
+	t_u8 chan_num;
+	t_u8 band = 0;
 	struct ieee80211_hdr *dot11_hdr = NULL;
 	t_u8 *payload = NULL;
 	ENTER();
@@ -963,12 +966,18 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 			}
 			//Channel
 			rth->body.channel.flags = 0;
+			if (rt_info.chan_num)
+				chan_num = rt_info.chan_num;
+			else
+				chan_num =
+					handle->mon_if->band_chan_cfg.channel;
+			band = (chan_num <=
+				14) ? IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ;
 			rth->body.channel.frequency =
-				cpu_to_le16(handle->mon_if->chandef.chan->
-					    center_freq);
+				cpu_to_le16(ieee80211_channel_to_frequency
+					    (chan_num, band));
 			rth->body.channel.flags |=
-				cpu_to_le16((handle->mon_if->chandef.chan->
-					     band ==
+				cpu_to_le16((band ==
 					     IEEE80211_BAND_2GHZ) ?
 					    CHANNEL_FLAGS_2GHZ :
 					    CHANNEL_FLAGS_5GHZ);
@@ -980,9 +989,10 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 			else
 				rth->body.channel.flags |=
 					cpu_to_le16(CHANNEL_FLAGS_OFDM);
-			if (handle->mon_if->chandef.chan->
-			    flags & (IEEE80211_CHAN_PASSIVE_SCAN |
-				     IEEE80211_CHAN_RADAR))
+			if (handle->mon_if->chandef.chan &&
+			    (handle->mon_if->chandef.chan->
+			     flags & (IEEE80211_CHAN_PASSIVE_SCAN |
+				      IEEE80211_CHAN_RADAR)))
 				rth->body.channel.flags |=
 					cpu_to_le16
 					(CHANNEL_FLAGS_ONLY_PASSIVSCAN_ALLOW);
@@ -1060,6 +1070,9 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 	moal_private *priv = NULL;
 	struct sk_buff *skb = NULL;
 	moal_handle *handle = (moal_handle *)pmoal_handle;
+	dot11_rxcontrol rxcontrol;
+	t_u8 rx_info_flag = MFALSE;
+	int j;
 	ENTER();
 	if (pmbuf) {
 
@@ -1123,10 +1136,37 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 			priv->stats.rx_bytes += skb->len;
 			priv->stats.rx_packets++;
 #ifdef ANDROID_KERNEL
-			if (wakelock_timeout)
+			if (wakelock_timeout) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+				__pm_wakeup_event(&handle->ws,
+						  wakelock_timeout);
+#else
 				wake_lock_timeout(&handle->wake_lock,
 						  wakelock_timeout);
 #endif
+			}
+#endif
+			if (priv->rx_protocols.protocol_num) {
+				for (j = 0; j < priv->rx_protocols.protocol_num;
+				     j++) {
+					if (htons(skb->protocol) ==
+					    priv->rx_protocols.protocols[j])
+						rx_info_flag = MTRUE;
+				}
+			}
+			if (rx_info_flag &&
+			    (skb_tailroom(skb) > sizeof(rxcontrol))) {
+				rxcontrol.datarate = pmbuf->u.rx_info.data_rate;
+				rxcontrol.channel = pmbuf->u.rx_info.channel;
+				rxcontrol.antenna = pmbuf->u.rx_info.antenna;
+				rxcontrol.rssi = pmbuf->u.rx_info.rssi;
+				skb_put(skb, sizeof(dot11_rxcontrol));
+				memmove(skb->data + sizeof(dot11_rxcontrol),
+					skb->data,
+					skb->len - sizeof(dot11_rxcontrol));
+				memcpy(skb->data, &rxcontrol,
+				       sizeof(dot11_rxcontrol));
+			}
 			if (in_interrupt())
 				netif_rx(skb);
 			else {
@@ -1173,6 +1213,21 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #endif
 #if defined(SDIO_SUSPEND_RESUME)
 	mlan_ds_ps_info pm_info;
+#endif
+	char event[512] = { 0 };
+	t_u8 category = 0;
+	t_u8 action_code = 0;
+	char *buf;
+	t_u8 peer_addr[ETH_ALEN];
+	moal_wnm_tm_msmt *tm_ind;
+	moal_wlan_802_11_header *header;
+	moal_timestamps *tsstamp;
+	t_u8 payload_len, i;
+	moal_ptp_context *ptp_context;
+#if defined(FW_ROAMING) || (defined(ROAMING_OFFLOAD) && defined(STA_CFG80211))
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+	struct cfg80211_roam_info roam_info;
+#endif
 #endif
 
 	ENTER();
@@ -1447,6 +1502,11 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #endif
 			if (!hw_test && priv->roaming_enabled)
 				woal_config_bgscan_and_rssi(priv, MTRUE);
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+			woal_cfg80211_rssi_monitor_event(priv,
+							 *(t_s16 *)pmevent->
+							 event_buf);
+#endif
 		}
 #endif
 		woal_broadcast_event(priv, CUS_EVT_BEACON_RSSI_LOW,
@@ -1474,6 +1534,11 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 							MLAN_EVENT_ID_FW_BCN_RSSI_HIGH,
 							MOAL_NO_WAIT);
 			}
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+			woal_cfg80211_rssi_monitor_event(priv,
+							 *(t_s16 *)pmevent->
+							 event_buf);
+#endif
 		}
 #endif
 		woal_broadcast_event(priv, CUS_EVT_BEACON_RSSI_HIGH,
@@ -1684,8 +1749,13 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 				) {
 				priv->roaming_required = MTRUE;
 #ifdef ANDROID_KERNEL
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+				__pm_wakeup_event(&priv->phandle->ws,
+						  ROAMING_WAKE_LOCK_TIMEOUT);
+#else
 				wake_lock_timeout(&priv->phandle->wake_lock,
 						  ROAMING_WAKE_LOCK_TIMEOUT);
+#endif
 #endif
 				wake_up_interruptible(&priv->phandle->
 						      reassoc_thread.wait_q);
@@ -1698,7 +1768,11 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
 		if (IS_STA_CFG80211(cfg80211_wext)) {
 			if (priv->sched_scanning) {
-				cfg80211_sched_scan_stopped(priv->wdev->wiphy);
+				cfg80211_sched_scan_stopped(priv->wdev->wiphy
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+							    , 0
+#endif
+					);
 				PRINTM(MEVENT, "Sched_Scan stopped\n");
 				priv->sched_scanning = MFALSE;
 			}
@@ -1714,7 +1788,11 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 			    !priv->phandle->cfg80211_suspend) {
 				woal_inform_bss_from_scan_result(priv, NULL,
 								 MOAL_NO_WAIT);
-				cfg80211_sched_scan_results(priv->wdev->wiphy);
+				cfg80211_sched_scan_results(priv->wdev->wiphy
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+							    , 0
+#endif
+					);
 				priv->last_event = 0;
 				PRINTM(MEVENT,
 				       "Reporting Sched_Scan results\n");
@@ -1821,7 +1899,7 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 		break;
 #endif /* STA_SUPPORT */
 	case MLAN_EVENT_ID_FW_CHAN_SWITCH_COMPLETE:
-#if defined(UAP_SUPPORT)
+#ifdef UAP_SUPPORT
 		if (priv->bss_role == MLAN_BSS_ROLE_UAP) {
 #ifdef UAP_CFG80211
 			chan_band_info *pchan_info =
@@ -1984,6 +2062,19 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 			woal_set_scan_time(pmpriv, ACTIVE_SCAN_CHAN_TIME,
 					   PASSIVE_SCAN_CHAN_TIME,
 					   MIN_SPECIFIC_SCAN_CHAN_TIME);
+#endif
+#endif
+#ifdef UAP_CFG80211
+#if defined(DFS_TESTING_SUPPORT)
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
+		if (priv->chan_under_nop) {
+			PRINTM(MMSG,
+			       "Channel Under Nop: notify cfg80211 new channel=%d\n",
+			       priv->channel);
+			cfg80211_ch_switch_notify(priv->netdev, &priv->chan);
+			priv->chan_under_nop = MFALSE;
+		}
+#endif
 #endif
 #endif
 		break;
@@ -2152,6 +2243,51 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #endif /* UAP_WEXT */
 		break;
 	case MLAN_EVENT_ID_DRV_MGMT_FRAME:
+		buf = (t_u8 *)(pmevent->event_buf + sizeof(pmevent->event_id));
+		payload_len =
+			pmevent->event_len - sizeof(pmevent->event_id) -
+			sizeof(moal_timestamps);
+		category = *(buf + sizeof(moal_wlan_802_11_header));
+		action_code = *(buf + sizeof(moal_wlan_802_11_header) + 1);
+		header = (moal_wlan_802_11_header *) (buf);
+		tm_ind = (moal_wnm_tm_msmt *) (buf +
+					       sizeof(moal_wlan_802_11_header) +
+					       2);
+		tsstamp = (moal_timestamps *) ((t_u8 *)buf + payload_len);
+		memcpy(peer_addr, (t_u8 *)&header->addr2, ETH_ALEN);
+		if ((category == IEEE_MGMT_ACTION_CATEGORY_UNPROTECT_WNM) &&
+		    (action_code == 0x1)) {
+			sprintf(event,
+				"%s " FULL_MACSTR
+				" %u %u %u %u %u %u %u %u %u %u %lu %llu",
+				CUS_EVT_TM_FRAME_INDICATION,
+				FULL_MAC2STR(peer_addr), tm_ind->dialog_token,
+				tsstamp->t2, tsstamp->t2_err, tsstamp->t3,
+				tsstamp->t3_err, tm_ind->follow_up_dialog_token,
+				tm_ind->t1, tm_ind->t1_err, tm_ind->t4,
+				tm_ind->t4_err,
+				(unsigned long)tsstamp->t2 * 10L,
+				tsstamp->ingress_time);
+
+			if (payload_len >
+			    (sizeof(moal_wnm_tm_msmt) +
+			     sizeof(moal_wlan_802_11_header) + 2)) {
+				ptp_context =
+					(moal_ptp_context *) (buf +
+							      sizeof
+							      (moal_wlan_802_11_header)
+							      + 2 +
+							      sizeof
+							      (moal_wnm_tm_msmt));
+				sprintf(event + strlen(event), " %02x %02x",
+					ptp_context->vendor_specific,
+					ptp_context->length);
+				for (i = 0; i < ptp_context->length; i++)
+					sprintf(event + strlen(event), " %02x",
+						ptp_context->data[i]);
+			}
+			woal_broadcast_event(priv, event, strlen(event));
+		}
 #ifdef UAP_WEXT
 		if (IS_UAP_WEXT(cfg80211_wext)) {
 			woal_broadcast_event(priv, pmevent->event_buf,
@@ -2342,12 +2478,15 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #endif
 		break;
 	case MLAN_EVENT_ID_FW_TX_STATUS:
-#if defined(STA_CFG80211) || defined(UAP_CFG80211)
-		if (IS_STA_OR_UAP_CFG80211(cfg80211_wext)) {
+		{
 			unsigned long flag;
 			tx_status_event *tx_status =
 				(tx_status_event *)(pmevent->event_buf + 4);
 			struct tx_status_info *tx_info = NULL;
+			t_u8 catagory = 0, action = 0, dialog_token = 0;
+			t_u8 peer_addr[6];
+			confirm_timestamps tsbuff = { 0 };
+
 			PRINTM(MINFO,
 			       "Receive Tx status: tx_token=%d, pkt_type=0x%x, status=%d tx_seq_num=%d\n",
 			       tx_status->tx_token_id, tx_status->packet_type,
@@ -2367,8 +2506,6 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 				else
 					ack = false;
 				{
-					t_u8 catagory = 0, action =
-						0, dialog_token = 0;
 					catagory =
 						((struct ieee80211_mgmt *)skb->
 						 data)->u.action.category;
@@ -2377,6 +2514,10 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 						    skb->data)->u.action.
 						   category + 1);
 					dialog_token = *(&((struct ieee80211_mgmt *)skb->data)->u.action.category + 2);	//dt is 2 bytes after category
+					memcpy(peer_addr,
+					       (t_u8
+						*)((struct ieee80211_mgmt *)
+						   skb->data)->da, 6);
 					PRINTM(MEVENT,
 					       "Wlan: Tx status=%d, cat = %d, act = %d, dt = %d\n",
 					       ack, catagory, action,
@@ -2388,8 +2529,6 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 					    IEEE_MGMT_ACTION_CATEGORY_UNPROTECT_WNM
 					    && action == 0x1) {
 						/* create a timestamp buffer to send to host supplicant */
-						confirm_timestamps tsbuff =
-							{ 0 };
 
 						PRINTM(MEVENT,
 						       "Wlan: Tx t1=%lld, t4 = %lld, t1_error = %lld, t4_error=%lld\n",
@@ -2446,15 +2585,37 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 							       skb_tailroom
 							       (skb));
 						}
-						memcpy(skb_put
-						       (skb,
-							sizeof
-							(confirm_timestamps)),
-						       &tsbuff,
-						       sizeof
-						       (confirm_timestamps));
+						if (tx_info->tx_cookie) {
+							memcpy(skb_put
+							       (skb,
+								sizeof
+								(confirm_timestamps)),
+							       &tsbuff,
+							       sizeof
+							       (confirm_timestamps));
+						} else {
+							sprintf(event,
+								"%s "
+								FULL_MACSTR
+								" %u %u %u %u %u %u %llu",
+								CUS_EVT_TIMING_MSMT_CONFIRM,
+								FULL_MAC2STR
+								(peer_addr),
+								dialog_token,
+								tsbuff.t1,
+								tsbuff.t1_error,
+								tsbuff.t4,
+								tsbuff.t4_error,
+								tsbuff.t1 * 10,
+								tsbuff.
+								egress_time);
+							woal_broadcast_event
+								(priv, event,
+								 sizeof(event));
+						}
 					}
 				}
+#if defined(STA_CFG80211) || defined(UAP_CFG80211)
 				if (tx_info->tx_cookie) {
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
 #if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
@@ -2474,14 +2635,15 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #endif
 #endif
 				}
+#endif
 				dev_kfree_skb_any(skb);
 				kfree(tx_info);
 			} else
 				spin_unlock_irqrestore(&priv->tx_stat_lock,
 						       flag);
 		}
-#endif
 		break;
+
 	case MLAN_EVENT_ID_DRV_FT_RESPONSE:
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #ifdef STA_CFG80211
@@ -2708,4 +2870,23 @@ moal_get_host_time_ns(OUT t_u64 *time)
 	hclk_val = (ts.tv_sec * 1000000000L) + ts.tv_nsec;
 	*time = hclk_val;
 	return MLAN_STATUS_SUCCESS;
+}
+
+/**
+ *  @brief Performs division of 64-bit num with base
+ *  @brief do_div does two things
+ *  @brief 1. modifies the 64-bit num in place with
+ *  @brief the quotient, i.e., num becomes quotient
+ *  @brief 2. do_div() returns the 32-bit reminder
+ *
+ *  @param num   dividend
+ *  @param base  divisor
+ *  @return      returns 64-bit quotient
+ */
+t_u64
+moal_do_div(IN t_u64 num, IN t_u32 base)
+{
+	t_u64 val = num;
+	do_div(val, base);
+	return val;
 }
