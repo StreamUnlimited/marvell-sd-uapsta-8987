@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 11n handling.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -2315,11 +2315,11 @@ wlan_get_second_channel_offset(int chan)
 	case 120:
 	case 128:
 	case 136:
+	case 144:
 	case 153:
 	case 161:
 		chan2Offset = SEC_CHAN_BELOW;
 		break;
-	case 144:
 	case 165:
 		/* Special Case: 20Mhz-only Channel */
 		chan2Offset = SEC_CHAN_NONE;

@@ -3,7 +3,7 @@
  *
  *  @brief This file include miscellaneous functions for MLAN module
  *
- *  Copyright (C) 2009-2017, Marvell International Ltd.
+ *  Copyright (C) 2009-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -298,11 +298,12 @@ wlan_misc_get_correlated_time(IN pmlan_adapter pmadapter,
 {
 	pmlan_private pmpriv = MNULL;
 	mlan_status ret = MLAN_STATUS_SUCCESS;
-
-	mlan_ds_get_correlated_time *clock_cfg =
-		(mlan_ds_get_correlated_time *) pioctl_req->pbuf;
+	mlan_ds_misc_cfg *misc = MNULL;
+	mlan_ds_host_clock *host_clock = MNULL;
 
 	ENTER();
+	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+	host_clock = &misc->param.host_clock;
 
 	if (pioctl_req != MNULL) {
 		pmpriv = pmadapter->priv[pioctl_req->bss_index];
@@ -312,23 +313,54 @@ wlan_misc_get_correlated_time(IN pmlan_adapter pmadapter,
 		goto exit;
 	}
 
-	/* Check information buffer length of MLAN IOCTL */
-	if (pioctl_req->buf_len < sizeof(mlan_ds_get_correlated_time)) {
-		PRINTM(MWARN,
-		       "MLAN IOCTL information buffer length is too short.\n");
-		pioctl_req->data_read_written = 0;
-		pioctl_req->buf_len_needed =
-			sizeof(mlan_ds_get_correlated_time);
-		pioctl_req->status_code = MLAN_ERROR_INVALID_PARAMETER;
-		ret = MLAN_STATUS_RESOURCE;
+	/* Send request to firmware */
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_HOST_CLOCK_CFG,
+			       HostCmd_ACT_GEN_GET,
+			       0, (t_void *)pioctl_req, (t_void *)host_clock);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+
+exit:
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief     Do ACS
+ *
+ *  @param pmadapter	A pointer to mlan_adapter structure
+ *  @param pioctl_req	A pointer to ioctl request buffer
+ *
+ *  @return		MLAN_STATUS_PENDING --success, otherwise fail
+ */
+mlan_status
+wlan_misc_acs(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
+{
+	pmlan_private pmpriv = MNULL;
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	mlan_ds_misc_cfg *misc = MNULL;
+	mlan_ds_misc_acs *acs = MNULL;
+
+	ENTER();
+
+	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+	acs = &misc->param.acs;
+
+	if (pioctl_req != MNULL) {
+		pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	} else {
+		PRINTM(MERROR, "MLAN IOCTL information is not present\n");
+		ret = MLAN_STATUS_FAILURE;
 		goto exit;
 	}
 
 	/* Send request to firmware */
 	ret = wlan_prepare_cmd(pmpriv,
-			       HostCmd_CMD_HOST_CLOCK_CFG,
-			       HostCmd_ACT_GEN_GET,
-			       0, (t_void *)pioctl_req, (t_void *)clock_cfg);
+			       HostCmd_CMD_ACS,
+			       HostCmd_ACT_GEN_SET,
+			       0, (t_void *)pioctl_req, (t_void *)acs);
 
 	if (ret == MLAN_STATUS_SUCCESS)
 		ret = MLAN_STATUS_PENDING;
@@ -681,8 +713,12 @@ wlan_pm_wakeup_card(IN pmlan_adapter pmadapter)
 						  &pmadapter->pm_wakeup_in_secs,
 						  &age_ts_usec);
 
-	ret = pcb->moal_write_reg(pmadapter->pmoal_handle,
-				  HOST_TO_CARD_EVENT_REG, HOST_POWER_UP);
+	if (pmadapter->fw_wakeup_method == WAKEUP_FW_THRU_GPIO) {
+		/* GPIO_PORT_TO_LOW(); */
+	} else
+		ret = pcb->moal_write_reg(pmadapter->pmoal_handle,
+					  HOST_TO_CARD_EVENT_REG,
+					  HOST_POWER_UP);
 	LEAVE();
 	return ret;
 }
@@ -702,8 +738,11 @@ wlan_pm_reset_card(IN pmlan_adapter pmadapter)
 
 	ENTER();
 
-	ret = pcb->moal_write_reg(pmadapter->pmoal_handle,
-				  HOST_TO_CARD_EVENT_REG, 0);
+	if (pmadapter->fw_wakeup_method == WAKEUP_FW_THRU_GPIO) {
+		/* GPIO_PORT_TO_HIGH(); */
+	} else
+		ret = pcb->moal_write_reg(pmadapter->pmoal_handle,
+					  HOST_TO_CARD_EVENT_REG, 0);
 
 	LEAVE();
 	return ret;
@@ -817,6 +856,79 @@ wlan_pm_ioctl_hscfg(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 
 	LEAVE();
 	return status;
+}
+
+/**
+ *  @brief Get/Set the firmware wakeup method
+ *
+ *  @param pmadapter	A pointer to mlan_adapter structure
+ *  @param pioctl_req	A pointer to ioctl request buffer
+ *
+ *  @return		MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise fail
+ */
+mlan_status
+wlan_fw_wakeup_method(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	t_u16 cmd_action;
+	mlan_ds_pm_cfg *pmcfg = (mlan_ds_pm_cfg *)pioctl_req->pbuf;
+
+	ENTER();
+
+	if (pioctl_req->action == MLAN_ACT_SET)
+		cmd_action = HostCmd_ACT_GEN_SET;
+	else
+		cmd_action = HostCmd_ACT_GEN_GET;
+
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_802_11_FW_WAKE_METHOD,
+			       cmd_action,
+			       0,
+			       (t_void *)pioctl_req,
+			       &pmcfg->param.fw_wakeup_params);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief Set Robustcoex gpiocfg
+ *
+ *  @param pmadapter	A pointer to mlan_adapter structure
+ *  @param pioctl_req	A pointer to ioctl request buffer
+ *
+ *  @return		MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise fail
+ */
+mlan_status
+wlan_misc_robustcoex(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	t_u16 cmd_action;
+	mlan_ds_misc_cfg *robust_coex_cfg =
+		(mlan_ds_misc_cfg *)pioctl_req->pbuf;
+
+	ENTER();
+
+	if (pioctl_req->action == MLAN_ACT_SET)
+		cmd_action = HostCmd_ACT_GEN_SET;
+	else
+		cmd_action = HostCmd_ACT_GEN_GET;
+
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_802_11_ROBUSTCOEX,
+			       cmd_action,
+			       0,
+			       (t_void *)pioctl_req,
+			       &robust_coex_cfg->param.robustcoexparams);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+	LEAVE();
+	return ret;
 }
 
 /**
@@ -2804,7 +2916,10 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 			tstamps.t2 = (t_u32)prx_pd->toa_tod_tstamps;
 			tstamps.t2_err = 0;
 			tstamps.t3_err = 0;
-			tstamps.ingress_time = pmadapter->host_bbu_clk_delta / 10 + tstamps.t2;	//t2, t3 is 10ns and delta is in 1 ns unit
+			tstamps.ingress_time =
+				pcb->moal_do_div(pmadapter->host_bbu_clk_delta,
+						 10);
+			tstamps.ingress_time += tstamps.t2;	//t2, t3 is 10ns and delta is in 1 ns unit;
 			PRINTM(MINFO, "T2: %d, T3: %d, ingress: %lu\n",
 			       tstamps.t2, tstamps.t3, tstamps.ingress_time);
 		}
@@ -3116,6 +3231,9 @@ wlan_check_sta_capability(pmlan_private priv, pmlan_buffer pevent,
 				if (pht_cap) {
 					PRINTM(MCMND, "STA supports 11n\n");
 					sta_ptr->is_11n_enabled = MTRUE;
+					memcpy(priv->adapter,
+					       (t_u8 *)&sta_ptr->HTcap, pht_cap,
+					       sizeof(IEEEtypes_HTCap_t));
 					if (GETHT_MAXAMSDU
 					    (wlan_le16_to_cpu
 					     (pht_cap->ht_cap.ht_cap_info)))
@@ -4461,9 +4579,35 @@ wlan_sec_ioctl_passphrase(IN pmlan_adapter pmadapter,
 	ret = wlan_prepare_cmd(pmpriv,
 			       HostCmd_CMD_SUPPLICANT_PMK,
 			       cmd_action,
-			       0, (t_void *)pioctl_req, &sec->param.passphrase);
+			       0, (t_void *)pioctl_req, (t_void *)sec);
 	if (ret == MLAN_STATUS_SUCCESS)
 		ret = MLAN_STATUS_PENDING;
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief Set per packet Txctl and Rxinfo configuration
+ *
+ *  @param pmadapter    A pointer to mlan_adapter structure
+ *  @param pioctl_req   A pointer to ioctl request buffer
+ *
+ *  @return             MLAN_STATUS_SUCCESS --success, otherwise fail
+ */
+mlan_status
+wlan_misc_per_pkt_cfg(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_ds_misc_cfg *misc = MNULL;
+
+	ENTER();
+
+	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+	pmpriv->rx_pkt_info = MFALSE;
+	if (misc->param.txrx_pkt_ctrl & RX_PKT_INFO)
+		pmpriv->rx_pkt_info = MTRUE;
 
 	LEAVE();
 	return ret;
@@ -4492,6 +4636,13 @@ wlan_misc_ioctl_region(IN pmlan_adapter pmadapter,
 	if (pioctl_req->action == MLAN_ACT_GET) {
 		misc->param.region_code = pmadapter->region_code;
 	} else {
+		if (pmadapter->otp_region && pmadapter->otp_region->force_reg) {
+			PRINTM(MERROR,
+			       "ForceRegionRule is set in the on-chip OTP"
+			       " memory\n");
+			LEAVE();
+			return MLAN_STATUS_FAILURE;
+		}
 		for (i = 0; i < MRVDRV_MAX_REGION_CODE; i++) {
 			/* Use the region code to search for the index */
 			if (misc->param.region_code == region_code_index[i]) {
@@ -4588,6 +4739,43 @@ wlan_misc_ioctl_get_tsf(IN pmlan_adapter pmadapter,
 	/* Send request to firmware */
 	ret = wlan_prepare_cmd(pmpriv,
 			       HostCmd_CMD_GET_TSF,
+			       cmd_action, 0, (t_void *)pioctl_req, MNULL);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief  Create custom regulatory cfg
+ *
+ *  @param pmadapter	A pointer to mlan_adapter structure
+ *  @param pioctl_req	A pointer to ioctl request buffer
+ *
+ *  @return		MLAN_STATUS_PENDING --success, otherwise fail
+ */
+mlan_status
+wlan_misc_chan_reg_cfg(IN pmlan_adapter pmadapter,
+		       IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	t_u16 cmd_action = 0;
+
+	ENTER();
+
+	if (pioctl_req->action == MLAN_ACT_GET)
+		cmd_action = HostCmd_ACT_GEN_GET;
+	else {
+		PRINTM(MERROR, "No support set channel region cfg!");
+		return MLAN_STATUS_FAILURE;
+	}
+
+	/* Send request to firmware */
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_CHAN_REGION_CFG,
 			       cmd_action, 0, (t_void *)pioctl_req, MNULL);
 
 	if (ret == MLAN_STATUS_SUCCESS)
@@ -4717,6 +4905,95 @@ wlan_misc_ioctl_fw_dump_event(IN pmlan_adapter pmadapter,
 	ret = wlan_prepare_cmd(pmpriv,
 			       HostCmd_CMD_FW_DUMP_EVENT,
 			       cmd_action, 0, (t_void *)pioctl_req, MNULL);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief Set/Get the network monitor configuration.
+ *
+ *  @param pmadapter    A pointer to mlan_adapter structure
+ *  @param pioctl_req   A pointer to ioctl request buffer
+ *
+ *  @return             MLAN_STATUS_PENDING --success, otherwise fail
+ */
+mlan_status
+wlan_misc_ioctl_net_monitor(IN pmlan_adapter pmadapter,
+			    IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_private *pmpriv;
+	mlan_ds_misc_cfg *misc;
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	t_u16 cmd_action = 0;
+
+	ENTER();
+
+	if (!pioctl_req) {
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
+	}
+	pmpriv = pmadapter->priv[pioctl_req->bss_index];
+
+	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+	if (pioctl_req->action == MLAN_ACT_SET)
+		cmd_action = HostCmd_ACT_GEN_SET;
+	else
+		cmd_action = HostCmd_ACT_GEN_GET;
+
+	/* Send command to firmware */
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_802_11_NET_MONITOR,
+			       cmd_action,
+			       0, (t_void *)pioctl_req, &misc->param.net_mon);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief config boot sleep
+ *
+ *  @param pmadapter    A pointer to mlan_adapter structure
+ *  @param pioctl_req   Pointer to the IOCTL request buffer
+ *
+ *  @return             MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+wlan_misc_bootsleep(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
+{
+	pmlan_private pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_ds_misc_cfg *misc = MNULL;
+	t_u16 cmd_action = 0;
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+
+	if (pioctl_req->action == MLAN_ACT_SET)
+		cmd_action = HostCmd_ACT_GEN_SET;
+	else if (pioctl_req->action == MLAN_ACT_GET)
+		cmd_action = HostCmd_ACT_GEN_GET;
+	else {
+		PRINTM(MERROR, "Unsupported cmd_action 0x%x\n",
+		       pioctl_req->action);
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
+	}
+
+	/* Send request to firmware */
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_BOOT_SLEEP,
+			       cmd_action,
+			       0,
+			       (t_void *)pioctl_req, &misc->param.boot_sleep);
 
 	if (ret == MLAN_STATUS_SUCCESS)
 		ret = MLAN_STATUS_PENDING;

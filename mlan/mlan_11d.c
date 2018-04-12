@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 802.11D.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1491,6 +1491,12 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 
 	ENTER();
 
+	if (pmadapter->otp_region && pmadapter->otp_region->force_reg) {
+		PRINTM(MERROR,
+		       "ForceRegionRule is set in the on-chip OTP memory\n");
+		ret = MLAN_STATUS_FAILURE;
+		goto done;
+	}
 	cfg_11d = (mlan_ds_11d_cfg *)pioctl_req->pbuf;
 	domain_info = &cfg_11d->param.domain_info;
 	memcpy(pmadapter, pmadapter->country_code, domain_info->country_code,

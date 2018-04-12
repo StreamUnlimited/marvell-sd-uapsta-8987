@@ -3,7 +3,7 @@
  *  @brief This file contains the initialization for FW
  *  and HW.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -378,6 +378,8 @@ wlan_init_priv(pmlan_private priv)
 
 	priv->beacon_period = MLAN_BEACON_INTERVAL;
 	priv->pattempted_bss_desc = MNULL;
+	memset(pmadapter, &priv->gtk_rekey, 0,
+	       sizeof(mlan_ds_misc_gtk_rekey_data));
 	memset(pmadapter, &priv->curr_bss_params, 0,
 	       sizeof(priv->curr_bss_params));
 	priv->listen_interval = MLAN_DEFAULT_LISTEN_INTERVAL;
@@ -410,6 +412,7 @@ wlan_init_priv(pmlan_private priv)
 	priv->min_tx_power_level = 0;
 	priv->tx_rate = 0;
 	priv->rxpd_rate_info = 0;
+	priv->rx_pkt_info = MFALSE;
 	/* refer to V15 CMD_TX_RATE_QUERY */
 	priv->rxpd_vhtinfo = 0;
 	priv->rxpd_rate = 0;
@@ -627,6 +630,8 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 
 	pmadapter->local_listen_interval = 0;	/* default value in firmware will be used */
 #endif /* STA_SUPPORT */
+	pmadapter->fw_wakeup_method = WAKEUP_FW_UNCHANGED;
+	pmadapter->fw_wakeup_gpio_pin = DEF_WAKEUP_FW_GPIO;
 
 	pmadapter->is_deep_sleep = MFALSE;
 	pmadapter->idle_time = DEEP_SLEEP_IDLE_TIME;
@@ -662,7 +667,6 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	pmadapter->hs_cfg.gap = HOST_SLEEP_DEF_GAP;
 	pmadapter->hs_activated = MFALSE;
 	pmadapter->min_wake_holdoff = HOST_SLEEP_DEF_WAKE_HOLDOFF;
-	pmadapter->hs_wake_interval = 0;
 	pmadapter->hs_inactivity_timeout = HOST_SLEEP_DEF_INACTIVITY_TIMEOUT;
 
 	memset(pmadapter, pmadapter->event_body, 0,
@@ -678,7 +682,7 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 
 	pmadapter->hw_dot_11ac_dev_cap = 0;
 	pmadapter->hw_dot_11ac_mcs_support = 0;
-
+	pmadapter->max_sta_conn = 0;
 	/* Initialize 802.11d */
 	wlan_11d_init(pmadapter);
 
@@ -1105,6 +1109,7 @@ mlan_status
 wlan_init_fw(IN pmlan_adapter pmadapter)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
+	ENTER();
 	/* Initialize adapter structure */
 	wlan_init_adapter(pmadapter);
 #ifdef MFG_CMD_SUPPORT
@@ -1142,7 +1147,9 @@ void
 wlan_update_hw_spec(IN pmlan_adapter pmadapter)
 {
 	t_u32 i;
-	pmlan_private pmpriv = wlan_get_priv(pmadapter, MLAN_BSS_ROLE_ANY);
+
+	ENTER();
+
 #ifdef STA_SUPPORT
 	if (IS_SUPPORT_MULTI_BANDS(pmadapter))
 		pmadapter->fw_bands = (t_u8)GET_FW_DEFAULT_BANDS(pmadapter);
@@ -1181,24 +1188,44 @@ wlan_update_hw_spec(IN pmlan_adapter pmadapter)
 			pmadapter->adhoc_11n_enabled = MTRUE;
 		} else
 			pmadapter->adhoc_start_band = BAND_A;
-		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL_A;
+		for (i = 0; i < pmadapter->priv_num; i++) {
+			if (pmadapter->priv[i])
+				pmadapter->priv[i]->adhoc_channel =
+					DEFAULT_AD_HOC_CHANNEL_A;
+		}
+
 	} else if ((pmadapter->fw_bands & BAND_GN)
 		) {
 		pmadapter->adhoc_start_band = BAND_G | BAND_B | BAND_GN;
-		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
+		for (i = 0; i < pmadapter->priv_num; i++) {
+			if (pmadapter->priv[i])
+				pmadapter->priv[i]->adhoc_channel =
+					DEFAULT_AD_HOC_CHANNEL;
+		}
 		pmadapter->adhoc_11n_enabled = MTRUE;
 	} else if (pmadapter->fw_bands & BAND_G) {
 		pmadapter->adhoc_start_band = BAND_G | BAND_B;
-		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
+		for (i = 0; i < pmadapter->priv_num; i++) {
+			if (pmadapter->priv[i])
+				pmadapter->priv[i]->adhoc_channel =
+					DEFAULT_AD_HOC_CHANNEL;
+		}
 	} else if (pmadapter->fw_bands & BAND_B) {
 		pmadapter->adhoc_start_band = BAND_B;
-		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
+		for (i = 0; i < pmadapter->priv_num; i++) {
+			if (pmadapter->priv[i])
+				pmadapter->priv[i]->adhoc_channel =
+					DEFAULT_AD_HOC_CHANNEL;
+		}
 	}
 #endif /* STA_SUPPORT */
 
-	if (pmpriv->curr_addr[0] == 0xff)
-		memmove(pmadapter, pmpriv->curr_addr, pmadapter->permanent_addr,
-			MLAN_MAC_ADDR_LENGTH);
+	for (i = 0; i < pmadapter->priv_num; i++) {
+		if (pmadapter->priv[i]->curr_addr[0] == 0xff)
+			memmove(pmadapter, pmadapter->priv[i]->curr_addr,
+				pmadapter->permanent_addr,
+				MLAN_MAC_ADDR_LENGTH);
+	}
 
 	for (i = 0; i < pmadapter->priv_num; i++) {
 		if (pmadapter->priv[i])
@@ -1217,6 +1244,7 @@ wlan_update_hw_spec(IN pmlan_adapter pmadapter)
 			wlan_update_11ac_cap(pmadapter->priv[i]);
 	}
 
+	LEAVE();
 	return;
 }
 
@@ -1314,6 +1342,7 @@ wlan_free_adapter(pmlan_adapter pmadapter)
 				     pmadapter->pmlan_cmd_timer);
 		pmadapter->cmd_timer_is_set = MFALSE;
 	}
+	wlan_free_fw_cfp_tables(pmadapter);
 #ifdef STA_SUPPORT
 	PRINTM(MINFO, "Free ScanTable\n");
 	if (pmadapter->pscan_table) {

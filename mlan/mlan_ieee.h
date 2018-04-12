@@ -3,7 +3,7 @@
  *  @brief This file contains IEEE information element related
  *  definitions used in MLAN and MOAL module.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -74,9 +74,7 @@ typedef MLAN_PACK_START enum _IEEEtypes_ElementId_e {
 
 	IBSS_PARAM_SET = 6,
 
-#ifdef STA_SUPPORT
 	COUNTRY_INFO = 7,
-#endif /* STA_SUPPORT */
 
 	POWER_CONSTRAINT = 32,
 	POWER_CAPABILITY = 33,
@@ -529,9 +527,6 @@ typedef MLAN_PACK_START struct _IEEEtypes_Wpa_t {
     /** Wpa : pairwise cipher */
 	wpa_suite_ucast_t pairwise_cipher;
 } MLAN_PACK_END IEEEtypes_Wpa_t, *pIEEEtypes_Wpa_t;
-
-/** Maximum number of AC QOS queues available in the driver/firmware */
-#define MAX_AC_QUEUES 4
 
 /** Data structure of WMM QoS information */
 typedef MLAN_PACK_START struct _IEEEtypes_WmmQosInfo_t {
@@ -1511,24 +1506,6 @@ typedef MLAN_PACK_START struct _wlan_user_scan_chan {
 	t_u32 scan_time;
 } MLAN_PACK_END wlan_user_scan_chan;
 
-/** channel statictics */
-typedef MLAN_PACK_START struct _ChanStatistics_t {
-    /** channle number */
-	t_u8 chan_num;
-	/** band info */
-	Band_Config_t bandcfg;
-	/** flags */
-	t_u8 flags;
-	/** noise */
-	t_s8 noise;
-	/** total network */
-	t_u16 total_networks;
-	/** scan duration */
-	t_u16 cca_scan_duration;
-	/** busy duration */
-	t_u16 cca_busy_duration;
-} MLAN_PACK_END ChanStatistics_t;
-
 /** Enhance ext scan type defination */
 typedef enum _MLAN_EXT_SCAN_TYPE {
 	EXT_SCAN_DEFAULT,
@@ -1653,6 +1630,24 @@ typedef MLAN_PACK_START struct {
 	t_u16 scan_chan_gap;
 } MLAN_PACK_END wlan_bgscan_cfg;
 #endif /* STA_SUPPORT */
+
+/** channel statictics */
+typedef MLAN_PACK_START struct _ChanStatistics_t {
+    /** channle number */
+	t_u8 chan_num;
+	/** band info */
+	Band_Config_t bandcfg;
+	/** flags */
+	t_u8 flags;
+	/** noise */
+	t_s8 noise;
+	/** total network */
+	t_u16 total_networks;
+	/** scan duration */
+	t_u16 cca_scan_duration;
+	/** busy duration */
+	t_u16 cca_busy_duration;
+} MLAN_PACK_END ChanStatistics_t;
 
 #ifdef PRAGMA_PACK
 #pragma pack(pop)

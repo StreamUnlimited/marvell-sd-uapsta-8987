@@ -3,7 +3,7 @@
  *  @brief This file contains the handling of data packet
  *  transmission in MLAN module.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -147,6 +147,28 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 	if (pmbuf->flags & MLAN_BUF_FLAG_TX_STATUS) {
 		plocal_tx_pd->tx_control_1 |= pmbuf->tx_seq_num << 8;
 		plocal_tx_pd->flags |= MRVDRV_TxPD_FLAGS_TX_PACKET_STATUS;
+	}
+	if (pmbuf->flags & MLAN_BUF_FLAG_TX_CTRL) {
+		if (pmbuf->u.tx_info.data_rate) {
+			plocal_tx_pd->tx_control |=
+				(wlan_ieee_rateid_to_mrvl_rateid
+				 (pmpriv, pmbuf->u.tx_info.data_rate,
+				  MNULL) << 16);
+			plocal_tx_pd->tx_control |= TXPD_TXRATE_ENABLE;
+		}
+		plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.channel << 21;
+		if (pmbuf->u.tx_info.bw) {
+			plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.bw << 16;
+			plocal_tx_pd->tx_control_1 |= TXPD_BW_ENABLE;
+		}
+		if (pmbuf->u.tx_info.tx_power.tp.hostctl)
+			plocal_tx_pd->tx_control |=
+				pmbuf->u.tx_info.tx_power.val;
+		if (pmbuf->u.tx_info.retry_limit) {
+			plocal_tx_pd->tx_control |=
+				pmbuf->u.tx_info.retry_limit << 8;
+			plocal_tx_pd->tx_control |= TXPD_RETRY_ENABLE;
+		}
 	}
 	endian_convert_TxPD(plocal_tx_pd);
 	/* Adjust the data offset and length to include TxPD in pmbuf */

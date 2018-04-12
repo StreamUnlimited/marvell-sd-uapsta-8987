@@ -6,7 +6,7 @@
  *  for sending adhoc start, adhoc join, and association commands
  *  to the firmware.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -485,9 +485,9 @@ wlan_update_rsn_ie(mlan_private *pmpriv, MrvlIEtypes_RsnParamSet_t *ptlv_rsn_ie)
 	t_u16 *akm_suite_count_ptr;
 	t_u16 pmf_mask = 0x00;
 	t_u8 *temp;
-	int pairwise_cipher_count = 0;
-	int akm_suite_count = 0;
-	int temp_akm_suite_count = 0;
+	t_u16 pairwise_cipher_count = 0;
+	t_u16 akm_suite_count = 0;
+	t_u16 temp_akm_suite_count = 0;
 	int found = 0;
 	t_u8 sha_256_oui[4] = { 0x00, 0x0f, 0xac, 0x06 };
 	mlan_adapter *pmadapter = pmpriv->adapter;
@@ -604,10 +604,10 @@ wlan_update_rsn_ie(mlan_private *pmpriv, MrvlIEtypes_RsnParamSet_t *ptlv_rsn_ie)
 t_u8
 wlan_ft_akm_is_used(mlan_private *pmpriv, t_u8 *rsn_ie)
 {
-	t_u16 *ptr;
 	t_u8 *temp;
-	int pairwise_cipher_count = 0;
-	int akm_suite_count = 0;
+	t_u16 count;
+	t_u16 pairwise_cipher_count = 0;
+	t_u16 akm_suite_count = 0;
 	t_u8 found = 0;
 	t_u8 rsn_ft_1x_oui[4] = { 0x00, 0x0f, 0xac, 0x03 };
 	t_u8 rsn_ft_psk_oui[4] = { 0x00, 0x0f, 0xac, 0x04 };
@@ -626,11 +626,11 @@ wlan_ft_akm_is_used(mlan_private *pmpriv, t_u8 *rsn_ie)
 	 *  2 bytes pairwise_cipher_count + pairwise_cipher_count * PAIRWISE_CIPHER_SUITE_LEN (4) +
 	 *  2 bytes akm_suite_count + akm_suite_count * AKM_SUITE_LEN (4)
 	 */
-	ptr = (t_u16 *)(rsn_ie + 2 + 2 + 4 * sizeof(t_u8));
-	pairwise_cipher_count = wlan_le16_to_cpu(*ptr);
-	ptr = (t_u16 *)(rsn_ie + 2 + 2 + 4 * sizeof(t_u8)
-			+ sizeof(t_u16) + pairwise_cipher_count * 4);
-	akm_suite_count = wlan_le16_to_cpu(*ptr);
+	count = *(t_u16 *)(rsn_ie + 2 + 2 + 4 * sizeof(t_u8));
+	pairwise_cipher_count = wlan_le16_to_cpu(count);
+	count = *(t_u16 *)(rsn_ie + 2 + 2 + 4 * sizeof(t_u8)
+			   + sizeof(t_u16) + pairwise_cipher_count * 4);
+	akm_suite_count = wlan_le16_to_cpu(count);
 	temp = (t_u8 *)(rsn_ie + 2 + sizeof(t_u16) + 4 * sizeof(t_u8)
 			+ sizeof(t_u16) + pairwise_cipher_count
 			* 4 + sizeof(t_u16));

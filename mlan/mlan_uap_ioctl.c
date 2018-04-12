@@ -2,7 +2,7 @@
  *
  *  @brief This file contains the handling of AP mode ioctls
  *
- *  Copyright (C) 2009-2017, Marvell International Ltd.
+ *  Copyright (C) 2009-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -270,14 +270,6 @@ wlan_uap_bss_ioctl_start(IN pmlan_adapter pmadapter,
 	mlan_ds_bss *bss = MNULL;
 
 	ENTER();
-
-	if (pmadapter->enable_net_mon == MTRUE) {
-		PRINTM(MINFO,
-		       "BSS start is blocked in Network Monitor mode...\n");
-		LEAVE();
-		return MLAN_STATUS_FAILURE;
-	}
-
 	bss = (mlan_ds_bss *)pioctl_req->pbuf;
 	pmpriv->uap_host_based = bss->param.host_based;
 	if (!pmpriv->intf_state_11h.is_11h_host &&
@@ -1598,6 +1590,46 @@ wlan_uap_get_beacon_dtim(IN pmlan_private pmpriv)
 }
 
 /**
+ *  @brief Set/Get deauth control.
+ *
+ *  @param pmadapter	A pointer to mlan_adapter structure
+ *  @param pioctl_req	A pointer to ioctl request buffer
+ *
+ *  @return		MLAN_STATUS_PENDING --success, otherwise fail
+ */
+mlan_status
+wlan_uap_snmp_mib_ctrl_deauth(IN pmlan_adapter pmadapter,
+			      IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	mlan_ds_snmp_mib *mib = (mlan_ds_snmp_mib *)pioctl_req->pbuf;
+	t_u16 cmd_action = 0;
+
+	ENTER();
+
+	mib = (mlan_ds_snmp_mib *)pioctl_req->pbuf;
+	if (pioctl_req->action == MLAN_ACT_SET) {
+		cmd_action = HostCmd_ACT_GEN_SET;
+	} else {
+		cmd_action = HostCmd_ACT_GEN_GET;
+	}
+
+	/* Send command to firmware */
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_802_11_SNMP_MIB,
+			       cmd_action,
+			       StopDeauth_i,
+			       (t_void *)pioctl_req, &mib->param.deauthctrl);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+
+	LEAVE();
+	return ret;
+}
+
+/**
  *  @brief MLAN uap ioctl handler
  *
  *  @param adapter	A pointer to mlan_adapter structure
@@ -1734,6 +1766,8 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 				pmadapter->hw_dev_mcs_support;
 			pget_info->param.fw_info.hw_dot_11n_dev_cap =
 				pmadapter->hw_dot_11n_dev_cap;
+			pget_info->param.fw_info.usr_dev_mcs_support =
+				pmpriv->usr_dev_mcs_support;
 			pget_info->param.fw_info.hw_dot_11ac_mcs_support =
 				pmadapter->hw_dot_11ac_mcs_support;
 			pget_info->param.fw_info.hw_dot_11ac_dev_cap =
@@ -1750,12 +1784,9 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 				IS_FW_SUPPORT_SUPPLICANT(pmadapter) ? 0x01 :
 				0x00;
 			pget_info->param.fw_info.antinfo = pmadapter->antinfo;
-			pget_info->param.fw_info.max_p2p_conn =
-				pmadapter->max_p2p_conn;
+			pget_info->param.fw_info.max_ap_assoc_sta =
+				pmadapter->max_sta_conn;
 		}
-		break;
-	case MLAN_IOCTL_GET_CORRELATED_TIME:
-		status = wlan_misc_get_correlated_time(pmadapter, pioctl_req);
 		break;
 	case MLAN_IOCTL_MISC_CFG:
 		misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
@@ -1817,15 +1848,35 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 							     pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_GET_TSF)
 			status = wlan_misc_ioctl_get_tsf(pmadapter, pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_GET_CHAN_REGION_CFG)
+			status = wlan_misc_chan_reg_cfg(pmadapter, pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_OPER_CLASS_CHECK)
 			status = wlan_misc_ioctl_operclass_validation(pmadapter,
 								      pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_OPER_CLASS)
 			status = wlan_misc_ioctl_oper_class(pmadapter,
 							    pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_PER_PKT_CFG)
+			status = wlan_misc_per_pkt_cfg(pmadapter, pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_NET_MONITOR)
+			status = wlan_misc_ioctl_net_monitor(pmadapter,
+							     pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_FW_DUMP_EVENT)
 			status = wlan_misc_ioctl_fw_dump_event(pmadapter,
 							       pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_ROBUSTCOEX)
+			status = wlan_misc_robustcoex(pmadapter, pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_GET_CORRELATED_TIME)
+			status = wlan_misc_get_correlated_time(pmadapter,
+							       pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_CFP_INFO)
+			status = wlan_get_cfpinfo(pmadapter, pioctl_req);
+		if (misc->sub_command == MLAN_OID_MISC_BOOT_SLEEP)
+			status = wlan_misc_bootsleep(pmadapter, pioctl_req);
+#ifdef STA_SUPPORT
+		if (misc->sub_command == MLAN_OID_MISC_ACS)
+			status = wlan_misc_acs(pmadapter, pioctl_req);
+#endif
 		break;
 	case MLAN_IOCTL_PM_CFG:
 		pm = (mlan_ds_pm_cfg *)pioctl_req->pbuf;
@@ -1843,9 +1894,14 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 			status = wlan_config_mgmt_filter(pmadapter, pioctl_req);
 		if (pm->sub_command == MLAN_OID_PM_INFO)
 			status = wlan_get_pm_info(pmadapter, pioctl_req);
+		if (pm->sub_command == MLAN_OID_PM_CFG_FW_WAKEUP_METHOD)
+			status = wlan_fw_wakeup_method(pmadapter, pioctl_req);
 		break;
 	case MLAN_IOCTL_SNMP_MIB:
 		snmp = (mlan_ds_snmp_mib *)pioctl_req->pbuf;
+		if (snmp->sub_command == MLAN_OID_SNMP_MIB_CTRL_DEAUTH)
+			status = wlan_uap_snmp_mib_ctrl_deauth(pmadapter,
+							       pioctl_req);
 		if (snmp->sub_command == MLAN_OID_SNMP_MIB_DOT11D)
 			status = wlan_uap_snmp_mib_11d(pmadapter, pioctl_req);
 		if (snmp->sub_command == MLAN_OID_SNMP_MIB_DOT11H)
@@ -1877,6 +1933,9 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		if (cfg11h->sub_command == MLAN_OID_11H_DFS_TESTING)
 			status = wlan_11h_ioctl_dfs_testing(pmadapter,
 							    pioctl_req);
+		if (cfg11h->sub_command == MLAN_OID_11H_CHAN_NOP_INFO)
+			status = wlan_11h_ioctl_get_channel_nop_info(pmadapter,
+								     pioctl_req);
 #endif
 		if (cfg11h->sub_command == MLAN_OID_11H_CHAN_REPORT_REQUEST)
 			status = wlan_11h_ioctl_dfs_cancel_chan_report(pmpriv,
@@ -1923,6 +1982,7 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		break;
 	default:
 		pioctl_req->status_code = MLAN_ERROR_IOCTL_INVALID;
+		status = MLAN_ERROR_IOCTL_INVALID;
 		break;
 	}
 	LEAVE();

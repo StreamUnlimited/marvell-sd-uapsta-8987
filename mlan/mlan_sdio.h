@@ -3,7 +3,7 @@
   * @brief This file contains definitions for SDIO interface.
   * driver.
   *
-  * Copyright (C) 2008-2017, Marvell International Ltd.
+  * Copyright (C) 2008-2018, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -287,6 +287,9 @@ Change log:
 /** Host Control Registers : I/O port 2 */
 #define IO_PORT_2_REG			0xE6
 
+#define FW_RESET_REG  0x0EE
+#define FW_RESET_VAL  0x99
+
 /** Event header Len*/
 #define MLAN_EVENT_HEADER_LEN           8
 
@@ -413,7 +416,7 @@ mlan_status wlan_send_mp_aggr_buf(mlan_adapter *pmadapter);
 /** Firmware status check */
 mlan_status wlan_check_fw_status(mlan_adapter *pmadapter, t_u32 pollnum);
 /** Read interrupt status */
-t_void wlan_interrupt(pmlan_adapter pmadapter);
+mlan_status wlan_interrupt(pmlan_adapter pmadapter);
 /** Process Interrupt Status */
 mlan_status wlan_process_int_status(mlan_adapter *pmadapter);
 /** Transfer data to card */

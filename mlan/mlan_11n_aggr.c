@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 11n Aggregation.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -280,8 +280,10 @@ wlan_11n_deaggregate_pkt(mlan_private *priv, pmlan_buffer pmbuf)
 			pkt_len += sizeof(Eth803Hdr_t);
 		}
 		daggr_mbuf =
-			wlan_alloc_mlan_buffer(pmadapter, pkt_len, 0,
+			wlan_alloc_mlan_buffer(pmadapter,
+					       pkt_len + MLAN_NET_IP_ALIGN, 0,
 					       MOAL_ALLOC_MLAN_BUFFER);
+		daggr_mbuf->data_offset += MLAN_NET_IP_ALIGN;
 		if (daggr_mbuf == MNULL) {
 			PRINTM(MERROR, "Error allocating daggr mlan_buffer\n");
 			ret = MLAN_STATUS_FAILURE;

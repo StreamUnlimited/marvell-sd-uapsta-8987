@@ -2,7 +2,7 @@
  *
  *  @brief This file contains APIs to MOAL module.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -299,6 +299,7 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	MASSERT(pcb->moal_spin_unlock);
 	MASSERT(pcb->moal_hist_data_add);
 	MASSERT(pcb->moal_updata_peer_signal);
+	MASSERT(pcb->moal_do_div);
 	/* Save pmoal_handle */
 	pmadapter->pmoal_handle = pmdevice->pmoal_handle;
 
@@ -357,6 +358,8 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	pmadapter->multiple_dtim = pmdevice->multi_dtim;
 	pmadapter->inact_tmo = pmdevice->inact_tmo;
 	pmadapter->init_para.drcs_chantime_mode = pmdevice->drcs_chantime_mode;
+	pmadapter->init_para.fw_region = pmdevice->fw_region;
+	pmadapter->hs_wake_interval = pmdevice->hs_wake_interval;
 	if (pmdevice->indication_gpio != 0xff) {
 		pmadapter->ind_gpio = pmdevice->indication_gpio & 0x0f;
 		pmadapter->level = (pmdevice->indication_gpio & 0xf0) >> 4;
@@ -496,7 +499,6 @@ mlan_unregister(IN t_void *pmlan_adapter
 	ENTER();
 
 	pcb = &pmadapter->callbacks;
-
 	/* Free adapter structure */
 	wlan_free_adapter(pmadapter);
 
@@ -646,6 +648,15 @@ mlan_set_init_param(IN t_void *pmlan_adapter, IN pmlan_init_param pparam)
 	ENTER();
 	MASSERT(pmlan_adapter);
 
+    /** Save DPD data in MLAN */
+	if ((pparam->pdpd_data_buf) && (pparam->dpd_data_len > 0)) {
+		pmadapter->pdpd_data = pparam->pdpd_data_buf;
+		pmadapter->dpd_data_len = pparam->dpd_data_len;
+	}
+	if (pparam->ptxpwr_data_buf && (pparam->txpwr_data_len > 0)) {
+		pmadapter->ptxpwr_data = pparam->ptxpwr_data_buf;
+		pmadapter->txpwr_data_len = pparam->txpwr_data_len;
+	}
     /** Save cal data in MLAN */
 	if ((pparam->pcal_data_buf) && (pparam->cal_data_len > 0)) {
 		pmadapter->pcal_data = pparam->pcal_data_buf;
@@ -1352,14 +1363,16 @@ mlan_select_wmm_queue(IN t_void *pmlan_adapter, IN t_u8 bss_num, IN t_u8 tid)
  *  @param adapter  A pointer to mlan_adapter structure
  *  @return         N/A
  */
-t_void
+mlan_status
 mlan_interrupt(IN t_void *adapter)
 {
 	mlan_adapter *pmadapter = (mlan_adapter *)adapter;
+	mlan_status ret;
 
 	ENTER();
-	wlan_interrupt(pmadapter);
+	ret = wlan_interrupt(pmadapter);
 	LEAVE();
+	return ret;
 }
 
 /**

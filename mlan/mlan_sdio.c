@@ -2,7 +2,7 @@
  *
  *  @brief This file contains SDIO specific code
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1523,9 +1523,9 @@ wlan_sdio_probe(pmlan_adapter pmadapter)
  *  @brief This function gets interrupt status.
  *
  *  @param pmadapter    A pointer to mlan_adapter structure
- *  @return             N/A
+ *  @return             MLAN_STATUS_SUCCESS
  */
-t_void
+mlan_status
 wlan_interrupt(pmlan_adapter pmadapter)
 {
 	pmlan_callbacks pcb = &pmadapter->callbacks;
@@ -1579,6 +1579,7 @@ wlan_interrupt(pmlan_adapter pmadapter)
 	}
 done:
 	LEAVE();
+	return MLAN_STATUS_SUCCESS;
 }
 
 /**

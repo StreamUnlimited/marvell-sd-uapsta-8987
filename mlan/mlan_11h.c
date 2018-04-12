@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 802.11H.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -2833,6 +2833,66 @@ wlan_11h_ioctl_dfs_testing(pmlan_adapter pmadapter, pmlan_ioctl_req pioctl_req)
 
 	LEAVE();
 	return MLAN_STATUS_SUCCESS;
+}
+
+/**
+ *  @brief 802.11h IOCTL to handle channel NOP status check
+ *  @brief If given channel is under NOP, return a new non-dfs
+ *  @brief channel
+ *
+ *  @param pmadapter    Pointer to mlan_adapter
+ *  @param pioctl_req   Pointer to mlan_ioctl_req
+ *
+ *  @return MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+wlan_11h_ioctl_get_channel_nop_info(pmlan_adapter pmadapter,
+				    pmlan_ioctl_req pioctl_req)
+{
+	pmlan_private pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_ds_11h_cfg *ds_11hcfg = MNULL;
+	t_s32 ret = MLAN_STATUS_FAILURE;
+	mlan_ds_11h_chan_nop_info *ch_nop_info = MNULL;
+
+	ENTER();
+
+	if (pioctl_req) {
+		ds_11hcfg = (mlan_ds_11h_cfg *)pioctl_req->pbuf;
+		ch_nop_info = &ds_11hcfg->param.ch_nop_info;
+
+		if (pioctl_req->action == MLAN_ACT_GET) {
+			ch_nop_info->chan_under_nop =
+				wlan_11h_is_channel_under_nop(pmadapter,
+							      ch_nop_info->
+							      curr_chan);
+			if (ch_nop_info->chan_under_nop) {
+				wlan_11h_switch_non_dfs_chan(pmpriv,
+							     &ch_nop_info->
+							     new_chan.channel);
+				if (ch_nop_info->chan_width == CHAN_BW_80MHZ ||
+				    ch_nop_info->chan_width == CHAN_BW_40MHZ)
+					wlan_11h_update_bandcfg(&ch_nop_info->
+								new_chan.
+								bandcfg,
+								ch_nop_info->
+								new_chan.
+								channel);
+				if (ch_nop_info->chan_width == CHAN_BW_80MHZ)
+					ch_nop_info->new_chan.center_chan =
+						wlan_get_center_freq_idx(pmpriv,
+									 BAND_AAC,
+									 ch_nop_info->
+									 new_chan.
+									 channel,
+									 ch_nop_info->
+									 chan_width);
+			}
+		}
+		ret = MLAN_STATUS_SUCCESS;
+	}
+
+	LEAVE();
+	return ret;
 }
 #endif /* DFS_TESTING_SUPPORT */
 

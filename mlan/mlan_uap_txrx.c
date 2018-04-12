@@ -2,7 +2,7 @@
  *
  *  @brief This file contains AP mode transmit and receive functions
  *
- *  Copyright (C) 2009-2017, Marvell International Ltd.
+ *  Copyright (C) 2009-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -159,6 +159,7 @@ wlan_ops_uap_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 	t_u8 *head_ptr = MNULL;
 	t_u32 pkt_type;
 	t_u32 tx_control;
+	t_u8 dst_mac[MLAN_MAC_ADDR_LENGTH];
 
 	ENTER();
 
@@ -238,6 +239,31 @@ wlan_ops_uap_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		plocal_tx_pd->tx_pkt_type = (t_u16)pkt_type;
 		plocal_tx_pd->tx_control = tx_control;
 	}
+	if (pmbuf->flags & MLAN_BUF_FLAG_TX_CTRL) {
+		if (pmbuf->u.tx_info.data_rate) {
+			memcpy(pmpriv->adapter, dst_mac,
+			       pmbuf->pbuf + pmbuf->data_offset,
+			       sizeof(dst_mac));
+			plocal_tx_pd->tx_control |=
+				(wlan_ieee_rateid_to_mrvl_rateid
+				 (pmpriv, pmbuf->u.tx_info.data_rate,
+				  dst_mac) << 16);
+			plocal_tx_pd->tx_control |= TXPD_TXRATE_ENABLE;
+		}
+		plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.channel << 21;
+		if (pmbuf->u.tx_info.bw) {
+			plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.bw << 16;
+			plocal_tx_pd->tx_control_1 |= TXPD_BW_ENABLE;
+		}
+		if (pmbuf->u.tx_info.tx_power.tp.hostctl)
+			plocal_tx_pd->tx_control |=
+				pmbuf->u.tx_info.tx_power.val;
+		if (pmbuf->u.tx_info.retry_limit) {
+			plocal_tx_pd->tx_control |=
+				pmbuf->u.tx_info.retry_limit << 8;
+			plocal_tx_pd->tx_control |= TXPD_RETRY_ENABLE;
+		}
+	}
 
 	uap_endian_convert_TxPD(plocal_tx_pd);
 
@@ -275,6 +301,7 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	sta_node *sta_ptr = MNULL;
 	t_u8 adj_rx_rate = 0;
 	t_u8 antenna = 0;
+	rxpd_extra_info *pextra_info = MNULL;
 
 	ENTER();
 
@@ -282,6 +309,11 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	/* Endian conversion */
 	uap_endian_convert_RxPD(prx_pd);
 	priv->rxpd_rate = prx_pd->rx_rate;
+	if (prx_pd->flags & RXPD_FLAG_EXTRA_HEADER) {
+		pextra_info =
+			(rxpd_extra_info *) ((t_u8 *)prx_pd + sizeof(*prx_pd));
+		endian_convert_RxPD_extra_header(pextra_info);
+	}
 
 	priv->rxpd_rate_info = prx_pd->rate_info;
 
@@ -295,6 +327,16 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 							adj_rx_rate,
 							prx_pd->snr, prx_pd->nf,
 							antenna);
+	}
+
+	if (priv->rx_pkt_info) {
+		pmbuf->u.rx_info.data_rate =
+			wlan_index_to_data_rate(priv->adapter, prx_pd->rx_rate,
+						prx_pd->rate_info);
+		pmbuf->u.rx_info.channel =
+			(prx_pd->rx_info & RXPD_CHAN_MASK) >> 5;
+		pmbuf->u.rx_info.antenna = prx_pd->antenna;
+		pmbuf->u.rx_info.rssi = prx_pd->snr - prx_pd->nf;
 	}
 
 	rx_pkt_type = prx_pd->rx_pkt_type;
@@ -556,6 +598,14 @@ wlan_process_uap_rx_packet(IN mlan_private *priv, IN pmlan_buffer pmbuf)
 	PRINTM(MDATA, "Rx dest " MACSTR "\n",
 	       MAC2STR(prx_pkt->eth803_hdr.dest_addr));
 
+	if (pmadapter->enable_net_mon) {
+		/* set netmon flag only for a sniffed pkt */
+		if (prx_pd->rx_pkt_type == PKT_TYPE_802DOT11) {
+			pmbuf->flags |= MLAN_BUF_FLAG_NET_MONITOR;
+			goto upload;
+		}
+	}
+
 	/* don't do packet forwarding in disconnected state */
 	/* don't do packet forwarding when packet > 1514 */
 	if ((priv->media_connected == MFALSE) ||
@@ -661,6 +711,17 @@ upload:
 	PRINTM(MDATA, "%lu.%06lu : Data => kernel seq_num=%d tid=%d\n",
 	       pmbuf->out_ts_sec, pmbuf->out_ts_usec, prx_pd->seq_num,
 	       prx_pd->priority);
+	if (pmbuf->flags & MLAN_BUF_FLAG_NET_MONITOR) {
+		//Use some rxpd space to save rxpd info for radiotap header
+		//We should insure radiotap_info is not bigger than RxPD
+		wlan_rxpdinfo_to_radiotapinfo(priv, (RxPD *)prx_pd,
+					      (radiotap_info *) (pmbuf->pbuf +
+								 pmbuf->
+								 data_offset -
+								 sizeof
+								 (radiotap_info)));
+	}
+
 	ret = pmadapter->callbacks.moal_recv_packet(pmadapter->pmoal_handle,
 						    pmbuf);
 	if (ret == MLAN_STATUS_FAILURE) {

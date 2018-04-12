@@ -3,7 +3,7 @@
  *  @brief This file contains the handling of RX in MLAN
  *  module.
  *
- *  Copyright (C) 2008-2017, Marvell International Ltd.
+ *  Copyright (C) 2008-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -263,6 +263,9 @@ wlan_rxpdinfo_to_radiotapinfo(pmlan_private priv, RxPD *prx_pd,
 	memset(priv->adapter, &rt_info_tmp, 0x00, sizeof(rt_info_tmp));
 	rt_info_tmp.snr = prx_pd->snr;
 	rt_info_tmp.nf = prx_pd->nf;
+	rt_info_tmp.band_config = (prx_pd->rx_info & 0xf);
+	rt_info_tmp.chan_num = (prx_pd->rx_info & RXPD_CHAN_MASK) >> 5;
+
 	rt_info_tmp.antenna = prx_pd->antenna;
 	rx_rate_info = prx_pd->rate_info;
 	if ((rx_rate_info & 0x3) == MLAN_RATE_FORMAT_VHT) {
@@ -442,8 +445,11 @@ wlan_process_rx_packet(pmlan_adapter pmadapter, pmlan_buffer pmbuf)
 	       prx_pd->priority);
 
 	if (pmadapter->enable_net_mon) {
-		pmbuf->flags |= MLAN_BUF_FLAG_NET_MONITOR;
-		goto mon_process;
+		/* set netmon flag only for a sniffed pkt */
+		if (prx_pd->rx_pkt_type == PKT_TYPE_802DOT11) {
+			pmbuf->flags |= MLAN_BUF_FLAG_NET_MONITOR;
+			goto mon_process;
+		}
 	}
 
 mon_process:
@@ -456,6 +462,15 @@ mon_process:
 								 data_offset -
 								 sizeof
 								 (radiotap_info)));
+	}
+	if (MFALSE || priv->rx_pkt_info) {
+		pmbuf->u.rx_info.data_rate =
+			wlan_index_to_data_rate(priv->adapter, prx_pd->rx_rate,
+						prx_pd->rate_info);
+		pmbuf->u.rx_info.channel =
+			(prx_pd->rx_info & RXPD_CHAN_MASK) >> 5;
+		pmbuf->u.rx_info.antenna = prx_pd->antenna;
+		pmbuf->u.rx_info.rssi = prx_pd->snr - prx_pd->nf;
 	}
 	ret = pmadapter->callbacks.moal_recv_packet(pmadapter->pmoal_handle,
 						    pmbuf);

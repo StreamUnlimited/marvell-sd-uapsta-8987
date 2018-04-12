@@ -2,7 +2,7 @@
  *
  *  @brief This file contains the functions for station ioctl.
  *
- *  Copyright (C) 2011-2017, Marvell International Ltd.
+ *  Copyright (C) 2011-2018, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -352,18 +352,28 @@ wlan_11ac_ioctl_vhtcfg(IN pmlan_adapter pmadapter,
 						      vht_tx_mcs, nss,
 						      MIN(cfg_value, hw_value));
 			}
+
 			PRINTM(MINFO, "Set: vht tx mcs set 0x%08x\n",
 			       cfg->param.vht_cfg.vht_tx_mcs);
-
-			RESET_DEVRXMCSMAP(pmpriv->usr_dot_11ac_mcs_support);
-			pmpriv->usr_dot_11ac_mcs_support |=
-				GET_VHTMCS(cfg->param.vht_cfg.vht_rx_mcs);
-			RESET_DEVTXMCSMAP(pmpriv->usr_dot_11ac_mcs_support);
-			pmpriv->usr_dot_11ac_mcs_support |=
-				(GET_VHTMCS(cfg->param.vht_cfg.vht_tx_mcs) <<
-				 16);
-			PRINTM(MINFO, "Set: vht mcs set 0x%08x\n",
-			       pmpriv->usr_dot_11ac_mcs_support);
+			if (!cfg->param.vht_cfg.skip_usr_11ac_mcs_cfg) {
+				RESET_DEVRXMCSMAP(pmpriv->
+						  usr_dot_11ac_mcs_support);
+				pmpriv->usr_dot_11ac_mcs_support |=
+					GET_VHTMCS(cfg->param.vht_cfg.
+						   vht_rx_mcs);
+				RESET_DEVTXMCSMAP(pmpriv->
+						  usr_dot_11ac_mcs_support);
+				pmpriv->usr_dot_11ac_mcs_support |=
+					(GET_VHTMCS
+					 (cfg->param.vht_cfg.vht_tx_mcs) << 16);
+				PRINTM(MINFO, "Set: vht mcs set 0x%08x\n",
+				       pmpriv->usr_dot_11ac_mcs_support);
+			} else {
+				PRINTM(MINFO,
+				       "Skipped user 11ac mcs configuration\n");
+				cfg->param.vht_cfg.skip_usr_11ac_mcs_cfg =
+					MFALSE;
+			}
 		}
 	}
 
