@@ -1076,6 +1076,7 @@ t_u8
 wlan_adjust_antenna(pmlan_private priv, RxPD *prx_pd)
 {
 	t_u8 antenna = prx_pd->antenna;
+	t_u32 rx_channel = (prx_pd->rx_info & RXPD_CHAN_MASK) >> 5;
 	if (prx_pd->antenna == 0xff)
 		return 0;
 	if ((antenna & MBIT(0)) && (antenna & MBIT(1)))
@@ -1084,6 +1085,14 @@ wlan_adjust_antenna(pmlan_private priv, RxPD *prx_pd)
 		antenna = 1;
 	else if (antenna & MBIT(0))
 		antenna = 0;
+
+	if ((priv->adapter->antinfo & ANT_DIVERSITY_2G) &&
+	    (priv->adapter->antinfo & ANT_DIVERSITY_5G)) {
+#define MAX_2G_CHAN     14
+		if (rx_channel > MAX_2G_CHAN)
+			antenna += ANTENNA_OFFSET;
+
+	}
 
 	return antenna;
 }
@@ -2651,7 +2660,8 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			if (*data == 0)
 				break;
 			if (pmadapter->otp_region &&
-			    pmadapter->otp_region->force_reg)
+			    pmadapter->otp_region->force_reg &&
+			    pmadapter->tx_power_table_bg)
 				break;
 
 			/* Save the tlv data in power tables for band BG and A */
@@ -2890,7 +2900,8 @@ wlan_get_cfpinfo(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	       pmadapter->tx_power_table_a_size);
 	len += pmadapter->tx_power_table_a_size;
 out:
-	pioctl_req->data_read_written = len;
+	if (pioctl_req)
+		pioctl_req->data_read_written = len;
 
 	LEAVE();
 	return ret;

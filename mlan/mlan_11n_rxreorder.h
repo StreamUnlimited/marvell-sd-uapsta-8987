@@ -74,7 +74,8 @@ Change log:
 
 /** Indicate packet has been dropped in FW */
 #define RX_PKT_DROPPED_IN_FW             0xffffffff
-
+t_u8 wlan_is_rsn_replay_attack(mlan_private *pmpriv, t_void *payload,
+			       RxReorderTbl *rx_reor_tbl_ptr);
 mlan_status mlan_11n_rxreorder_pkt(void *priv, t_u16 seqNum, t_u16 tid,
 				   t_u8 *ta, t_u8 pkttype, void *payload);
 void mlan_11n_delete_bastream_tbl(mlan_private *priv, int tid,

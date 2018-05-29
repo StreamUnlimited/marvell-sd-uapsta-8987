@@ -283,12 +283,12 @@ wlan_11n_deaggregate_pkt(mlan_private *priv, pmlan_buffer pmbuf)
 			wlan_alloc_mlan_buffer(pmadapter,
 					       pkt_len + MLAN_NET_IP_ALIGN, 0,
 					       MOAL_ALLOC_MLAN_BUFFER);
-		daggr_mbuf->data_offset += MLAN_NET_IP_ALIGN;
 		if (daggr_mbuf == MNULL) {
 			PRINTM(MERROR, "Error allocating daggr mlan_buffer\n");
 			ret = MLAN_STATUS_FAILURE;
 			break;
 		}
+		daggr_mbuf->data_offset += MLAN_NET_IP_ALIGN;
 		daggr_mbuf->bss_index = pmbuf->bss_index;
 		daggr_mbuf->buf_type = pmbuf->buf_type;
 		daggr_mbuf->data_len = pkt_len;

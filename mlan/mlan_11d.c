@@ -59,11 +59,12 @@ static region_code_mapping_t region_code_mapping[] = {
 	{"JP ", 0xFF},		/* Japan special */
 };
 
-/** Default Tx power */
-#define TX_PWR_DEFAULT  10
-
 /** Universal region code */
 #define UNIVERSAL_REGION_CODE   0xff
+#endif
+
+/** Default Tx power */
+#define TX_PWR_DEFAULT  10
 
 /* Following two structures define the supported channels */
 /** Channels for 802.11b/g */
@@ -123,7 +124,6 @@ static chan_freq_power_t channel_freq_power_UN_AJ[] = {
     {252, 4980, TX_PWR_DEFAULT},
 channels for 11J JP 10M channel gap */
 };
-#endif /* STA_SUPPORT */
 
 /********************************************************
 			Global Variables
@@ -939,6 +939,44 @@ wlan_ret_802_11d_domain_info(mlan_private *pmpriv, HostCmd_DS_COMMAND *resp)
 	return ret;
 }
 
+/**
+ *  @brief This function converts channel to frequency
+ *
+ *  @param pmadapter    A pointer to mlan_adapter structure
+ *  @param chan         Channel number
+ *  @param band         Band
+ *
+ *  @return             Channel frequency
+ */
+t_u32
+wlan_11d_chan_2_freq(pmlan_adapter pmadapter, t_u8 chan, t_u8 band)
+{
+	chan_freq_power_t *cf;
+	t_u16 cnt;
+	t_u16 i;
+	t_u32 freq = 0;
+
+	ENTER();
+
+	/* Get channel-frequency-power trios */
+	if (band & (BAND_A | BAND_AN | BAND_AAC)) {
+		cf = channel_freq_power_UN_AJ;
+		cnt = NELEMENTS(channel_freq_power_UN_AJ);
+	} else {
+		cf = channel_freq_power_UN_BG;
+		cnt = NELEMENTS(channel_freq_power_UN_BG);
+	}
+
+	/* Locate channel and return corresponding frequency */
+	for (i = 0; i < cnt; i++) {
+		if (chan == cf[i].channel)
+			freq = cf[i].freq;
+	}
+
+	LEAVE();
+	return freq;
+}
+
 #ifdef STA_SUPPORT
 /**
  *  @brief This function parses country information for region channel
@@ -1033,44 +1071,6 @@ wlan_11d_parse_domain_info(pmlan_adapter pmadapter,
 
 	LEAVE();
 	return MLAN_STATUS_SUCCESS;
-}
-
-/**
- *  @brief This function converts channel to frequency
- *
- *  @param pmadapter    A pointer to mlan_adapter structure
- *  @param chan         Channel number
- *  @param band         Band
- *
- *  @return             Channel frequency
- */
-t_u32
-wlan_11d_chan_2_freq(pmlan_adapter pmadapter, t_u8 chan, t_u8 band)
-{
-	chan_freq_power_t *cf;
-	t_u16 cnt;
-	t_u16 i;
-	t_u32 freq = 0;
-
-	ENTER();
-
-	/* Get channel-frequency-power trios */
-	if (band & (BAND_A | BAND_AN | BAND_AAC)) {
-		cf = channel_freq_power_UN_AJ;
-		cnt = NELEMENTS(channel_freq_power_UN_AJ);
-	} else {
-		cf = channel_freq_power_UN_BG;
-		cnt = NELEMENTS(channel_freq_power_UN_BG);
-	}
-
-	/* Locate channel and return corresponding frequency */
-	for (i = 0; i < cnt; i++) {
-		if (chan == cf[i].channel)
-			freq = cf[i].freq;
-	}
-
-	LEAVE();
-	return freq;
 }
 
 /**
@@ -1448,6 +1448,7 @@ wlan_11d_prepare_dnld_domain_info_cmd(mlan_private *pmpriv)
 	LEAVE();
 	return ret;
 }
+#endif /* STA_SUPPORT */
 
 /**
  *  @brief This function checks country code and maps it when needed
@@ -1538,7 +1539,6 @@ done:
 	LEAVE();
 	return ret;
 }
-#endif /* STA_SUPPORT */
 
 #if defined(UAP_SUPPORT)
 /**

@@ -828,6 +828,7 @@ mlan_queue_rx_work(mlan_adapter *pmadapter)
 
 	/* Check if already processing */
 	if (pmadapter->mlan_rx_processing) {
+		pmadapter->more_rx_task_flag = MTRUE;
 		pcb->moal_spin_unlock(pmadapter->pmoal_handle,
 				      pmadapter->prx_proc_lock);
 	} else {
@@ -932,6 +933,7 @@ mlan_rx_process(IN t_void *pmlan_adapter, IN t_u8 *rx_pkts)
 	pcb = &pmadapter->callbacks;
 	pcb->moal_spin_lock(pmadapter->pmoal_handle, pmadapter->prx_proc_lock);
 	if (pmadapter->mlan_rx_processing || pmadapter->rx_lock_flag) {
+		pmadapter->more_rx_task_flag = MTRUE;
 		pcb->moal_spin_unlock(pmadapter->pmoal_handle,
 				      pmadapter->prx_proc_lock);
 		goto exit_rx_proc;
@@ -942,6 +944,8 @@ mlan_rx_process(IN t_void *pmlan_adapter, IN t_u8 *rx_pkts)
 	}
 	if (rx_pkts)
 		limit = *rx_pkts;
+
+rx_process_start:
 	/* Check for Rx data */
 	while (MTRUE) {
 		if (pmadapter->flush_data) {
@@ -981,6 +985,12 @@ mlan_rx_process(IN t_void *pmlan_adapter, IN t_u8 *rx_pkts)
 	if (rx_pkts)
 		*rx_pkts = rx_num;
 	pcb->moal_spin_lock(pmadapter->pmoal_handle, pmadapter->prx_proc_lock);
+	if (pmadapter->more_rx_task_flag) {
+		pmadapter->more_rx_task_flag = MFALSE;
+		pcb->moal_spin_unlock(pmadapter->pmoal_handle,
+				      pmadapter->prx_proc_lock);
+		goto rx_process_start;
+	}
 	pmadapter->mlan_rx_processing = MFALSE;
 	pcb->moal_spin_unlock(pmadapter->pmoal_handle,
 			      pmadapter->prx_proc_lock);

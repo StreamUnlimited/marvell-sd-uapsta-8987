@@ -302,8 +302,6 @@ wlan_misc_get_correlated_time(IN pmlan_adapter pmadapter,
 	mlan_ds_host_clock *host_clock = MNULL;
 
 	ENTER();
-	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
-	host_clock = &misc->param.host_clock;
 
 	if (pioctl_req != MNULL) {
 		pmpriv = pmadapter->priv[pioctl_req->bss_index];
@@ -312,6 +310,9 @@ wlan_misc_get_correlated_time(IN pmlan_adapter pmadapter,
 		ret = MLAN_STATUS_FAILURE;
 		goto exit;
 	}
+
+	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+	host_clock = &misc->param.host_clock;
 
 	/* Send request to firmware */
 	ret = wlan_prepare_cmd(pmpriv,
@@ -345,10 +346,9 @@ wlan_misc_acs(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 
 	ENTER();
 
-	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
-	acs = &misc->param.acs;
-
 	if (pioctl_req != MNULL) {
+		misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+		acs = &misc->param.acs;
 		pmpriv = pmadapter->priv[pioctl_req->bss_index];
 	} else {
 		PRINTM(MERROR, "MLAN IOCTL information is not present\n");
@@ -2851,6 +2851,7 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 	t_u8 *event_buf = MNULL;
 	mlan_event *pevent = MNULL;
 	t_u8 unicast = 0;
+	t_u8 broadcast[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 	IEEE80211_MGMT *mgmt = MNULL;
 	t_u8 category = 0;
 	t_u8 action_code = 0;
@@ -2876,10 +2877,15 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 	case SUBTYPE_ASSOC_REQUEST:
 	case SUBTYPE_REASSOC_REQUEST:
 	case SUBTYPE_DISASSOC:
-	case SUBTYPE_DEAUTH:
 	case SUBTYPE_AUTH:
 	case SUBTYPE_PROBE_RESP:
 		unicast = MTRUE;
+		break;
+	case SUBTYPE_DEAUTH:
+		if (memcmp
+		    (pmadapter, pieee_pkt_hdr->addr1, broadcast,
+		     MLAN_MAC_ADDR_LENGTH))
+			unicast = MTRUE;
 		break;
 	case SUBTYPE_ACTION:
 		category = *(payload + sizeof(wlan_802_11_header));
@@ -2923,7 +2929,10 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 			PRINTM(MINFO, "T2: %d, T3: %d, ingress: %lu\n",
 			       tstamps.t2, tstamps.t3, tstamps.ingress_time);
 		}
-		unicast = MTRUE;
+		if (memcmp
+		    (pmadapter, pieee_pkt_hdr->addr1, broadcast,
+		     MLAN_MAC_ADDR_LENGTH))
+			unicast = MTRUE;
 		break;
 	default:
 		break;

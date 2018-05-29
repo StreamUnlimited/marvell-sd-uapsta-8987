@@ -459,6 +459,11 @@ typedef enum _WLAN_802_11_WEP_STATUS {
 
 #define TLV_TYPE_COALESCE_RULE                      (PROPRIETARY_TLV_BASE_ID + 0x9a)
 
+/** TLV type :  EES Configuration */
+#define TLV_TYPE_EES_CFG                            (PROPRIETARY_TLV_BASE_ID + 0xda)
+/** TLV type :  EES Network Configuration */
+#define TLV_TYPE_EES_NET_CFG                        (PROPRIETARY_TLV_BASE_ID + 0xdb)
+
 /** ADDBA TID mask */
 #define ADDBA_TID_MASK   (MBIT(2) | MBIT(3) | MBIT(4) | MBIT(5))
 /** DELBA TID mask */
@@ -533,6 +538,9 @@ typedef enum _WLAN_802_11_WEP_STATUS {
 
 /** Bits to ignore in hw_dev_cap as these bits are set in get_hw_spec */
 #define IGN_HW_DEV_CAP      (CAPINFO_40MHZ_INTOLARENT)
+
+/** HW_SPEC FwCapInfo : If FW support RSN Replay Detection */
+#define ISSUPP_RSN_REPLAY_DETECTION(FwCapInfo) (FwCapInfo & MBIT(28))
 
 /** HW_SPEC FwCapInfo */
 #define ISSUPP_11NENABLED(FwCapInfo) (FwCapInfo & MBIT(11))
@@ -1722,6 +1730,7 @@ typedef MLAN_PACK_START struct _event_nan_generic {
 } MLAN_PACK_END event_nan_generic;
 
 #define RXPD_FLAG_EXTRA_HEADER             (1 << 1)
+#define RXPD_FLAG_PN_CHECK_SUPPORT             (1 << 2)
 
 /** Event_WEP_ICV_ERR structure */
 typedef MLAN_PACK_START struct _Event_WEP_ICV_ERR {
@@ -1888,7 +1897,9 @@ typedef MLAN_PACK_START struct _RxPD {
 	t_u8 rate_info;
    /** Reserved */
 	t_u8 reserved[3];
-    /** TDLS flags, bit 0: 0=InfraLink, 1=DirectLink */
+    /** TDLS flags, bit 0: 0=InfraLink, 1=DirectLink,
+      *  bit 1: extra info for radio tap,
+      *  bit 2: PN check support*/
 	t_u8 flags;
     /**For SD8887 antenna info: 0 = 2.4G antenna a; 1 = 2.4G antenna b; 3 = 5G antenna; 0xff = invalid value */
 	t_u8 antenna;
@@ -1896,6 +1907,12 @@ typedef MLAN_PACK_START struct _RxPD {
 	t_u64 toa_tod_tstamps;
     /** rx info */
 	t_u32 rx_info;
+    /** PN number high 32 bits*/
+	t_u32 hi_rx_count32;
+    /** PN number low 16 bits*/
+	t_u16 lo_rx_count16;
+    /** Reserved */
+	t_u8 reserved3[2];
 } MLAN_PACK_END RxPD, *PRxPD;
 
 /** IEEEtypes_FrameCtl_t*/
@@ -2053,6 +2070,12 @@ typedef MLAN_PACK_START struct _UapRxPD {
 	t_u64 toa_tod_tstamps;
     /** rx info */
 	t_u32 rx_info;
+    /** PN number high 32 bits*/
+	t_u32 hi_rx_count32;
+    /** PN number low 16 bits*/
+	t_u16 lo_rx_count16;
+    /** Reserved */
+	t_u8 reserved3[2];
 } MLAN_PACK_END UapRxPD, *PUapRxPD;
 
 /** IEEEtypes_AssocRqst_t */
@@ -2183,6 +2206,40 @@ typedef MLAN_PACK_START struct _MrvlIEtypes_ChanListParamSet_t {
     /** Channel scan parameters */
 	ChanScanParamSet_t chan_scan_param[1];
 } MLAN_PACK_END MrvlIEtypes_ChanListParamSet_t;
+
+/** MrvlIEtypes_EESParamSet_t */
+typedef MLAN_PACK_START struct _MrvlIEtypes_EESParamSet_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** EES scan mode */
+	t_u16 ees_mode;
+    /** EES report condition */
+	t_u16 report_cond;
+    /** EES High Period scan interval */
+	t_u16 high_period;
+    /** EES High Period scan count */
+	t_u16 high_period_count;
+    /** EES Medium Period scan interval */
+	t_u16 mid_period;
+    /** EES Medium Period scan count */
+	t_u16 mid_period_count;
+    /** EES Low Period scan interval */
+	t_u16 low_period;
+    /** EES Low Period scan count */
+	t_u16 low_period_count;
+} MLAN_PACK_END MrvlIEtypes_EESParamSet_t;
+
+/** MrvlIEtype_EESNetworkCfg_t */
+typedef MLAN_PACK_START struct _MrvlIEtype_EESNetworkCfg_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** Number of networks in the list */
+	t_u8 network_count;
+    /** Maximum number of connection */
+	t_u8 max_conn_count;
+    /** Black List Exp */
+	t_u8 black_list_exp;
+} MLAN_PACK_END MrvlIEtype_EESNetworkCfg_t;
 
 /** ChanBandParamSet_t */
 typedef struct _ChanBandParamSet_t {
@@ -4531,29 +4588,6 @@ typedef MLAN_PACK_START struct _MrvlIEtypes_Passphrase_t {
 	char passphrase[1];
 } MLAN_PACK_END MrvlIEtypes_Passphrase_t;
 
-/* unicastCipher -
- *      Bit 0   : RFU
- *      Bit 1   : RFU
- *      Bit 2   : TKIP
- *      Bit 3   : AES CCKM
- *      Bit 2-7 : RFU
- * multicastCipher -
- *      Bit 0   : WEP40
- *      Bit 1   : WEP104
- *      Bit 2   : TKIP
- *      Bit 3   : AES
- *      Bit 4-7 : Reserved for now
- */
-/** MrvlIEtypes_Cipher_t */
-typedef MLAN_PACK_START struct _MrvlIEtypes_Cipher_t {
-    /** Header */
-	MrvlIEtypesHeader_t header;
-    /** PairCipher */
-	t_u8 pair_cipher;
-    /** GroupCipher */
-	t_u8 group_cipher;
-} MLAN_PACK_END MrvlIEtypes_Cipher_t;
-
 /* rsnMode -
  *      Bit 0    : No RSN
  *      Bit 1-2  : RFU
@@ -4614,6 +4648,29 @@ typedef MLAN_PACK_START struct _HostCmd_DS_802_11_SUPPLICANT_PROFILE {
 	t_u8 tlv_buf[1];
 	/* MrvlIEtypes_EncrProto_t */
 } MLAN_PACK_END HostCmd_DS_802_11_SUPPLICANT_PROFILE;
+
+/* unicastCipher -
+ *      Bit 0   : RFU
+ *      Bit 1   : RFU
+ *      Bit 2   : TKIP
+ *      Bit 3   : AES CCKM
+ *      Bit 2-7 : RFU
+ * multicastCipher -
+ *      Bit 0   : WEP40
+ *      Bit 1   : WEP104
+ *      Bit 2   : TKIP
+ *      Bit 3   : AES
+ *      Bit 4-7 : Reserved for now
+ */
+/** MrvlIEtypes_Cipher_t */
+typedef MLAN_PACK_START struct _MrvlIEtypes_Cipher_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** PairCipher */
+	t_u8 pair_cipher;
+    /** GroupCipher */
+	t_u8 group_cipher;
+} MLAN_PACK_END MrvlIEtypes_Cipher_t;
 
 /** RFType */
 typedef MLAN_PACK_START struct _RFType_t {
@@ -5003,8 +5060,6 @@ typedef MLAN_PACK_START struct _HostCmd_DS_HOST_CLOCK_CFG {
 	t_u64 time;
     /** HW time in nano sec value */
 	t_u64 hw_time;
-    /** diff between BBU clock and host clock */
-	t_u64 host_bbu_clk_delta;
 } MLAN_PACK_END HostCmd_DS_HOST_CLOCK_CFG;
 
 /** HostCmd_DS_ACS */

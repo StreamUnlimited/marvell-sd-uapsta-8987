@@ -421,6 +421,7 @@ wlan_scan_create_channel_list(IN mlan_private *pmpriv,
 	t_u32 next_chan;
 	t_u8 scan_type;
 	t_u8 radio_type;
+	t_u8 band;
 
 	ENTER();
 
@@ -451,9 +452,13 @@ wlan_scan_create_channel_list(IN mlan_private *pmpriv,
 			if (radio_type && (pscan_region->band != BAND_A))
 				continue;
 		}
-		if (!wlan_is_band_compatible
-		    (pmpriv->config_bands | pmadapter->adhoc_start_band,
-		     pscan_region->band))
+		if ((puser_scan_in &&
+		     (puser_scan_in->bss_mode == MLAN_SCAN_MODE_IBSS)) ||
+		    pmpriv->bss_mode == MLAN_BSS_MODE_IBSS)
+			band = pmadapter->adhoc_start_band;
+		else
+			band = pmpriv->config_bands;
+		if (!wlan_is_band_compatible(band, pscan_region->band))
 			continue;
 		for (next_chan = 0;
 		     next_chan < pscan_region->num_cfp;
@@ -577,9 +582,7 @@ wlan_cmd_acs(IN pmlan_private pmpriv,
     /** Prepare channel list, we will use it to fill into MrvlIEtypes_ChanListParamSet_t */
 	if (acs_param->ch_stats_num) {
 		PRINTM(MCMND, "ACS using user specified channels\n");
-		for (i = 0;
-		     i < MIN(WLAN_USER_SCAN_CHAN_MAX, acs_param->ch_stats_num);
-		     i++) {
+		for (i = 0; i < MIN(MAX_CH_STATS, acs_param->ch_stats_num); i++) {
 			if (!acs_param->ch_stats[i].chan_num)
 				continue;
 
@@ -1239,6 +1242,7 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 	t_u32 num_probes;
 	t_u32 ssid_len;
 	t_u32 chan_idx;
+	t_u32 chan_list_idx = 0;
 	t_u32 scan_type;
 	t_u16 scan_dur;
 	t_u8 channel;
@@ -1551,14 +1555,20 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 		     && puser_scan_in->chan_list[chan_idx].chan_number;
 		     chan_idx++) {
 
-			channel =
-				puser_scan_in->chan_list[chan_idx].chan_number;
-			(pscan_chan_list + chan_idx)->chan_number = channel;
-
 			radio_type =
 				puser_scan_in->chan_list[chan_idx].radio_type;
-			(pscan_chan_list + chan_idx)->bandcfg.chanBand =
+			/*Ignore 5G/2G channels if radio_type do not match band */
+			if (!wlan_is_band_compatible
+			    (pmpriv->config_bands,
+			     radio_type_to_band(radio_type)))
+				continue;
+			(pscan_chan_list + chan_list_idx)->bandcfg.chanBand =
 				radio_type;
+
+			channel =
+				puser_scan_in->chan_list[chan_idx].chan_number;
+			(pscan_chan_list + chan_list_idx)->chan_number =
+				channel;
 
 			scan_type =
 				puser_scan_in->chan_list[chan_idx].scan_type;
@@ -1599,13 +1609,14 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 			}
 			if (scan_type == MLAN_SCAN_TYPE_PASSIVE) {
 				(pscan_chan_list +
-				 chan_idx)->chan_scan_mode.passive_scan = MTRUE;
-				(pscan_chan_list +
-				 chan_idx)->chan_scan_mode.hidden_ssid_report =
+				 chan_list_idx)->chan_scan_mode.passive_scan =
 		      MTRUE;
+				(pscan_chan_list +
+				 chan_list_idx)->chan_scan_mode.
+		      hidden_ssid_report = MTRUE;
 			} else {
 				(pscan_chan_list +
-				 chan_idx)->chan_scan_mode.passive_scan =
+				 chan_list_idx)->chan_scan_mode.passive_scan =
 		      MFALSE;
 			}
 
@@ -1627,15 +1638,16 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 			    pmadapter->coex_min_scan_time &&
 			    (pmadapter->coex_min_scan_time > scan_dur))
 				scan_dur = pmadapter->coex_min_scan_time;
-			(pscan_chan_list + chan_idx)->min_scan_time =
+			(pscan_chan_list + chan_list_idx)->min_scan_time =
 				wlan_cpu_to_le16(scan_dur);
-			(pscan_chan_list + chan_idx)->max_scan_time =
+			(pscan_chan_list + chan_list_idx)->max_scan_time =
 				wlan_cpu_to_le16(scan_dur);
 			if (*pfiltered_scan) {
 				(pscan_chan_list +
-				 chan_idx)->chan_scan_mode.disable_chan_filt =
-		      MTRUE;
+				 chan_list_idx)->chan_scan_mode.
+		      disable_chan_filt = MTRUE;
 			}
+			chan_list_idx++;
 		}
 
 		/* Check if we are only scanning the current channel */
@@ -2977,14 +2989,15 @@ wlan_scan_process_results(IN mlan_private *pmpriv)
 
 	if (pmpriv->media_connected == MTRUE) {
 
-		j = wlan_find_ssid_in_list(pmpriv,
-					   &pmpriv->curr_bss_params.
-					   bss_descriptor.ssid,
-					   pmpriv->curr_bss_params.
-					   bss_descriptor.mac_address,
-					   pmpriv->bss_mode);
+		j = wlan_find_bssid_in_list(pmpriv,
+					    pmpriv->curr_bss_params.
+					    bss_descriptor.mac_address,
+					    pmpriv->bss_mode);
 
 		if (j >= 0) {
+			memcpy(pmadapter, &pmadapter->pscan_table[j].ssid,
+			       &pmpriv->curr_bss_params.bss_descriptor.ssid,
+			       sizeof(mlan_802_11_ssid));
 			pmadapter->callbacks.moal_spin_lock(pmadapter->
 							    pmoal_handle,
 							    pmpriv->
@@ -3515,7 +3528,8 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			    && !is_wpa_oui_present(pmpriv->adapter, pbss_desc,
 						   CIPHER_SUITE_CCMP)
 			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_CCMP)) {
+						   CIPHER_SUITE_CCMP)
+				) {
 
 				if (is_wpa_oui_present
 				    (pmpriv->adapter, pbss_desc,
@@ -3677,7 +3691,8 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			     pbss_desc->pht_cap)
 			    && (pmpriv->bss_mode == MLAN_BSS_MODE_INFRA)
 			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_CCMP)) {
+						   CIPHER_SUITE_CCMP)
+				) {
 				if (is_rsn_oui_present
 				    (pmpriv->adapter, pbss_desc,
 				     CIPHER_SUITE_TKIP)) {
@@ -5271,6 +5286,7 @@ wlan_bgscan_create_channel_list(IN mlan_private *pmpriv,
 	t_u32 next_chan;
 	t_u8 scan_type;
 	t_u8 radio_type;
+	t_u8 band;
 
 	ENTER();
 
@@ -5301,9 +5317,13 @@ wlan_bgscan_create_channel_list(IN mlan_private *pmpriv,
 			if (radio_type && (pscan_region->band != BAND_A))
 				continue;
 		}
-		if (!wlan_is_band_compatible
-		    (pmpriv->config_bands | pmadapter->adhoc_start_band,
-		     pscan_region->band))
+		if ((pbg_scan_in &&
+		     (pbg_scan_in->bss_type == MLAN_SCAN_MODE_IBSS)) ||
+		    pmpriv->bss_mode == MLAN_BSS_MODE_IBSS)
+			band = pmadapter->adhoc_start_band;
+		else
+			band = pmpriv->config_bands;
+		if (!wlan_is_band_compatible(band, pscan_region->band))
 			continue;
 		for (next_chan = 0;
 		     next_chan < pscan_region->num_cfp;
@@ -5417,6 +5437,11 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 	MrvlIEtypes_ChanListParamSet_t *tlv_chan_list = MNULL;
 	MrvlIEtypes_StartLater_t *tlv_start_later = MNULL;
 	MrvlIEtypes_RepeatCount_t *tlv_repeat = MNULL;
+	MrvlIEtypes_EESParamSet_t *tlv_ees_cfg = MNULL;
+	MrvlIEtype_EESNetworkCfg_t *tlv_ees_net_cfg = MNULL;
+	MrvlIEtypes_Cipher_t *tlv_ees_cipher = MNULL;
+	MrvlIEtypes_SsIdParamSet_t *tlv_ssid = MNULL;
+	t_u8 index;
 	t_u8 *tlv = MNULL;
 	t_u16 num_probes = 0;
 	t_u32 ssid_idx;
@@ -5426,6 +5451,7 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 	t_u8 radio_type;
 	t_u16 scan_dur;
 	t_u8 scan_type;
+	t_u8 band;
 
 	ENTER();
 
@@ -5535,9 +5561,13 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 		     && bg_scan_in->chan_list[chan_idx].chan_number;
 		     chan_idx++) {
 			radio_type = bg_scan_in->chan_list[chan_idx].radio_type;
+			if (bg_scan_in->bss_type == MLAN_SCAN_MODE_IBSS ||
+			    pmpriv->bss_mode == MLAN_BSS_MODE_IBSS)
+				band = pmadapter->adhoc_start_band;
+			else
+				band = pmpriv->config_bands;
 			if (!wlan_is_band_compatible
-			    (pmpriv->config_bands | pmadapter->adhoc_start_band,
-			     radio_type_to_band(radio_type)))
+			    (band, radio_type_to_band(radio_type)))
 				continue;
 			scan_type = bg_scan_in->chan_list[chan_idx].scan_type;
 			/* Prevent active scanning on a radar controlled channel */
@@ -5631,6 +5661,124 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 	tlv_start_later->value = wlan_cpu_to_le16(bg_scan_in->start_later);
 	tlv += sizeof(MrvlIEtypes_StartLater_t);
 	cmd_size += sizeof(MrvlIEtypes_StartLater_t);
+
+	if (bg_scan_in->config_ees) {
+		/* Fill EES configuration */
+		tlv_ees_cfg = (MrvlIEtypes_EESParamSet_t *) tlv;
+		tlv_ees_cfg->header.type = wlan_cpu_to_le16(TLV_TYPE_EES_CFG);
+		tlv_ees_cfg->header.len =
+			wlan_cpu_to_le16(sizeof(MrvlIEtypes_EESParamSet_t) -
+					 sizeof(MrvlIEtypesHeader_t));
+		tlv_ees_cfg->ees_mode = wlan_cpu_to_le16(bg_scan_in->ees_mode);
+		tlv_ees_cfg->report_cond =
+			wlan_cpu_to_le16(bg_scan_in->report_cond);
+		tlv_ees_cfg->high_period =
+			wlan_cpu_to_le16(bg_scan_in->high_period);
+		tlv_ees_cfg->high_period_count =
+			wlan_cpu_to_le16(bg_scan_in->high_period_count);
+		tlv_ees_cfg->mid_period =
+			wlan_cpu_to_le16(bg_scan_in->mid_period);
+		tlv_ees_cfg->mid_period_count =
+			wlan_cpu_to_le16(bg_scan_in->mid_period_count);
+		tlv_ees_cfg->low_period =
+			wlan_cpu_to_le16(bg_scan_in->low_period);
+		tlv_ees_cfg->low_period_count =
+			wlan_cpu_to_le16(bg_scan_in->low_period_count);
+		tlv += sizeof(MrvlIEtypes_EESParamSet_t);
+		cmd_size += sizeof(MrvlIEtypes_EESParamSet_t);
+
+		if (bg_scan_in->network_count) {
+			/* Fill EES network configuration */
+			tlv_ees_net_cfg = (MrvlIEtype_EESNetworkCfg_t *) tlv;
+			tlv_ees_net_cfg->header.type =
+				wlan_cpu_to_le16(TLV_TYPE_EES_NET_CFG);
+			tlv_ees_net_cfg->header.len =
+				wlan_cpu_to_le16(sizeof
+						 (MrvlIEtype_EESNetworkCfg_t) -
+						 sizeof(MrvlIEtypesHeader_t));
+			tlv_ees_net_cfg->network_count =
+				bg_scan_in->network_count;
+			tlv_ees_net_cfg->max_conn_count =
+				bg_scan_in->max_conn_count;
+			tlv_ees_net_cfg->black_list_exp =
+				bg_scan_in->black_list_exp;
+
+			tlv += sizeof(MrvlIEtype_EESNetworkCfg_t);
+			cmd_size += sizeof(MrvlIEtype_EESNetworkCfg_t);
+
+			for (index = 0; index < bg_scan_in->network_count;
+			     index++) {
+				if (wlan_strlen
+				    ((char *)bg_scan_in->ees_ssid_cfg[index].
+				     ssid)) {
+					/* Fill SSID settings */
+					tlv_ssid =
+						(MrvlIEtypes_SsIdParamSet_t *)
+						tlv;
+					tlv_ssid->header.type =
+						wlan_cpu_to_le16(TLV_TYPE_SSID);
+					tlv_ssid->header.len =
+						wlan_cpu_to_le16((t_u16)
+								 bg_scan_in->
+								 ees_ssid_cfg
+								 [index].
+								 max_len);
+					memcpy(pmadapter, tlv_ssid->ssid,
+					       bg_scan_in->ees_ssid_cfg[index].
+					       ssid, MIN(MLAN_MAX_SSID_LENGTH,
+							 bg_scan_in->
+							 ees_ssid_cfg[index].
+							 max_len));
+					tlv += sizeof(MrvlIEtypesHeader_t) +
+						tlv_ssid->header.len;
+					cmd_size +=
+						sizeof(MrvlIEtypesHeader_t) +
+						tlv_ssid->header.len;
+				} else {
+					/* Fill Wildcard SSID settings */
+					pwildcard_ssid_tlv =
+						(MrvlIEtypes_WildCardSsIdParamSet_t
+						 *)tlv;
+					pwildcard_ssid_tlv->header.type =
+						wlan_cpu_to_le16
+						(TLV_TYPE_WILDCARDSSID);
+					pwildcard_ssid_tlv->header.len =
+						wlan_cpu_to_le16(sizeof
+								 (MrvlIEtypes_WildCardSsIdParamSet_t)
+								 -
+								 sizeof
+								 (MrvlIEtypesHeader_t));
+					pwildcard_ssid_tlv->max_ssid_length =
+						MLAN_MAX_SSID_LENGTH;
+					tlv += sizeof(MrvlIEtypesHeader_t) +
+						sizeof(pwildcard_ssid_tlv->
+						       max_ssid_length);
+					cmd_size +=
+						sizeof(MrvlIEtypesHeader_t) +
+						sizeof(pwildcard_ssid_tlv->
+						       max_ssid_length);
+				}
+				/* Fill Cipher settings */
+				tlv_ees_cipher = (MrvlIEtypes_Cipher_t *)tlv;
+				tlv_ees_cipher->header.type =
+					wlan_cpu_to_le16(TLV_TYPE_CIPHER);
+				tlv_ees_cipher->header.len =
+					wlan_cpu_to_le16(sizeof
+							 (MrvlIEtypes_Cipher_t)
+							 -
+							 sizeof
+							 (MrvlIEtypesHeader_t));
+				tlv_ees_cipher->pair_cipher =
+					bg_scan_in->ees_ssid_cfg[index].
+					pair_cipher;
+				tlv_ees_cipher->group_cipher =
+					bg_scan_in->ees_ssid_cfg[index].
+					group_cipher;
+				tlv += sizeof(MrvlIEtypes_Cipher_t);
+				cmd_size += sizeof(MrvlIEtypes_Cipher_t);
+			}
+		}
+	}
 
 done:
 	pcmd->size = wlan_cpu_to_le16(cmd_size);

@@ -1,5 +1,5 @@
 mlan_module.o: \
- /temp/src_SD-8987C4X16516-MGPL/SD-UAPSTA-UART-BT-8987-U16-MMC-V16.68.1.p150-16.26.1.p150-C4X16516-MGPL/wlan_src/mlan/mlan_module.c \
+ /temp/src_SD-8987C4X16540-MGPL/SD-UAPSTA-UART-BT-8987-U16-MMC-V16.68.1.p165-16.26.1.p165-C4X16540-MGPL/wlan_src/mlan/mlan_module.c \
  include/linux/kconfig.h include/generated/autoconf.h \
  include/linux/module.h include/linux/list.h include/linux/types.h \
  include/uapi/linux/types.h arch/x86/include/uapi/asm/types.h \
@@ -144,5 +144,5 @@ mlan_module.o: \
  include/linux/moduleparam.h include/linux/extable.h \
  include/linux/rbtree_latch.h arch/x86/include/asm/module.h \
  include/asm-generic/module.h \
- /temp/src_SD-8987C4X16516-MGPL/SD-UAPSTA-UART-BT-8987-U16-MMC-V16.68.1.p150-16.26.1.p150-C4X16516-MGPL/wlan_src/mlan/mlan_decl.h \
- /temp/src_SD-8987C4X16516-MGPL/SD-UAPSTA-UART-BT-8987-U16-MMC-V16.68.1.p150-16.26.1.p150-C4X16516-MGPL/wlan_src/mlan/mlan_ioctl.h
+ /temp/src_SD-8987C4X16540-MGPL/SD-UAPSTA-UART-BT-8987-U16-MMC-V16.68.1.p165-16.26.1.p165-C4X16540-MGPL/wlan_src/mlan/mlan_decl.h \
+ /temp/src_SD-8987C4X16540-MGPL/SD-UAPSTA-UART-BT-8987-U16-MMC-V16.68.1.p165-16.26.1.p165-C4X16540-MGPL/wlan_src/mlan/mlan_ioctl.h

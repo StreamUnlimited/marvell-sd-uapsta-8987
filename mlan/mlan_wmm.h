@@ -35,7 +35,7 @@ Change log:
  *
  *  @return             TID
  */
-static INLINE int
+static INLINE t_u32
 wlan_get_tid(pmlan_adapter pmadapter, raListTbl *ptr)
 {
 	pmlan_buffer mbuf;
@@ -51,16 +51,15 @@ wlan_get_tid(pmlan_adapter pmadapter, raListTbl *ptr)
 /**
  *  @brief This function gets the length of a list
  *
- *  @param pmadapter    A pointer to mlan_adapter structure
  *  @param head         A pointer to mlan_list_head
  *
  *  @return             Length of list
  */
-static INLINE int
-wlan_wmm_list_len(pmlan_adapter pmadapter, pmlan_list_head head)
+static INLINE t_u32
+wlan_wmm_list_len(pmlan_list_head head)
 {
 	pmlan_linked_list pos;
-	int count = 0;
+	t_u32 count = 0;
 
 	ENTER();
 

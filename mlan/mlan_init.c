@@ -1156,6 +1156,11 @@ wlan_update_hw_spec(IN pmlan_adapter pmadapter)
 	else
 		pmadapter->fw_bands = BAND_B;
 
+	if ((pmadapter->fw_bands & BAND_A) && (pmadapter->fw_bands & BAND_GN))
+		pmadapter->fw_bands |= BAND_AN;
+	if (!(pmadapter->fw_bands & BAND_G) && (pmadapter->fw_bands & BAND_GN))
+		pmadapter->fw_bands &= ~BAND_GN;
+
 	pmadapter->config_bands = pmadapter->fw_bands;
 	for (i = 0; i < pmadapter->priv_num; i++) {
 		if (pmadapter->priv[i]) {
@@ -1164,15 +1169,13 @@ wlan_update_hw_spec(IN pmlan_adapter pmadapter)
 	}
 
 	if (pmadapter->fw_bands & BAND_A) {
-		if (pmadapter->fw_bands & BAND_GN) {
+		if (pmadapter->fw_bands & BAND_AN) {
 			pmadapter->config_bands |= BAND_AN;
 			for (i = 0; i < pmadapter->priv_num; i++) {
 				if (pmadapter->priv[i])
 					pmadapter->priv[i]->config_bands |=
 						BAND_AN;
 			}
-
-			pmadapter->fw_bands |= BAND_AN;
 		}
 		if (pmadapter->fw_bands & BAND_AAC) {
 			pmadapter->config_bands |= BAND_AAC;

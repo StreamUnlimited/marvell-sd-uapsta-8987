@@ -1229,6 +1229,7 @@ wlan_bss_ioctl_start(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 						       idx - 1,
 						       pmpriv->bss_mode);
 		}
+
 		if (i >= 0) {
 			/* block if upper-layer tries to reconnect before new scan */
 			if (wlan_11h_get_csa_closed_channel(pmpriv) ==
@@ -1243,7 +1244,6 @@ wlan_bss_ioctl_start(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 			}
 			PRINTM(MINFO,
 			       "SSID found in scan list ... associating...\n");
-
 			/* Clear any past association response stored for application retrieval */
 			pmpriv->assoc_rsp_size = 0;
 			pmpriv->curr_chan_flags =
@@ -3777,7 +3777,7 @@ wlan_11d_cfg_ioctl(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	case MLAN_OID_11D_CLR_CHAN_TABLE:
 		status = wlan_11d_clr_chan_table(pmadapter, pioctl_req);
 		break;
-	case MLAN_OID_11D_DOMAIN_INFO:
+	case MLAN_OID_11D_DOMAIN_INFO_EXT:
 		status = wlan_11d_cfg_domain_info(pmadapter, pioctl_req);
 		break;
 	default:

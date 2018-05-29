@@ -305,8 +305,7 @@ wlan_is_bastream_avail(mlan_private *priv)
 		pmpriv = priv->adapter->priv[i];
 		if (pmpriv)
 			bastream_num +=
-				wlan_wmm_list_len(priv->adapter,
-						  (pmlan_list_head)&pmpriv->
+				wlan_wmm_list_len((pmlan_list_head)&pmpriv->
 						  tx_ba_stream_tbl_ptr);
 	}
 	bastream_max = ISSUPP_GETTXBASTREAM(priv->adapter->hw_dot_11n_dev_cap);
@@ -369,7 +368,7 @@ wlan_find_stream_to_delete(mlan_private *priv,
  *
  *  @return         MTRUE or MFALSE
  */
-static int INLINE
+static INLINE int
 wlan_is_11n_enabled(mlan_private *priv, t_u8 *ra)
 {
 	int ret = MFALSE;

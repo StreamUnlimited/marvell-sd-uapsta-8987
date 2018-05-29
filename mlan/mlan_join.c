@@ -1079,6 +1079,7 @@ wlan_ret_802_11_associate(IN mlan_private *pmpriv,
 	mlan_event *pevent = (mlan_event *)event_buf;
 	t_u8 cur_mac[MLAN_MAC_ADDR_LENGTH];
 	t_u8 media_connected = pmpriv->media_connected;
+	mlan_ds_bss *bss;
 	ENTER();
 
 	passoc_rsp = (IEEEtypes_AssocRsp_t *)&resp->params;
@@ -1096,6 +1097,14 @@ wlan_ret_802_11_associate(IN mlan_private *pmpriv,
 	memcpy(pmpriv->adapter, pmpriv->assoc_rsp_buf, &resp->params,
 	       pmpriv->assoc_rsp_size);
 
+	if (pioctl_req != MNULL) {
+		bss = (mlan_ds_bss *)pioctl_req->pbuf;
+		bss->param.ssid_bssid.assoc_rsp.assoc_resp_len =
+			pmpriv->assoc_rsp_size;
+		memcpy(pmpriv->adapter,
+		       bss->param.ssid_bssid.assoc_rsp.assoc_resp_buf,
+		       pmpriv->assoc_rsp_buf, pmpriv->assoc_rsp_size);
+	}
 	if (passoc_rsp->status_code) {
 		if (pmpriv->media_connected == MTRUE) {
 			if (pmpriv->port_ctrl_mode == MTRUE)

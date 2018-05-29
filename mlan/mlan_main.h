@@ -301,11 +301,15 @@ do {                \
 	    (x)->rx_pkt_type   = wlan_le16_to_cpu((x)->rx_pkt_type);        \
 	    (x)->seq_num       = wlan_le16_to_cpu((x)->seq_num);            \
         (x)->rx_info       = wlan_le32_to_cpu((x)->rx_info);            \
+	    (x)->hi_rx_count32 = wlan_le32_to_cpu((x)->hi_rx_count32);      \
+	    (x)->lo_rx_count16 = wlan_le16_to_cpu((x)->lo_rx_count16);      \
 	}
 /** Convert RxPD extra header from little endian format to CPU format */
 #define endian_convert_RxPD_extra_header(x)                                          \
 	{                                                                   \
 	    (x)->channel_flags = wlan_le16_to_cpu((x)->channel_flags);      \
+	    (x)->vht_sig1 = wlan_le32_to_cpu((x)->vht_sig1);		\
+	    (x)->vht_sig2 = wlan_le32_to_cpu((x)->vht_sig2);		\
 	}
 #else
 /** Convert ulong n/w to host */
@@ -1205,6 +1209,8 @@ typedef struct _mlan_private {
     /** Length of the data stored in gen_ie_buf */
 	t_u8 gen_ie_buf_len;
 
+    /** disconnect reason code*/
+	t_u16 disconnect_reason_code;
     /** Current Beacon buffer */
 	t_u8 *pcurr_bcn_buf;
     /** Current Beacon size */
@@ -1316,6 +1322,10 @@ struct _RxReorderTbl {
 	t_u8 pkt_count;
     /** flush data flag */
 	t_u8 flush_data;
+    /** PN number high 32 bits*/
+	t_u32 hi_curr_rx_count32;
+    /** PN number low 16 bits*/
+	t_u16 lo_curr_rx_count16;
 };
 
 /** BSS priority node */
@@ -1734,6 +1744,8 @@ typedef struct _mlan_adapter {
 	t_u32 main_process_cnt;
     /** mlan_rx_processing */
 	t_u32 mlan_rx_processing;
+    /** more_rx_task_flag */
+	t_u32 more_rx_task_flag;
     /** rx_proc_lock for main_rx_process */
 	t_void *prx_proc_lock;
     /** rx work enable flag */
@@ -2822,9 +2834,9 @@ mlan_status wlan_cmd_802_11d_domain_info(mlan_private *pmpriv,
 /** Handler for 11D country info command response */
 mlan_status wlan_ret_802_11d_domain_info(mlan_private *pmpriv,
 					 HostCmd_DS_COMMAND *resp);
-#ifdef STA_SUPPORT
 /** Convert channel to frequency */
 t_u32 wlan_11d_chan_2_freq(pmlan_adapter pmadapter, t_u8 chan, t_u8 band);
+#ifdef STA_SUPPORT
 /** Set 11D universal table */
 mlan_status wlan_11d_set_universaltable(mlan_private *pmpriv, t_u8 band);
 /** Clear 11D region table */
@@ -2845,9 +2857,6 @@ mlan_status wlan_11d_parse_domain_info(pmlan_adapter pmadapter,
 				       *country_info, t_u8 band,
 				       parsed_region_chan_11d_t
 				       *parsed_region_chan);
-/** Configure 11D domain info command */
-mlan_status wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
-				     IN mlan_ioctl_req *pioctl_req);
 #endif /* STA_SUPPORT */
 #ifdef UAP_SUPPORT
 /** Handle 11D domain information from UAP */
@@ -2856,6 +2865,9 @@ mlan_status wlan_11d_handle_uap_domain_info(mlan_private *pmpriv,
 					    t_u8 *domain_tlv,
 					    t_void *pioctl_buf);
 #endif
+/** Configure 11D domain info command */
+mlan_status wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
+				     IN mlan_ioctl_req *pioctl_req);
 
 /** This function converts region string to CFP table code */
 mlan_status wlan_misc_country_2_cfp_table_code(IN pmlan_adapter pmadapter,
@@ -2966,7 +2978,7 @@ wlan_is_tdls_link_setup(tdlsStatus_e status)
  *
  *  @return         MTRUE or MFALSE
  */
-static int INLINE
+static INLINE int
 wlan_is_tx_pause(mlan_private *priv, t_u8 *ra)
 {
 	sta_node *sta_ptr = MNULL;
@@ -3260,11 +3272,6 @@ t_u8 wlan_get_center_freq_idx(IN mlan_private *pmpriv,
 mlan_status wlan_ret_chan_region_cfg(IN pmlan_private pmpriv,
 				     IN HostCmd_DS_COMMAND *resp,
 				     IN mlan_ioctl_req *pioctl_buf);
-#if defined(SYSKT_MULTI) && defined(OOB_WAKEUP) || defined(SUSPEND_SDIO_PULL_DOWN)
-mlan_status wlan_cmd_sdio_pull_ctl(pmlan_private pmpriv,
-				   IN HostCmd_DS_COMMAND *cmd,
-				   IN t_u16 cmd_action);
-#endif
 
 mlan_status wlan_misc_ioctl_fw_dump_event(IN pmlan_adapter pmadapter,
 					  IN mlan_ioctl_req *pioctl_req);
@@ -3471,7 +3478,7 @@ wlan_get_priv(mlan_adapter *pmadapter, mlan_bss_role bss_role)
  *
  *  @return          Count of privs where count_cond returned MTRUE.
  */
-static int INLINE
+static INLINE int
 wlan_count_priv_cond(mlan_adapter *pmadapter,
 		     t_bool (*count_cond) (IN pmlan_private pmpriv),
 		     t_bool (*check_cond) (IN pmlan_private pmpriv))
@@ -3508,7 +3515,7 @@ wlan_count_priv_cond(mlan_adapter *pmadapter,
  *
  *  @return           Number of privs that operation was run on.
  */
-static int INLINE
+static INLINE int
 wlan_do_task_on_privs(mlan_adapter *pmadapter,
 		      t_void (*operation) (IN pmlan_private pmpriv),
 		      t_bool (*check_cond) (IN pmlan_private pmpriv))
@@ -3550,7 +3557,7 @@ wlan_do_task_on_privs(mlan_adapter *pmadapter,
  *
  *  @sa              wlan_count_priv_cond
  */
-static int INLINE
+static INLINE int
 wlan_get_privs_by_cond(mlan_adapter *pmadapter,
 		       t_bool (*check_cond) (IN pmlan_private pmpriv),
 		       mlan_private **ppriv_list)
@@ -3593,7 +3600,7 @@ wlan_get_privs_by_cond(mlan_adapter *pmadapter,
  *
  *  @sa              wlan_count_priv_cond, wlan_get_privs_by_cond
  */
-static int INLINE
+static INLINE int
 wlan_get_privs_by_two_cond(mlan_adapter *pmadapter,
 			   t_bool (*check_cond) (IN pmlan_private pmpriv),
 			   t_bool (*check_cond_2) (IN pmlan_private pmpriv),

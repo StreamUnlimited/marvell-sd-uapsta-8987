@@ -259,6 +259,8 @@ wlan_rxpdinfo_to_radiotapinfo(pmlan_private priv, RxPD *prx_pd,
 	t_u8 bw = 0;
 	t_u8 gi = 0;
 	t_u8 ldpc = 0;
+	t_u32 rxpd_cut_size = 0;
+	rxpd_extra_info *pextra_info = MNULL;
 
 	memset(priv->adapter, &rt_info_tmp, 0x00, sizeof(rt_info_tmp));
 	rt_info_tmp.snr = prx_pd->snr;
@@ -299,11 +301,17 @@ wlan_rxpdinfo_to_radiotapinfo(pmlan_private priv, RxPD *prx_pd,
 		wlan_index_to_data_rate(priv->adapter, prx_pd->rx_rate,
 					prx_pd->rate_info);
 
-	if (prx_pd->flags & RXPD_FLAG_EXTRA_HEADER)
+	if (prx_pd->flags & RXPD_FLAG_EXTRA_HEADER) {
+		if (!ISSUPP_RSN_REPLAY_DETECTION(priv->adapter->fw_cap_info)) {
+			rxpd_cut_size = 8;
+		}
+		pextra_info =
+			(rxpd_extra_info *) ((t_u8 *)prx_pd + sizeof(*prx_pd) -
+					     rxpd_cut_size);
+		endian_convert_RxPD_extra_header(pextra_info);
 		memcpy(priv->adapter, &rt_info_tmp.extra_info,
-		       (t_u8 *)prx_pd + sizeof(*prx_pd),
-		       sizeof(rt_info_tmp.extra_info));
-
+		       (t_u8 *)pextra_info, sizeof(rt_info_tmp.extra_info));
+	}
 	memset(priv->adapter, prt_info, 0x00, sizeof(*prt_info));
 	memcpy(priv->adapter, prt_info, &rt_info_tmp, sizeof(*prt_info));
 
@@ -511,18 +519,12 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	sta_node *sta_ptr = MNULL;
 	t_u8 adj_rx_rate = 0;
 	t_u8 antenna = 0;
-	rxpd_extra_info *pextra_info = MNULL;
 	ENTER();
 
 	prx_pd = (RxPD *)(pmbuf->pbuf + pmbuf->data_offset);
 	/* Endian conversion */
 	endian_convert_RxPD(prx_pd);
 
-	if (prx_pd->flags & RXPD_FLAG_EXTRA_HEADER) {
-		pextra_info =
-			(rxpd_extra_info *) ((t_u8 *)prx_pd + sizeof(*prx_pd));
-		endian_convert_RxPD_extra_header(pextra_info);
-	}
 	rx_pkt_type = prx_pd->rx_pkt_type;
 	prx_pkt = (RxPacketHdr_t *)((t_u8 *)prx_pd + prx_pd->rx_pkt_offset);
 

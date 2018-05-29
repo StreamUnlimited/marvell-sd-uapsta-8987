@@ -2354,6 +2354,10 @@ wlan_uap_ret_sys_config(IN pmlan_private pmpriv,
 						chan_band_tlv->channel;
 					bss->param.ap_channel.is_11n_enabled =
 						pmpriv->is_11n_enabled;
+					bss->param.ap_channel.is_dfs_chan =
+						wlan_11h_radar_detect_required
+						(pmpriv,
+						 bss->param.ap_channel.channel);
 					if (chan_band_tlv->bandcfg.chanWidth ==
 					    CHAN_BW_80MHZ)
 						bss->param.ap_channel.
@@ -3947,11 +3951,6 @@ wlan_ops_uap_prepare_cmd(IN t_void *priv,
 	case HostCmd_CMD_802_11_NET_MONITOR:
 		ret = wlan_cmd_net_monitor(cmd_ptr, cmd_action, pdata_buf);
 		break;
-#if defined(SYSKT_MULTI) && defined(OOB_WAKEUP) || defined(SUSPEND_SDIO_PULL_DOWN)
-	case HostCmd_CMD_SDIO_PULL_CTRL:
-		ret = wlan_cmd_sdio_pull_ctl(pmpriv, cmd_ptr, cmd_action);
-		break;
-#endif
 	case HostCmd_CMD_FW_DUMP_EVENT:
 		ret = wlan_cmd_fw_dump_event(pmpriv, cmd_ptr, cmd_action,
 					     pdata_buf);
@@ -4224,10 +4223,6 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 	case HostCmd_CMD_CHAN_REGION_CFG:
 		ret = wlan_ret_chan_region_cfg(pmpriv, resp, pioctl_buf);
 		break;
-#if defined(SYSKT_MULTI) && defined(OOB_WAKEUP) || defined(SUSPEND_SDIO_PULL_DOWN)
-	case HostCmd_CMD_SDIO_PULL_CTRL:
-		break;
-#endif
 	case HostCmd_CMD_BOOT_SLEEP:
 		ret = wlan_ret_boot_sleep(pmpriv, resp, pioctl_buf);
 		break;

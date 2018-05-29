@@ -77,18 +77,26 @@ wlan_11n_dispatch_amsdu_pkt(mlan_private *priv, pmlan_buffer pmbuf)
  *
  *  @param priv     A pointer to mlan_private
  *  @param payload  A pointer to rx packet payload
+ *  @param rx_reor_tbl_ptr       pointer to RxReorderTbl
  *
  *  @return         MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
  */
 static mlan_status
-wlan_11n_dispatch_pkt(t_void *priv, t_void *payload)
+wlan_11n_dispatch_pkt(t_void *priv, t_void *payload,
+		      RxReorderTbl *rx_reor_tbl_ptr)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
-#ifdef STA_SUPPORT
 	pmlan_adapter pmadapter = ((pmlan_private)priv)->adapter;
-#endif
+
 	ENTER();
 	if (payload == (t_void *)RX_PKT_DROPPED_IN_FW) {
+		LEAVE();
+		return ret;
+	}
+	if (ISSUPP_RSN_REPLAY_DETECTION(pmadapter->fw_cap_info) &&
+	    rx_reor_tbl_ptr &&
+	    wlan_is_rsn_replay_attack((mlan_private *)priv, payload,
+				      rx_reor_tbl_ptr)) {
 		LEAVE();
 		return ret;
 	}
@@ -194,7 +202,8 @@ wlan_11n_dispatch_pkt_until_start_win(t_void *priv,
 							    pmpriv->
 							    rx_pkt_lock);
 		if (rx_tmp_ptr)
-			wlan_11n_dispatch_pkt(priv, rx_tmp_ptr);
+			wlan_11n_dispatch_pkt(priv, rx_tmp_ptr,
+					      rx_reor_tbl_ptr);
 	}
 
 	pmpriv->adapter->callbacks.moal_spin_lock(pmpriv->adapter->pmoal_handle,
@@ -276,7 +285,7 @@ wlan_11n_scan_and_dispatch(t_void *priv, RxReorderTbl *rx_reor_tbl_ptr)
 							    pmoal_handle,
 							    pmpriv->
 							    rx_pkt_lock);
-		wlan_11n_dispatch_pkt(priv, rx_tmp_ptr);
+		wlan_11n_dispatch_pkt(priv, rx_tmp_ptr, rx_reor_tbl_ptr);
 	}
 
 	pmpriv->adapter->callbacks.moal_spin_lock(pmpriv->adapter->pmoal_handle,
@@ -775,6 +784,54 @@ wlan_cmd_11n_delba(mlan_private *priv, HostCmd_DS_COMMAND *cmd, void *pdata_buf)
 }
 
 /**
+ *  @bref This function check PN numbers to detect replay counter attack
+ *  @param pmpriv                pointer to mlan_private
+ *  @param payload               pointer to mlan_buffer
+ *  @param rx_reor_tbl_ptr       pointer to RxReorderTbl
+ *
+ *  @return                      MTRUE/MFALSE
+ */
+t_u8
+wlan_is_rsn_replay_attack(mlan_private *pmpriv, t_void *payload,
+			  RxReorderTbl *rx_reor_tbl_ptr)
+{
+	RxPD *prx_pd = MNULL;
+	pmlan_buffer pmbuf = MNULL;
+	pmlan_adapter pmadapter = pmpriv->adapter;
+
+	ENTER();
+
+	pmbuf = (pmlan_buffer)payload;
+
+	prx_pd = (RxPD *)(pmbuf->pbuf + pmbuf->data_offset);
+
+	if (!(prx_pd->flags & RXPD_FLAG_PN_CHECK_SUPPORT)) {
+		LEAVE();
+		return MFALSE;
+	}
+
+	if ((prx_pd->hi_rx_count32 == rx_reor_tbl_ptr->hi_curr_rx_count32 &&
+	     prx_pd->lo_rx_count16 <= rx_reor_tbl_ptr->lo_curr_rx_count16)
+	    || (rx_reor_tbl_ptr->hi_curr_rx_count32 != 0xffffffff &&
+		prx_pd->hi_rx_count32 < rx_reor_tbl_ptr->hi_curr_rx_count32)) {
+		PRINTM(MERROR,
+		       "Drop packet because of invalid PN value. Last PN:0x%x 0x%x,New PN:0x%x 0x%x\n",
+		       rx_reor_tbl_ptr->hi_curr_rx_count32,
+		       rx_reor_tbl_ptr->lo_curr_rx_count16,
+		       prx_pd->hi_rx_count32, prx_pd->lo_rx_count16);
+		wlan_free_mlan_buffer(pmadapter, pmbuf);
+		LEAVE();
+		return MTRUE;
+	}
+
+	rx_reor_tbl_ptr->lo_curr_rx_count16 = prx_pd->lo_rx_count16;
+	rx_reor_tbl_ptr->hi_curr_rx_count32 = prx_pd->hi_rx_count32;
+
+	LEAVE();
+	return MFALSE;
+}
+
+/**
  *  @brief This function will identify if RxReodering is needed for the packet
  *          and will do the reordering if required before sending it to kernel
  *
@@ -802,7 +859,7 @@ mlan_11n_rxreorder_pkt(void *priv, t_u16 seq_num, t_u16 tid,
 		wlan_11n_get_rxreorder_tbl((mlan_private *)priv, tid, ta);
 	if (!rx_reor_tbl_ptr || rx_reor_tbl_ptr->win_size <= 1) {
 		if (pkt_type != PKT_TYPE_BAR)
-			wlan_11n_dispatch_pkt(priv, payload);
+			wlan_11n_dispatch_pkt(priv, payload, rx_reor_tbl_ptr);
 
 		LEAVE();
 		return ret;
@@ -813,7 +870,7 @@ mlan_11n_rxreorder_pkt(void *priv, t_u16 seq_num, t_u16 tid,
 			wlan_start_flush_data(priv, rx_reor_tbl_ptr);
 		}
 		if ((pkt_type == PKT_TYPE_AMSDU) && !rx_reor_tbl_ptr->amsdu) {
-			wlan_11n_dispatch_pkt(priv, payload);
+			wlan_11n_dispatch_pkt(priv, payload, rx_reor_tbl_ptr);
 			LEAVE();
 			return ret;
 		}
@@ -834,12 +891,13 @@ mlan_11n_rxreorder_pkt(void *priv, t_u16 seq_num, t_u16 tid,
 						/** drop duplicate packet */
 						ret = MLAN_STATUS_FAILURE;
 					} else {
-						/** forward the packet to kernel */
+			/** forward the packet to kernel */
 						rx_reor_tbl_ptr->last_seq =
 							seq_num;
 						if (pkt_type != PKT_TYPE_BAR)
 							wlan_11n_dispatch_pkt
-								(priv, payload);
+								(priv, payload,
+								 rx_reor_tbl_ptr);
 					}
 					LEAVE();
 					return ret;

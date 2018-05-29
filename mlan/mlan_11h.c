@@ -2849,7 +2849,7 @@ mlan_status
 wlan_11h_ioctl_get_channel_nop_info(pmlan_adapter pmadapter,
 				    pmlan_ioctl_req pioctl_req)
 {
-	pmlan_private pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	pmlan_private pmpriv = MNULL;
 	mlan_ds_11h_cfg *ds_11hcfg = MNULL;
 	t_s32 ret = MLAN_STATUS_FAILURE;
 	mlan_ds_11h_chan_nop_info *ch_nop_info = MNULL;
@@ -2859,6 +2859,7 @@ wlan_11h_ioctl_get_channel_nop_info(pmlan_adapter pmadapter,
 	if (pioctl_req) {
 		ds_11hcfg = (mlan_ds_11h_cfg *)pioctl_req->pbuf;
 		ch_nop_info = &ds_11hcfg->param.ch_nop_info;
+		pmpriv = pmadapter->priv[pioctl_req->bss_index];
 
 		if (pioctl_req->action == MLAN_ACT_GET) {
 			ch_nop_info->chan_under_nop =

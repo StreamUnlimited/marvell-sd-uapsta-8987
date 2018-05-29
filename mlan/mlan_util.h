@@ -521,7 +521,7 @@ util_scalar_conditional_write(t_void *pmoal_handle,
  *  @param num  number
  *  @return     number of bits
  */
-static t_u32 INLINE
+static INLINE t_u32
 bitcount(t_u32 num)
 {
 	t_u32 count = 0;

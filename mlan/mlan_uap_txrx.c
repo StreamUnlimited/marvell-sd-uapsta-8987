@@ -301,7 +301,6 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	sta_node *sta_ptr = MNULL;
 	t_u8 adj_rx_rate = 0;
 	t_u8 antenna = 0;
-	rxpd_extra_info *pextra_info = MNULL;
 
 	ENTER();
 
@@ -309,11 +308,6 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	/* Endian conversion */
 	uap_endian_convert_RxPD(prx_pd);
 	priv->rxpd_rate = prx_pd->rx_rate;
-	if (prx_pd->flags & RXPD_FLAG_EXTRA_HEADER) {
-		pextra_info =
-			(rxpd_extra_info *) ((t_u8 *)prx_pd + sizeof(*prx_pd));
-		endian_convert_RxPD_extra_header(pextra_info);
-	}
 
 	priv->rxpd_rate_info = prx_pd->rate_info;
 
@@ -385,6 +379,11 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	}
 
 	pmbuf->priority = prx_pd->priority;
+	if (pmadapter->enable_net_mon &&
+	    (prx_pd->rx_pkt_type == PKT_TYPE_802DOT11)) {
+		wlan_process_uap_rx_packet(priv, pmbuf);
+		goto done;
+	}
 	memcpy(pmadapter, ta, prx_pkt->eth803_hdr.src_addr,
 	       MLAN_MAC_ADDR_LENGTH);
 	if ((rx_pkt_type != PKT_TYPE_BAR) && (prx_pd->priority < MAX_NUM_TID)) {

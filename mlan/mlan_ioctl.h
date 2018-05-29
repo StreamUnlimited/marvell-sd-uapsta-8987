@@ -192,7 +192,10 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_11D_CFG_ENABLE = 0x000D0001,
 	MLAN_OID_11D_CLR_CHAN_TABLE = 0x000D0002,
 #endif /* STA_SUPPORT */
+#ifdef UAP_SUPPORT
 	MLAN_OID_11D_DOMAIN_INFO = 0x000D0003,
+#endif
+	MLAN_OID_11D_DOMAIN_INFO_EXT = 0x000D0004,
 
 	/* Register Memory Access Group */
 	MLAN_IOCTL_REG_MEM = 0x000E0000,
@@ -618,6 +621,17 @@ typedef struct _mlan_chan_list {
 /* 10 MHz operation is not allowed on this channel */
 #define CHAN_FLAGS_NO_10MHZ         MBIT(12)
 
+/** Maximum response buffer length */
+#define ASSOC_RSP_BUF_SIZE 500
+
+/** Type definition of mlan_ds_misc_assoc_rsp for MLAN_OID_MISC_ASSOC_RSP */
+typedef struct _mlan_ds_misc_assoc_rsp {
+    /** Associate response buffer */
+	t_u8 assoc_resp_buf[ASSOC_RSP_BUF_SIZE];
+    /** Response buffer length */
+	t_u32 assoc_resp_len;
+} mlan_ds_misc_assoc_rsp;
+
 /** mlan_ssid_bssid  data structure for
  *  MLAN_OID_BSS_START and MLAN_OID_BSS_FIND_BSS
  */
@@ -638,7 +652,10 @@ typedef struct _mlan_ssid_bssid {
 	t_u8 ft_cap;
     /**band*/
 	t_u16 bss_band;
+    /** channel flag */
 	t_u32 channel_flags;
+    /** assoicate resp frame/ie from firmware */
+	mlan_ds_misc_assoc_rsp assoc_rsp;
 } mlan_ssid_bssid;
 
 /** Data structure of WMM ECW */
@@ -1870,6 +1887,10 @@ typedef struct _mlan_bss_info {
 	t_u16 mdid;
     /** FT Capability policy */
 	t_u8 ft_cap;
+    /** 11h active */
+	t_bool is_11h_active;
+    /** dfs check channel */
+	t_u8 dfs_check_channel;
 } mlan_bss_info, *pmlan_bss_info;
 
 /** MAXIMUM number of TID */
@@ -2285,7 +2306,6 @@ enum _mlan_psk_type {
 #define KEY_FLAG_AES_MCAST_IGTK 0x00000010
 /** key flag for remove key */
 #define KEY_FLAG_REMOVE_KEY     0x80000000
-
 /** Type definition of mlan_ds_encrypt_key for MLAN_OID_SEC_CFG_ENCRYPT_KEY */
 typedef struct _mlan_ds_encrypt_key {
     /** Key disabled, all other fields will be
@@ -3487,7 +3507,6 @@ typedef struct _mlan_ds_11ac_cfg {
 /** Maximum subbands for 11d */
 #define MRVDRV_MAX_SUBBAND_802_11D              83
 
-#ifdef STA_SUPPORT
 /** Data structure for subband set */
 typedef struct _mlan_ds_subband_set_t {
     /** First channel */
@@ -3509,7 +3528,6 @@ typedef struct _mlan_ds_11d_domain_info {
     /** Subband data to send/last sent */
 	mlan_ds_subband_set_t sub_band[MRVDRV_MAX_SUBBAND_802_11D];
 } mlan_ds_11d_domain_info;
-#endif
 
 /** Type definition of mlan_ds_11d_cfg for MLAN_IOCTL_11D_CFG */
 typedef struct _mlan_ds_11d_cfg {
@@ -3520,9 +3538,9 @@ typedef struct _mlan_ds_11d_cfg {
 #ifdef STA_SUPPORT
 	/** Enable for MLAN_OID_11D_CFG_ENABLE */
 		t_u32 enable_11d;
-	/** Domain info for MLAN_OID_11D_DOMAIN_INFO */
-		mlan_ds_11d_domain_info domain_info;
 #endif				/* STA_SUPPORT */
+	/** Domain info for MLAN_OID_11D_DOMAIN_INFO_EXT */
+		mlan_ds_11d_domain_info domain_info;
 #ifdef UAP_SUPPORT
 	/** tlv data for MLAN_OID_11D_DOMAIN_INFO */
 		t_u8 domain_tlv[MAX_IE_SIZE];
@@ -3731,17 +3749,6 @@ typedef struct _mlan_ds_misc_sys_clock {
     /** System clocks */
 	t_u16 sys_clk[MLAN_MAX_CLK_NUM];
 } mlan_ds_misc_sys_clock;
-
-/** Maximum response buffer length */
-#define ASSOC_RSP_BUF_SIZE 500
-
-/** Type definition of mlan_ds_misc_assoc_rsp for MLAN_OID_MISC_ASSOC_RSP */
-typedef struct _mlan_ds_misc_assoc_rsp {
-    /** Associate response buffer */
-	t_u8 assoc_resp_buf[ASSOC_RSP_BUF_SIZE];
-    /** Response buffer length */
-	t_u32 assoc_resp_len;
-} mlan_ds_misc_assoc_rsp;
 
 /** Enumeration for function init/shutdown */
 enum _mlan_func_cmd {
@@ -4361,5 +4368,16 @@ typedef struct _mlan_ds_misc_cfg {
 		mlan_ds_misc_acs acs;
 	} param;
 } mlan_ds_misc_cfg, *pmlan_ds_misc_cfg;
+
+/** Reason codes */
+#define MLAN_REASON_UNSPECIFIED                   1
+#define MLAN_REASON_PREV_AUTH_NOT_VALID           2
+#define MLAN_REASON_DEAUTH_LEAVING                3
+#define MLAN_REASON_DISASSOC_DUE_TO_INACTIVITY    4
+#define MLAN_REASON_DISASSOC_AP_BUSY              5
+#define MLAN_REASON_CLASS2_FRAME_FROM_NOAUTH_STA  6
+#define MLAN_REASON_CLASS3_FRAME_FROM_NOASSOC_STA 7
+#define MLAN_REASON_DISASSOC_STA_HAS_LEFT         8
+#define MLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH    9
 
 #endif /* !_MLAN_IOCTL_H_ */

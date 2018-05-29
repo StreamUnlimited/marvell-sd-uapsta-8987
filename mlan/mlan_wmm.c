@@ -358,7 +358,7 @@ wlan_wmm_eval_downgrade_ac(pmlan_private priv, mlan_wmm_ac_e eval_ac)
  *
  *  @return     WMM AC Queue mapping of the IP TOS field
  */
-static mlan_wmm_ac_e INLINE
+static INLINE mlan_wmm_ac_e
 wlan_wmm_convert_tos_to_ac(pmlan_adapter pmadapter, t_u32 tos)
 {
 	ENTER();
@@ -384,7 +384,7 @@ wlan_wmm_convert_tos_to_ac(pmlan_adapter pmadapter, t_u32 tos)
  *  @return       Same tid as input if downgrading not required or
  *                the tid the traffic for the given tid should be downgraded to
  */
-static t_u8 INLINE
+static INLINE t_u8
 wlan_wmm_downgrade_tid(pmlan_private priv, t_u32 tid)
 {
 	mlan_wmm_ac_e ac_down;
@@ -739,7 +739,6 @@ wlan_wmm_get_highest_priolist_ptr(pmlan_adapter pmadapter,
 							   pmoal_handle,
 							   &ptr->buf_head,
 							   MNULL, MNULL)) {
-
 						/* Because WMM only support BK/BE/VI/VO, we have 8 tid
 						 * We should balance the traffic of the same AC */
 						if (i % 2)
@@ -863,7 +862,7 @@ wlan_num_pkts_in_txq(mlan_private *priv, raListTbl *ptr, int max_buf_size)
  *
  *  @return             N/A
  */
-static void INLINE
+static INLINE void
 wlan_send_single_packet(pmlan_private priv, raListTbl *ptr, int ptrindex)
 {
 	pmlan_buffer pmbuf;
@@ -966,7 +965,7 @@ wlan_send_single_packet(pmlan_private priv, raListTbl *ptr, int ptrindex)
  *
  *  @return         MTRUE or MFALSE
  */
-static int INLINE
+static INLINE int
 wlan_is_ptr_processed(mlan_private *priv, raListTbl *ptr)
 {
 	pmlan_buffer pmbuf;
@@ -988,7 +987,7 @@ wlan_is_ptr_processed(mlan_private *priv, raListTbl *ptr)
  *
  *  @return             N/A
  */
-static void INLINE
+static INLINE void
 wlan_send_processed_packet(pmlan_private priv, raListTbl *ptr, int ptrindex)
 {
 	pmlan_buffer pmbuf_next = MNULL;

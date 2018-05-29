@@ -2400,6 +2400,7 @@ wlan_ops_sta_process_cmdresp(IN t_void *priv,
 		LEAVE();
 		return ret;
 	}
+
 	/* Command successful, handle response */
 	switch (cmdresp_no) {
 	case HostCmd_CMD_GET_HW_SPEC:
@@ -2656,10 +2657,6 @@ wlan_ops_sta_process_cmdresp(IN t_void *priv,
 	case HostCmd_CMD_802_11_NET_MONITOR:
 		ret = wlan_ret_net_monitor(pmpriv, resp, pioctl_buf);
 		break;
-#if defined(SYSKT_MULTI) && defined(OOB_WAKEUP) || defined(SUSPEND_SDIO_PULL_DOWN)
-	case HostCmd_CMD_SDIO_PULL_CTRL:
-		break;
-#endif
 	case HostCmd_CMD_802_11_REMAIN_ON_CHANNEL:
 		ret = wlan_ret_remain_on_channel(pmpriv, resp, pioctl_buf);
 		break;

@@ -2911,11 +2911,6 @@ wlan_ops_sta_prepare_cmd(IN t_void *priv,
 	case HostCmd_CMD_MEASUREMENT_REPORT:
 		ret = wlan_meas_cmd_process(pmpriv, cmd_ptr, pdata_buf);
 		break;
-#if defined(SYSKT_MULTI) && defined(OOB_WAKEUP) || defined(SUSPEND_SDIO_PULL_DOWN)
-	case HostCmd_CMD_SDIO_PULL_CTRL:
-		ret = wlan_cmd_sdio_pull_ctl(pmpriv, cmd_ptr, cmd_action);
-		break;
-#endif
 	case HostCmd_CMD_802_11_REMAIN_ON_CHANNEL:
 		ret = wlan_cmd_remain_on_channel(pmpriv, cmd_ptr, cmd_action,
 						 pdata_buf);

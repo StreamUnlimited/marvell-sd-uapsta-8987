@@ -1026,6 +1026,10 @@ wlan_uap_get_bss_info(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	info->param.bss_info.scan_block = pmadapter->scan_block;
 
 	info->param.bss_info.is_hs_configured = pmadapter->is_hs_configured;
+	info->param.bss_info.is_11h_active =
+		pmpriv->intf_state_11h.is_11h_active;
+	info->param.bss_info.dfs_check_channel =
+		pmpriv->adapter->state_dfs.dfs_check_channel;
 	pioctl_req->data_read_written =
 		sizeof(mlan_bss_info) + MLAN_SUB_COMMAND_SIZE;
 
@@ -1923,6 +1927,9 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		cfg11d = (mlan_ds_11d_cfg *)pioctl_req->pbuf;
 		if (cfg11d->sub_command == MLAN_OID_11D_DOMAIN_INFO)
 			status = wlan_uap_domain_info(pmadapter, pioctl_req);
+		else if (cfg11d->sub_command == MLAN_OID_11D_DOMAIN_INFO_EXT)
+			status = wlan_11d_cfg_domain_info(pmadapter,
+							  pioctl_req);
 		break;
 	case MLAN_IOCTL_11H_CFG:
 		cfg11h = (mlan_ds_11h_cfg *)pioctl_req->pbuf;
