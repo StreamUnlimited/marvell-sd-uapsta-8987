@@ -1084,7 +1084,7 @@ sys_cfg_protocol
             bit 0   KEY_MGMT_EAP
             bit 1   KEY_MGMT_PSK
             bit 2   KEY_MGMT_NONE
-            bit 3   KEY_MGMT_PSK_SHA256
+            bit 8   KEY_MGMT_PSK_SHA256
 
     Example:
 	./uaputl.exe sys_cfg_protocol 2

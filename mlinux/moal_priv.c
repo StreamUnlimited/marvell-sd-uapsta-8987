@@ -1892,7 +1892,7 @@ done:
  *
  *  @return             0 --success, otherwise fail
  */
-static int
+int
 woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 {
 	int user_data_len = wrq->u.data.length;
@@ -1902,6 +1902,9 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 	mlan_ds_misc_cfg *misc = NULL;
 	mlan_ds_misc_net_monitor *net_mon = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+	moal_handle *handle = priv->phandle;
+	monitor_iface *mon_if = NULL;
+	struct net_device *ndev = NULL;
 
 	ENTER();
 
@@ -2009,6 +2012,45 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 	if (status != MLAN_STATUS_SUCCESS) {
 		ret = -EFAULT;
 		goto done;
+	}
+
+	if (req->action == MLAN_ACT_SET) {
+		if (data[0]) {
+			/* Enable sniffer mode */
+			if (!handle->mon_if) {
+				mon_if = woal_prepare_mon_if(priv, "rtap", 0);
+				if (!mon_if) {
+					PRINTM(MFATAL,
+					       "Prepare mon_if fail.\n");
+					ret = -EFAULT;
+					goto done;
+				}
+				ndev = mon_if->mon_ndev;
+				ret = register_netdevice(ndev);
+				if (ret) {
+					PRINTM(MFATAL,
+					       "register net_device failed, ret=%d\n",
+					       ret);
+					free_netdev(ndev);
+					ret = -EFAULT;
+					goto done;
+				}
+				handle->mon_if = mon_if;
+			}
+			/* Save band channel config */
+			handle->mon_if->band_chan_cfg.band = net_mon->band;
+			handle->mon_if->band_chan_cfg.channel =
+				net_mon->channel;
+			handle->mon_if->band_chan_cfg.chan_bandwidth =
+				net_mon->chan_bandwidth;
+		} else {
+			/* Disable sniffer mode */
+			if (handle->mon_if) {
+				ndev = handle->mon_if->mon_ndev;
+				handle->mon_if = NULL;
+				unregister_netdevice(ndev);
+			}
+		}
 	}
 
 	data[0] = net_mon->enable_net_mon;

@@ -55,6 +55,11 @@ Change log:
 /** Private command ID to get extended version */
 #define WOAL_UAP_VEREXT             2
 
+/** Private command ID to set/get sixteen int */
+#define WOAL_UAP_SET_GET_SIXTEEN_INT            (WOAL_UAP_IOCTL + 4)
+/** Private command ID to set/get net monitor mode */
+#define WOAL_UAP_NET_MONITOR        1
+
 #if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 /** Private command ID to set one int/get one int */
@@ -125,6 +130,16 @@ static const struct iw_priv_args woal_uap_priv_args[] = {
 	 IW_PRIV_TYPE_INT | 1,
 	 IW_PRIV_TYPE_CHAR | 128,
 	 "verext"},
+	{
+	 WOAL_UAP_SET_GET_SIXTEEN_INT,
+	 IW_PRIV_TYPE_INT | 16,
+	 IW_PRIV_TYPE_INT | 16,
+	 ""},
+	{
+	 WOAL_UAP_NET_MONITOR,
+	 IW_PRIV_TYPE_INT | 16,
+	 IW_PRIV_TYPE_INT | 16,
+	 "netmon"},
 #if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 	{

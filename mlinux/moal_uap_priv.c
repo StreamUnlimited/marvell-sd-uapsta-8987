@@ -97,6 +97,16 @@ woal_uap_do_priv_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 			break;
 		}
 		break;
+	case WOAL_UAP_SET_GET_SIXTEEN_INT:
+		switch (wrq->u.data.flags) {
+		case WOAL_UAP_NET_MONITOR:
+			ret = woal_net_monitor_ioctl(priv, wrq);
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+		break;
 	case WOAL_UAP_SET_GET_256_CHAR:
 		switch (wrq->u.data.flags) {
 		case WOAL_WL_FW_RELOAD:

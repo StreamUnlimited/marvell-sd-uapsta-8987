@@ -2480,6 +2480,15 @@ woal_set_essid(struct net_device *dev, struct iw_request_info *info,
 		/* Adhoc start, Check the channel command */
 		woal_11h_channel_check_ioctl(priv, MOAL_IOCTL_WAIT);
 
+#ifdef REASSOCIATION
+	if (priv->reassoc_on == MTRUE && req_ssid.ssid_len) {
+		memcpy(&priv->prev_ssid_bssid.ssid, &req_ssid,
+		       sizeof(mlan_802_11_ssid));
+		memset(&priv->prev_ssid_bssid.bssid, 0x00,
+		       MLAN_MAC_ADDR_LENGTH);
+	}
+#endif /* REASSOCIATION */
+
 	/* Connect to BSS by ESSID */
 	memset(&ssid_bssid.bssid, 0, MLAN_MAC_ADDR_LENGTH);
 

@@ -358,10 +358,17 @@ typedef struct {
  *
  *  @return		N/A
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+static inline void
+woal_timer_handler(struct timer_list *t)
+{
+	pmoal_drv_timer timer = from_timer(timer, t, tl);
+#else
 static inline void
 woal_timer_handler(unsigned long fcontext)
 {
 	pmoal_drv_timer timer = (pmoal_drv_timer)fcontext;
+#endif
 
 	timer->timer_function(timer->function_context);
 
@@ -389,9 +396,13 @@ woal_initialize_timer(pmoal_drv_timer timer,
 		      void *FunctionContext)
 {
 	/* First, setup the timer to trigger the wlan_timer_handler proxy */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+	timer_setup(&timer->tl, woal_timer_handler, 0);
+#else
 	init_timer(&timer->tl);
 	timer->tl.function = woal_timer_handler;
 	timer->tl.data = (t_ptr)timer;
+#endif
 
 	/* Then tell the proxy which function to call and what to pass it */
 	timer->timer_function = TimerFunction;
@@ -1140,7 +1151,7 @@ typedef struct _hgm_data {
 } hgm_data;
 
 /** max antenna number */
-#define MAX_ANTENNA_NUM			1
+#define MAX_ANTENNA_NUM			4
 
 /* wlan_hist_proc_data */
 typedef struct _wlan_hist_proc_data {
@@ -1219,6 +1230,8 @@ struct _moal_private {
 	wlan_bgscan_cfg scan_cfg;
 	/** sched scaning flag */
 	t_u8 sched_scanning;
+    /** bgscan request id */
+	t_u64 bg_scan_reqid;
 #ifdef STA_CFG80211
     /** roaming enabled flag */
 	t_u8 roaming_enabled;
@@ -1421,7 +1434,7 @@ struct _moal_private {
 	struct list_head tx_stat_queue;
 
     /** rx hgm data */
-	hgm_data *hist_data[3];
+	hgm_data *hist_data[MAX_ANTENNA_NUM];
 	BOOLEAN assoc_with_mac;
 	t_u8 gtk_data_ready;
 	mlan_ds_misc_gtk_rekey_data gtk_rekey_data;
@@ -1439,7 +1452,9 @@ struct _moal_private {
 #define CHANNEL_FLAGS_DYNAMIC_CCK_OFDM  0x0400
 #define CHANNEL_FLAGS_GFSK  0x0800
 struct channel_field {
+	/** frequency */
 	t_u16 frequency;
+	/** flags */
 	t_u16 flags;
 } __packed;
 
@@ -1457,6 +1472,7 @@ struct channel_field {
 #define RX_BW_40   1
 #define RX_BW_20L  2
 #define RX_BW_20U  3
+#define RX_BW_80   4
 /** mcs_field.flags
 The flags field is any combination of the following:
 0x03    bandwidth - 0: 20, 1: 40, 2: 20L, 3: 20U
@@ -1466,9 +1482,57 @@ The flags field is any combination of the following:
 0x60    Number of STBC streams
 0x80    Ness - bit 0 (LSB) of Number of extension spatial streams */
 struct mcs_field {
+	/** known */
 	t_u8 known;
+	/** flags */
 	t_u8 flags;
+	/** mcs */
 	t_u8 mcs;
+} __packed;
+
+/** vht_field.known */
+#define VHT_KNOWN_STBC                  0x0001
+#define VHT_KNOWN_TXOP_PS_NA     0x0002
+#define VHT_KNOWN_GI                       0x0004
+#define VHT_KNOWN_SGI_NSYM_DIS  0x0008
+#define VHT_KNOWN_LDPC_EXTRA_OFDM_SYM  0x0010
+#define VHT_KNOWN_BEAMFORMED    0x0020
+#define VHT_KNOWN_BANDWIDTH       0x0040
+#define VHT_KNOWN_GROUP_ID           0x0080
+#define VHT_KNOWN_PARTIAL_AID       0x0100
+
+/** vht_field.flags */
+#define VHT_FLAG_STBC                       0x01
+#define VHT_FLAG_TXOP_PS_NA          0x02
+#define VHT_FLAG_SGI                          0x04
+#define VHT_FLAG_SGI_NSYM_M10_9   0x08
+#define VHT_FLAG_LDPC_EXTRA_OFDM_SYM  0x10
+#define VHT_FLAG_BEAMFORMED         0x20
+
+/** vht_field.coding */
+#define VHT_CODING_LDPC_USER0   0x01
+#define VHT_CODING_LDPC_USER1   0x02
+#define VHT_CODING_LDPC_USER2   0x04
+#define VHT_CODING_LDPC_USER3   0x08
+
+/** vht_field */
+struct vht_field {
+	/** pad: for vht field require 2 bytes alignment */
+	t_u8 pad;
+	/** known */
+	t_u16 known;
+	/** flags */
+	t_u8 flags;
+	/** bandwidth */
+	t_u8 bandwidth;
+	/** mcs_nss for up to 4 users */
+	t_u8 mcs_nss[4];
+	/** coding for up to 4 users */
+	t_u8 coding;
+	/** group_id */
+	t_u8 group_id;
+	/** partial_aid */
+	t_u16 partial_aid;
 } __packed;
 
 /** radiotap_body.flags */
@@ -1481,14 +1545,28 @@ struct mcs_field {
 #define RADIOTAP_FLAGS_FAILED_FCS_CHECK  0x40
 #define RADIOTAP_FLAGS_USE_SGI_HT  0x80
 struct radiotap_body {
+	/** timestamp */
 	t_u64 timestamp;
+	/** flags */
 	t_u8 flags;
+	/** rate for LG pkt, RATE flag will be present, it shows datarate in 500Kbps.
+	  * For HT/VHT pkt, RATE flag will not be present, it is not used. */
 	t_u8 rate;
+	/** channel */
 	struct channel_field channel;
+	/** antenna_signal */
 	t_s8 antenna_signal;
+	/** antenna_noise */
 	t_s8 antenna_noise;
+	/** antenna */
 	t_u8 antenna;
-	struct mcs_field mcs;
+	/** union for HT/VHT pkt */
+	union {
+		/** mcs field */
+		struct mcs_field mcs;
+		/** vht field */
+		struct vht_field vht;
+	} u;
 } __packed;
 
 struct radiotap_header {
@@ -1500,14 +1578,12 @@ struct radiotap_header {
 #define GTK_REKEY_OFFLOAD_ENABLE                     1
 #define GTK_REKEY_OFFLOAD_SUSPEND                    2
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 /** Monitor Band Channel Config */
 typedef struct _netmon_band_chan_cfg {
 	t_u32 band;
 	t_u32 channel;
 	t_u32 chan_bandwidth;
 } netmon_band_chan_cfg;
-#endif
 
 typedef struct _monitor_iface {
 	/* The priv data of interface on which the monitor iface is based */
@@ -1521,9 +1597,9 @@ typedef struct _monitor_iface {
 	int flag;
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 	struct cfg80211_chan_def chandef;
+#endif
 	/** Netmon Band Channel Config */
 	netmon_band_chan_cfg band_chan_cfg;
-#endif
 	/** Monitor device statistics structure */
 	struct net_device_stats stats;
 } monitor_iface;
@@ -1653,6 +1729,12 @@ struct _moal_handle {
 	t_u8 first_scan_done;
     /** scan channel gap */
 	t_u16 scan_chan_gap;
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
+    /** recieve bgscan stop */
+	t_u8 rx_bgscan_stop;
+    /** bg scan Private pointer */
+	moal_private *bg_scan_priv;
+#endif
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)
     /** remain on channel flag */
 	t_u8 remain_on_channel;
@@ -2281,6 +2363,8 @@ void woal_get_version(moal_handle *handle, char *version, int maxlen);
 int woal_get_driver_version(moal_private *priv, struct ifreq *req);
 /** Get extended driver version */
 int woal_get_driver_verext(moal_private *priv, struct ifreq *ireq);
+/** Get/set net monitor mode configurations */
+int woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq);
 /** check driver status */
 t_u8 woal_check_driver_status(moal_handle *handle);
 /** Mgmt frame forward registration */
@@ -2332,6 +2416,9 @@ mlan_status woal_bss_start(moal_private *priv, t_u8 wait_option,
 /** Request firmware information */
 mlan_status woal_request_get_fw_info(moal_private *priv, t_u8 wait_option,
 				     mlan_fw_info *fw_info);
+/** Get channel of active intf */
+mlan_status woal_get_active_intf_channel(moal_private *priv,
+					 chan_band_info * channel);
 #ifdef STA_SUPPORT
 /** Request Exented Capability information */
 int woal_request_extcap(moal_private *priv, t_u8 *buf, t_u8 len);
@@ -2383,7 +2470,7 @@ char *region_code_2_string(t_u8 region_code);
 t_bool woal_is_etsi_country(t_u8 *country_code);
 t_u8 woal_is_valid_alpha2(char *alpha2);
 #ifdef STA_SUPPORT
-void woal_send_disconnect_to_system(moal_private *priv);
+void woal_send_disconnect_to_system(moal_private *priv, t_u16 reason_code);
 void woal_send_mic_error_event(moal_private *priv, t_u32 event);
 void woal_ioctl_get_bss_resp(moal_private *priv, mlan_ds_bss *bss);
 void woal_ioctl_get_info_resp(moal_private *priv, mlan_ds_get_info *info);
@@ -2494,6 +2581,12 @@ int woal_reset_intf(moal_private *priv, t_u8 wait_option, int all_intf);
 #define MGMT_MASK_BEACON_WPS_P2P        0x8000
 /** common ioctl for uap, station */
 int woal_custom_ie_ioctl(struct net_device *dev, struct ifreq *req);
+#ifdef UAP_SUPPORT
+int woal_priv_get_nonglobal_operclass_by_bw_channel(moal_private *priv,
+						    t_u8 bandwidth,
+						    t_u8 channel,
+						    t_u8 *oper_class);
+#endif
 int woal_send_host_packet(struct net_device *dev, struct ifreq *req);
 /** Private command ID to pass mgmt frame */
 #define WOAL_MGMT_FRAME_TX_IOCTL          (SIOCDEVPRIVATE + 12)
@@ -2648,6 +2741,8 @@ void woal_remove_tx_info(moal_private *priv, t_u8 tx_seq_num);
 mlan_status woal_request_country_power_table(moal_private *priv, char *region);
 mlan_status woal_mc_policy_cfg(moal_private *priv, t_u16 *enable,
 			       t_u8 wait_option, t_u8 action);
+void woal_check_mc_connection(moal_private *priv, t_u8 wait_option,
+			      t_u8 new_channel);
 #ifdef RX_PACKET_COALESCE
 mlan_status woal_rx_pkt_coalesce_cfg(moal_private *priv, t_u16 *enable,
 				     t_u8 wait_option, t_u8 action);

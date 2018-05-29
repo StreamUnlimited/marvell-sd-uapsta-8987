@@ -96,9 +96,8 @@ moal_malloc(IN t_void *pmoal_handle,
 	    IN t_u32 size, IN t_u32 flag, OUT t_u8 **ppbuf)
 {
 	moal_handle *handle = (moal_handle *)pmoal_handle;
-	t_u32 mem_flag = (in_interrupt() || irqs_disabled() ||
-			  !write_can_lock(&dev_base_lock)) ? GFP_ATOMIC :
-		GFP_KERNEL;
+	t_u32 mem_flag = (in_interrupt() || irqs_disabled())?
+		GFP_ATOMIC : GFP_KERNEL;
 
 	if (flag & MLAN_MEM_DMA)
 		mem_flag |= GFP_DMA;
@@ -320,9 +319,8 @@ moal_init_timer(IN t_void *pmoal_handle,
 		IN t_void (*callback) (t_void *pcontext), IN t_void *pcontext)
 {
 	moal_drv_timer *timer = NULL;
-	t_u32 mem_flag = (in_interrupt() || irqs_disabled() ||
-			  !write_can_lock(&dev_base_lock)) ? GFP_ATOMIC :
-		GFP_KERNEL;
+	t_u32 mem_flag = (in_interrupt() || irqs_disabled())?
+		GFP_ATOMIC : GFP_KERNEL;
 
 	timer = kmalloc(sizeof(moal_drv_timer), mem_flag);
 	if (timer == NULL)
@@ -880,6 +878,8 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 	t_u8 band = 0;
 	struct ieee80211_hdr *dot11_hdr = NULL;
 	t_u8 *payload = NULL;
+	t_u32 vht_sig1 = 0;
+	t_u32 vht_sig2 = 0;
 	ENTER();
 	if (!pmbuf->pdesc) {
 		LEAVE();
@@ -923,15 +923,15 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 					    (1 <<
 					     IEEE80211_RADIOTAP_DBM_ANTNOISE) |
 					    (1 << IEEE80211_RADIOTAP_ANTENNA));
-			//Timstamp
+	    /** Timstamp */
 			rth->body.timestamp = cpu_to_le64(jiffies);
-			//Flags
+	    /** Flags */
 			rth->body.flags = (rt_info.extra_info.flags &
 					   ~(RADIOTAP_FLAGS_USE_SGI_HT |
 					     RADIOTAP_FLAGS_WITH_FRAGMENT |
 					     RADIOTAP_FLAGS_WEP_ENCRYPTION |
 					     RADIOTAP_FLAGS_FAILED_FCS_CHECK));
-			//reverse fail fcs, 1 means pass FCS in FW, but means fail FCS in radiotap
+	    /** reverse fail fcs, 1 means pass FCS in FW, but means fail FCS in radiotap */
 			rth->body.flags |=
 				(~rt_info.extra_info.
 				 flags) & RADIOTAP_FLAGS_FAILED_FCS_CHECK;
@@ -953,18 +953,19 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 					(t_u8 *)dot11_hdr +
 					ieee80211_hdrlen(dot11_hdr->
 							 frame_control);
-				if (!(*(payload + 3) & 0x20))	//ExtIV bit shall be 0 for WEP frame
+				if (!(*(payload + 3) & 0x20))
+						 /** ExtIV bit shall be 0 for WEP frame */
 					rth->body.flags |=
 						RADIOTAP_FLAGS_WEP_ENCRYPTION;
 			}
-			//Rate, t_u8 only apply for LG mode
+	    /** Rate, t_u8 only apply for LG mode */
 			if (format == MLAN_RATE_FORMAT_LG) {
 				rth->hdr.it_present |=
 					cpu_to_le32(1 <<
 						    IEEE80211_RADIOTAP_RATE);
 				rth->body.rate = rt_info.rate_info.bitrate;
 			}
-			//Channel
+	    /** Channel */
 			rth->body.channel.flags = 0;
 			if (rt_info.chan_num)
 				chan_num = rt_info.chan_num;
@@ -996,38 +997,99 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 				rth->body.channel.flags |=
 					cpu_to_le16
 					(CHANNEL_FLAGS_ONLY_PASSIVSCAN_ALLOW);
-			//Antenna
+	    /** Antenna */
 			rth->body.antenna_signal = -(rt_info.nf - rt_info.snr);
 			rth->body.antenna_noise = -rt_info.nf;
 			rth->body.antenna = rt_info.antenna;
-			//MCS
+	    /** MCS */
 			if (format == MLAN_RATE_FORMAT_HT) {
 				rth->hdr.it_present |=
 					cpu_to_le32(1 <<
 						    IEEE80211_RADIOTAP_MCS);
-				rth->body.mcs.known =
+				rth->body.u.mcs.known =
 					rt_info.extra_info.mcs_known;
-				rth->body.mcs.flags =
+				rth->body.u.mcs.flags =
 					rt_info.extra_info.mcs_flags;
-				//MCS mcs
-				rth->body.mcs.known |=
+		/** MCS mcs */
+				rth->body.u.mcs.known |=
 					MCS_KNOWN_MCS_INDEX_KNOWN;
-				rth->body.mcs.mcs = rt_info.rate_info.mcs_index;
-				//MCS bw
-				rth->body.mcs.known |= MCS_KNOWN_BANDWIDTH;
-				rth->body.mcs.flags &= ~(0x03);	//Clear, 20MHz as default
+				rth->body.u.mcs.mcs =
+					rt_info.rate_info.mcs_index;
+		/** MCS bw */
+				rth->body.u.mcs.known |= MCS_KNOWN_BANDWIDTH;
+				rth->body.u.mcs.flags &= ~(0x03);
+						 /** Clear, 20MHz as default */
 				if (bw == 1)
-					rth->body.mcs.flags |= RX_BW_40;
-				//MCS gi
-				rth->body.mcs.known |= MCS_KNOWN_GUARD_INTERVAL;
-				rth->body.mcs.flags &= ~(1 << 2);
+					rth->body.u.mcs.flags |= RX_BW_40;
+		/** MCS gi */
+				rth->body.u.mcs.known |=
+					MCS_KNOWN_GUARD_INTERVAL;
+				rth->body.u.mcs.flags &= ~(1 << 2);
 				if (gi)
-					rth->body.mcs.flags |= gi << 2;
-				//MCS FEC
-				rth->body.mcs.known |= MCS_KNOWN_FEC_TYPE;
-				rth->body.mcs.flags &= ~(1 << 4);
+					rth->body.u.mcs.flags |= gi << 2;
+		/** MCS FEC */
+				rth->body.u.mcs.known |= MCS_KNOWN_FEC_TYPE;
+				rth->body.u.mcs.flags &= ~(1 << 4);
 				if (ldpc)
-					rth->body.mcs.flags |= ldpc << 4;
+					rth->body.u.mcs.flags |= ldpc << 4;
+			}
+	    /** VHT */
+			if (format == MLAN_RATE_FORMAT_VHT) {
+				vht_sig1 = rt_info.extra_info.vht_sig1;
+				vht_sig2 = rt_info.extra_info.vht_sig2;
+		/** Present Flag */
+				rth->hdr.it_present |=
+					cpu_to_le32(1 <<
+						    IEEE80211_RADIOTAP_VHT);
+		/** STBC */
+				rth->body.u.vht.known |=
+					cpu_to_le16(VHT_KNOWN_STBC);
+				if (vht_sig1 & MBIT(3))
+					rth->body.u.vht.flags |= VHT_FLAG_STBC;
+		/** TXOP_PS_NA */
+		/** TODO: Not support now */
+		/** GI */
+				rth->body.u.vht.known |=
+					cpu_to_le16(VHT_KNOWN_GI);
+				if (vht_sig2 & MBIT(0))
+					rth->body.u.vht.flags |= VHT_FLAG_SGI;
+		/** SGI NSYM DIS */
+				rth->body.u.vht.known |=
+					cpu_to_le16(VHT_KNOWN_SGI_NSYM_DIS);
+				if (vht_sig2 & MBIT(1))
+					rth->body.u.vht.flags |=
+						VHT_FLAG_SGI_NSYM_M10_9;
+		/** LDPC_EXTRA_OFDM_SYM */
+		/** TODO: Not support now */
+		/** BEAMFORMED */
+				rth->body.u.vht.known |=
+					cpu_to_le16(VHT_KNOWN_BEAMFORMED);
+				if (vht_sig2 & MBIT(8))
+					rth->body.u.vht.flags |=
+						VHT_FLAG_BEAMFORMED;
+		/** BANDWIDTH */
+				rth->body.u.vht.known |=
+					cpu_to_le16(VHT_KNOWN_BANDWIDTH);
+				if (bw == 1)
+					rth->body.u.vht.bandwidth = RX_BW_40;
+				else if (bw == 2)
+					rth->body.u.vht.bandwidth = RX_BW_80;
+		/** GROUP_ID */
+				rth->body.u.vht.known |=
+					cpu_to_le16(VHT_KNOWN_GROUP_ID);
+				rth->body.u.vht.group_id =
+					(vht_sig1 & (0x3F0)) >> 4;
+		/** PARTIAL_AID */
+		/** TODO: Not support now */
+		/** mcs_nss */
+				rth->body.u.vht.mcs_nss[0] =
+					(vht_sig2 & (0xF0)) >> 4;
+				rth->body.u.vht.mcs_nss[0] |=
+					(vht_sig1 & (0x1C00)) >> (10 - 4);
+		/** coding */
+				if (vht_sig2 & MBIT(2))
+					rth->body.u.vht.coding |=
+						VHT_CODING_LDPC_USER0;
 			}
 		}
 		skb_set_mac_header(skb, 0);
@@ -1142,7 +1204,8 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 						  wakelock_timeout);
 #else
 				wake_lock_timeout(&handle->wake_lock,
-						  wakelock_timeout);
+						  msecs_to_jiffies
+						  (wakelock_timeout));
 #endif
 			}
 #endif
@@ -1224,11 +1287,6 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 	moal_timestamps *tsstamp;
 	t_u8 payload_len, i;
 	moal_ptp_context *ptp_context;
-#if defined(FW_ROAMING) || (defined(ROAMING_OFFLOAD) && defined(STA_CFG80211))
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-	struct cfg80211_roam_info roam_info;
-#endif
-#endif
 
 	ENTER();
 
@@ -1416,7 +1474,9 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 		break;
 
 	case MLAN_EVENT_ID_FW_DISCONNECTED:
-		woal_send_disconnect_to_system(priv);
+
+		woal_send_disconnect_to_system(priv,
+					       (t_u16)*pmevent->event_buf);
 #ifdef STA_WEXT
 		/* Reset wireless stats signal info */
 		if (IS_STA_WEXT(cfg80211_wext)) {
@@ -1754,7 +1814,8 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 						  ROAMING_WAKE_LOCK_TIMEOUT);
 #else
 				wake_lock_timeout(&priv->phandle->wake_lock,
-						  ROAMING_WAKE_LOCK_TIMEOUT);
+						  msecs_to_jiffies
+						  (ROAMING_WAKE_LOCK_TIMEOUT));
 #endif
 #endif
 				wake_up_interruptible(&priv->phandle->
@@ -1768,13 +1829,11 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
 		if (IS_STA_CFG80211(cfg80211_wext)) {
 			if (priv->sched_scanning) {
-				cfg80211_sched_scan_stopped(priv->wdev->wiphy
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-							    , 0
-#endif
-					);
+				priv->phandle->rx_bgscan_stop = MTRUE;
+				priv->phandle->bg_scan_priv = priv;
+				queue_work(priv->phandle->rx_workqueue,
+					   &priv->phandle->rx_work);
 				PRINTM(MEVENT, "Sched_Scan stopped\n");
-				priv->sched_scanning = MFALSE;
 			}
 		}
 #endif
@@ -1790,7 +1849,8 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 								 MOAL_NO_WAIT);
 				cfg80211_sched_scan_results(priv->wdev->wiphy
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-							    , 0
+							    ,
+							    priv->bg_scan_reqid
 #endif
 					);
 				priv->last_event = 0;

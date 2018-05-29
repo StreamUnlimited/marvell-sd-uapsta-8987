@@ -122,6 +122,8 @@ typedef MLAN_PACK_START enum _IEEEtypes_ElementId_e {
 	RSN_IE = 48,
 	VS_IE = VENDOR_SPECIFIC_221,
 	WAPI_IE = 68,
+	FRAGMENT = 242,
+	EXTENSION = 255
 } MLAN_PACK_END IEEEtypes_ElementId_e;
 
 /** IEEE IE header */
@@ -444,6 +446,7 @@ typedef t_u16 IEEEtypes_StatusCode_t;
 
 /** Fixed size in assoc_resp */
 #define ASSOC_RESP_FIXED_SIZE      6
+
 /** IEEEtypes_AssocRsp_t */
 typedef MLAN_PACK_START struct _IEEEtypes_AssocRsp_t {
     /** Capability information */
@@ -1206,6 +1209,73 @@ typedef MLAN_PACK_START struct _IEEEtypes_OperModeNtf_t {
 	t_u8 oper_mode;
 } MLAN_PACK_END IEEEtypes_OperModeNtf_t, *pIEEEtypes_OperModeNtf_t;
 
+/** default channel switch count */
+#define DEF_CHAN_SWITCH_COUNT       5
+
+/*  IEEE Channel Switch Announcement Element (7.3.2.20) */
+/**
+ *  Provided in beacons and probe responses.  Used to advertise when
+ *    and to which channel it is changing to.  Only starting STAs in
+ *    an IBSS and APs are allowed to originate a chan switch element.
+ */
+typedef MLAN_PACK_START struct {
+	t_u8 element_id;	/**< IEEE Element ID = 37 */
+	t_u8 len;		/**< Element length after id and len */
+	t_u8 chan_switch_mode;	/**< STA should not transmit any frames if 1 */
+	t_u8 new_channel_num;	/**< Channel # that AP/IBSS is moving to */
+	t_u8 chan_switch_count;	/**< # of TBTTs before channel switch */
+
+} MLAN_PACK_END IEEEtypes_ChanSwitchAnn_t;
+
+/** data structure for extended channel switch */
+typedef MLAN_PACK_START struct {
+   /** IEEE element ID = 60 */
+	t_u8 element_id;
+    /** Element length after id and len, set to 4 */
+	t_u8 len;
+    /** STA should not transmit any frames if 1 */
+	t_u8 chan_switch_mode;
+    /** Operate class # that AP/IBSS is moving to */
+	t_u8 new_oper_class;
+    /** Channel # that AP/IBSS is moving to */
+	t_u8 new_channel_num;
+    /** of TBTTs before channel switch */
+	t_u8 chan_switch_count;
+} MLAN_PACK_END IEEEtypes_ExtChanSwitchAnn_t;
+
+/*  IEEE Wide Bandwidth Channel Switch Element */
+/**
+ *  Provided in beacons and probe responses.  Used to advertise when
+ *    and to which channel it is changing to.  Only starting STAs in
+ *    an IBSS and APs are allowed to originate a wide bandwidth chan
+ *    switch element.
+ */
+typedef MLAN_PACK_START struct {
+    /** Generic IE header IEEE Element ID = 194*/
+	IEEEtypes_Header_t ieee_hdr;
+    /** New channel width */
+	t_u8 new_channel_width;
+    /** New channel center frequency 0*/
+	t_u8 new_channel_center_freq0;
+    /** New channel center frequency 1*/
+	t_u8 new_channel_center_freq1;
+} MLAN_PACK_END IEEEtypes_WideBWChanSwitch_t;
+
+/*  IEEE VHT Transmit Power Envelope Element */
+/**
+ *  Provided in beacons and probe responses.  Used to advertise the max
+ *    TX power in sepeate bandwidth and as a sub element of Channel Switch
+ *    Wrapper IE.
+ */
+typedef MLAN_PACK_START struct {
+    /** Generic IE header IEEE Element ID = 195*/
+	IEEEtypes_Header_t ieee_hdr;
+	t_u8 tpc_info;		/**< Transmit Power Information>*/
+	t_u8 local_max_tp_20mhz;/**< Local Maximum Transmit Power for 20 MHZ>*/
+	t_u8 local_max_tp_40mhz;/**< Local Maximum Transmit Power for 40 MHZ>*/
+	t_u8 local_max_tp_80mhz;/**< Local Maximum Transmit Power for 80 MHZ>*/
+} MLAN_PACK_END IEEEtypes_VhtTpcEnvelope_t;
+
 /** Maximum number of subbands in the IEEEtypes_SupportedChannels_t structure */
 #define WLAN_11H_MAX_SUBBANDS  5
 
@@ -1263,54 +1333,6 @@ typedef MLAN_PACK_START struct {
 	IEEEtypes_SupportChan_Subband_t subband[WLAN_11H_MAX_SUBBANDS];
 
 } MLAN_PACK_END IEEEtypes_SupportedChannels_t;
-
-/*  IEEE Channel Switch Announcement Element (7.3.2.20) */
-/**
- *  Provided in beacons and probe responses.  Used to advertise when
- *    and to which channel it is changing to.  Only starting STAs in
- *    an IBSS and APs are allowed to originate a chan switch element.
- */
-typedef MLAN_PACK_START struct {
-	t_u8 element_id;	/**< IEEE Element ID = 37 */
-	t_u8 len;		/**< Element length after id and len */
-	t_u8 chan_switch_mode;	/**< STA should not transmit any frames if 1 */
-	t_u8 new_channel_num;	/**< Channel # that AP/IBSS is moving to */
-	t_u8 chan_switch_count;	/**< # of TBTTs before channel switch */
-
-} MLAN_PACK_END IEEEtypes_ChanSwitchAnn_t;
-
-/*  IEEE Wide Bandwidth Channel Switch Element */
-/**
- *  Provided in beacons and probe responses.  Used to advertise when
- *    and to which channel it is changing to.  Only starting STAs in
- *    an IBSS and APs are allowed to originate a wide bandwidth chan
- *    switch element.
- */
-typedef MLAN_PACK_START struct {
-    /** Generic IE header IEEE Element ID = 194*/
-	IEEEtypes_Header_t ieee_hdr;
-    /** New channel width */
-	t_u8 new_channel_width;
-    /** New channel center frequency 0*/
-	t_u8 new_channel_center_freq0;
-    /** New channel center frequency 1*/
-	t_u8 new_channel_center_freq1;
-} MLAN_PACK_END IEEEtypes_WideBWChanSwitch_t;
-
-/*  IEEE VHT Transmit Power Envelope Element */
-/**
- *  Provided in beacons and probe responses.  Used to advertise the max
- *    TX power in sepeate bandwidth and as a sub element of Channel Switch
- *    Wrapper IE.
- */
-typedef MLAN_PACK_START struct {
-    /** Generic IE header IEEE Element ID = 195*/
-	IEEEtypes_Header_t ieee_hdr;
-	t_u8 tpc_info;		/**< Transmit Power Information>*/
-	t_u8 local_max_tp_20mhz;/**< Local Maximum Transmit Power for 20 MHZ>*/
-	t_u8 local_max_tp_40mhz;/**< Local Maximum Transmit Power for 40 MHZ>*/
-	t_u8 local_max_tp_80mhz;/**< Local Maximum Transmit Power for 80 MHZ>*/
-} MLAN_PACK_END IEEEtypes_VhtTpcEnvelope_t;
 
 /*  IEEE Quiet Period Element (7.3.2.23) */
 /**
@@ -1589,6 +1611,36 @@ typedef MLAN_PACK_START struct {
 /** Maximum number of channels that can be sent in bg scan config */
 #define WLAN_BG_SCAN_CHAN_MAX       38
 
+/** Enumeration definition */
+/** EES MODE */
+typedef enum {
+    /** EES MODE: LOW */
+	EES_MODE_LOW = 0,
+    /** EES MODE: MID */
+	EES_MODE_MID,
+    /** EES MODE: HIGH */
+	EES_MODE_HIGH,
+    /** EES MODE: OFF */
+	EES_MODE_OFF,
+    /** EES MODE: LOOP */
+	EES_MODE_LOOP = 15,
+} ees_modes;
+
+/** EES Maximum SSID */
+#define EES_MAX_SSIDS 2
+
+/** ees_ssid_config */
+typedef MLAN_PACK_START struct {
+    /** SSID */
+	t_u8 ssid[MLAN_MAX_SSID_LENGTH + 1];
+    /** Maximum length of SSID */
+	t_u8 max_len;
+    /** PairCipher */
+	t_u8 pair_cipher;
+    /** GroupCipher */
+	t_u8 group_cipher;
+} MLAN_PACK_END ees_ssid_config;
+
 /**
  *  Input structure to configure bs scan cmd to firmware
  */
@@ -1628,6 +1680,32 @@ typedef MLAN_PACK_START struct {
 	wlan_user_scan_chan chan_list[WLAN_BG_SCAN_CHAN_MAX];
     /** scan channel gap */
 	t_u16 scan_chan_gap;
+    /** Enable EES configuration */
+	t_u8 config_ees;
+    /** EES scan mode */
+	t_u16 ees_mode;
+    /** EES report condition */
+	t_u16 report_cond;
+    /** EES High Period scan interval */
+	t_u16 high_period;
+    /** EES High Period scan count */
+	t_u16 high_period_count;
+    /** EES Medium Period scan interval */
+	t_u16 mid_period;
+    /** EES Medium Period scan count */
+	t_u16 mid_period_count;
+    /** EES Low Period scan interval */
+	t_u16 low_period;
+    /** EES Low Period scan count */
+	t_u16 low_period_count;
+    /** Number of networks in the list */
+	t_u8 network_count;
+    /** Maximum number of connection count */
+	t_u8 max_conn_count;
+    /** Black List Exp */
+	t_u8 black_list_exp;
+    /** Array of ees config struct */
+	ees_ssid_config ees_ssid_cfg[EES_MAX_SSIDS];
 } MLAN_PACK_END wlan_bgscan_cfg;
 #endif /* STA_SUPPORT */
 
@@ -1817,5 +1895,88 @@ typedef struct _BSSDescriptor_t {
 	t_u32 beacon_buf_size_max;
 
 } BSSDescriptor_t, *pBSSDescriptor_t;
+
+/**
+ *  Type definitions for TCLAS element
+ */
+#define TCLAS_CLASSIFIER_TYPE_4      4
+
+/**
+ *  IEEE TCLAS Classifier Type 4
+ *
+ *  Type definition for Classifier Type 4 in TCLAS element
+ *
+ */
+typedef struct MLAN_PACK_START _IEEEtypes_TCLAS_IPv4_t {
+    /** Version */
+	t_u8 version;
+    /** Source IP address */
+	t_u8 source_ip_addr[4];
+    /** Dest IP address */
+	t_u8 dest_ip_addr[4];
+    /** Source port */
+	t_u8 source_port[2];
+    /** Dest port */
+	t_u8 dest_port[2];
+    /** DSCP value */
+	t_u8 dscp;
+    /** Protocol value */
+	t_u8 protocol;
+    /** Reserved */
+	t_u8 reserved;
+} MLAN_PACK_END IEEEtypes_TCLAS_IPv4_t;
+
+/**
+ *  IEEE TCLAS base
+ *
+ *  Type definition for common parameters for every
+ *    classifier type
+ *
+ */
+typedef struct MLAN_PACK_START _IEEEtypes_TCLAS_Base_t {
+    /** Element id */
+	t_u8 element_id;
+    /** Element len */
+	t_u8 element_len;
+    /** User priority */
+	t_u8 user_priority;
+    /** Classifier type */
+	t_u8 classifier_type;
+    /** Classifier mask */
+	t_u8 classifier_mask;
+} MLAN_PACK_END IEEEtypes_TCLAS_Base_t;
+
+/**
+ *  IEEE TCLAS element
+ *
+ *  Type definition for TCLAS element with different
+ *    classifier types
+ *
+ */
+typedef struct MLAN_PACK_START _IEEEtypes_TCLAS_t {
+    /** Base structure for TCLAS */
+	IEEEtypes_TCLAS_Base_t tclas_base;
+
+	union MLAN_PACK_START {
+	/** Classifier type 4 */
+		IEEEtypes_TCLAS_IPv4_t ipv4;
+	} MLAN_PACK_END classifier;
+} MLAN_PACK_END IEEEtypes_TCLAS_t;
+
+/**
+ *  TCLAS element TLV
+ *
+ *  Structure that defines TLV for TCLAS element with different
+ *    classifier types
+ *
+ */
+typedef struct MLAN_PACK_START _tclasElemen_tlv {
+    /** Type */
+	t_u16 type;
+    /** Length of TLV */
+	t_u16 len;
+    /** Tclas Ie */
+	IEEEtypes_TCLAS_t tclas_ie;
+} MLAN_PACK_END tclas_element_tlv_t;
 
 #endif /* !_MLAN_IEEE_H_ */

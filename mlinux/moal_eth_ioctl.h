@@ -426,36 +426,6 @@ typedef struct woal_priv_addba {
 	t_u32 rx_amsdu;
 } woal_addba;
 
-/** data structure for extended channel switch */
-typedef struct woal_priv_extend_chan_switch {
-   /** IEEE element ID = 60 */
-	t_u8 element_id;
-    /** Element length after id and len, set to 4 */
-	t_u8 len;
-    /** STA should not transmit any frames if 1 */
-	t_u8 chan_switch_mode;
-    /** Operate class # that AP/IBSS is moving to */
-	t_u8 new_oper_class;
-    /** Channel # that AP/IBSS is moving to */
-	t_u8 new_channel_num;
-    /** of TBTTs before channel switch */
-	t_u8 chan_switch_count;
-} woal_extend_chan_switch;
-
-/** data structure for channel switch */
-typedef struct woal_priv_chan_switch {
-	/* IEEE element ID = 37 */
-	t_u8 element_id;
-	/* Element length after id and len, set to 3 */
-	t_u8 len;
-	/* STA should not transmit any frames if 1 */
-	t_u8 chan_switch_mode;
-	/* Channel # that AP/IBSS is moving to */
-	t_u8 new_channel_num;
-	/* of TBTTs before channel switch */
-	t_u8 chan_switch_count;
-} woal_chan_switch;
-
 /** data structure for cmd txratecfg */
 typedef struct woal_priv_tx_rate_cfg {
    /** LG rate: 0, HT rate: 1, VHT rate: 2 */

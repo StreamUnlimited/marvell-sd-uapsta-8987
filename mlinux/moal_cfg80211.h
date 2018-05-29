@@ -440,7 +440,8 @@ void woal_cfg80211_setup_ht_cap(struct ieee80211_sta_ht_cap *ht_info,
 void woal_cfg80211_setup_vht_cap(moal_private *priv,
 				 struct ieee80211_sta_vht_cap *vht_cap);
 #endif
-int woal_cfg80211_assoc(moal_private *priv, void *sme, t_u8 wait_option);
+int woal_cfg80211_assoc(moal_private *priv, void *sme, t_u8 wait_option,
+			mlan_ds_misc_assoc_rsp *assoc_rsp);
 
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 #define REGULATORY_CFG_LEN  (NL80211_MAX_SUPP_REG_RULES << 1)

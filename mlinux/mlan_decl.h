@@ -27,7 +27,7 @@ Change log:
 #define _MLAN_DECL_H_
 
 /** MLAN release version */
-#define MLAN_RELEASE_VERSION		 "C516"
+#define MLAN_RELEASE_VERSION		 "C540"
 
 /** Re-define generic data types for MLAN/MOAL */
 /** Signed char (1-byte) */
@@ -592,6 +592,8 @@ typedef MLAN_PACK_START struct _chan_band_info {
 	t_u8 is_11n_enabled;
 	/** center channel */
 	t_u8 center_chan;
+	/** dfs channel flag */
+	t_u8 is_dfs_chan;
 } MLAN_PACK_END chan_band_info;
 
 /** mlan_event data structure */
@@ -656,6 +658,10 @@ typedef MLAN_PACK_START struct _rxpd_extra_info {
 	t_u8 mcs_known;
     /** mcs.flags */
 	t_u8 mcs_flags;
+    /** vht sig1 */
+	t_u32 vht_sig1;
+    /** vht sig2 */
+	t_u32 vht_sig2;
 } MLAN_PACK_END rxpd_extra_info, *prxpd_extra_info;
 
 /** rdaio tap information structure */
@@ -882,7 +888,7 @@ typedef MLAN_PACK_START struct _custom_ie {
 /** Max IE index to FW */
 #define MAX_MGMT_IE_INDEX_TO_FW         4
 /** Max IE index per BSS */
-#define MAX_MGMT_IE_INDEX               16
+#define MAX_MGMT_IE_INDEX               26
 
 /** custom IE info */
 typedef MLAN_PACK_START struct _custom_ie_info {
@@ -1369,9 +1375,9 @@ typedef struct _mlan_device {
     /** oob independent reset */
 	t_u32 indrstcfg;
     /** dtim interval */
-	t_u32 multi_dtim;
+	t_u16 multi_dtim;
     /** IEEE ps inactivity timeout value */
-	t_u32 inact_tmo;
+	t_u16 inact_tmo;
     /** Host sleep wakeup interval */
 	t_u32 hs_wake_interval;
     /** GPIO to indicate wakeup source */

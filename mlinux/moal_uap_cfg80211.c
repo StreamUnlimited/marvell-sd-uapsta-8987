@@ -601,6 +601,44 @@ woal_enable_dfs_support(moal_private *priv, struct cfg80211_chan_def *chandef)
 }
 #endif
 
+/**
+ * @brief Prase supported rates from beacon data, set bss cfg accordingly
+ *
+ * @param bss_cfg            A pointer to bss configuration structure
+ * @param head_ie            A pointer to beacon head IE buffer
+ * @param head_len           head IE buffer length
+ * @param tail_ie            A pointer to beacon tail IE buffer
+ * @param tail_len           tail IE buffer length *
+ * @return                   N/A
+ */
+static void
+woal_set_uap_rates(mlan_uap_bss_param *bss_cfg, const t_u8 *head_ie,
+		   int head_len, const t_u8 *tail_ie, int tail_len)
+{
+	pIEEEtypes_Header_t rate_ie;
+	pIEEEtypes_Header_t ext_rate_ie;
+	int var_offset = offsetof(struct ieee80211_mgmt, u.beacon.variable);
+	const u8 *var_pos = head_ie + var_offset;
+	int len = head_len - var_offset;
+	int rate_len = 0;
+
+	rate_ie = (void *)woal_parse_ie_tlv(var_pos, len, WLAN_EID_SUPP_RATES);
+	if (rate_ie) {
+		memset(bss_cfg->rates, 0, sizeof(bss_cfg->rates));
+		memcpy(bss_cfg->rates, rate_ie + 1, rate_ie->len);
+		rate_len = rate_ie->len;
+	}
+	ext_rate_ie =
+		(void *)woal_parse_ie_tlv(tail_ie, tail_len,
+					  WLAN_EID_EXT_SUPP_RATES);
+	if (ext_rate_ie) {
+		memcpy(&bss_cfg->rates[rate_len], ext_rate_ie + 1,
+		       ext_rate_ie->len);
+		rate_len += ext_rate_ie->len;
+	}
+	DBG_HEXDUMP(MCMD_D, "rates", bss_cfg->rates, sizeof(bss_cfg->rates));
+}
+
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
 /**
  * @brief initialize AP or GO bss config
@@ -670,7 +708,6 @@ woal_cfg80211_beacon_config(moal_private *priv,
 #endif
 #endif
 	ENTER();
-
 	if (!params) {
 		ret = -EFAULT;
 		goto done;
@@ -783,6 +820,7 @@ woal_cfg80211_beacon_config(moal_private *priv,
 #endif
 
 	if (priv->channel) {
+		woal_check_mc_connection(priv, MOAL_IOCTL_WAIT, priv->channel);
 		memset(sys_config->rates, 0, sizeof(sys_config->rates));
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
@@ -834,6 +872,7 @@ woal_cfg80211_beacon_config(moal_private *priv,
 		}
 #endif
 #endif /* CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0) */
+
 		sys_config->channel = priv->channel;
 		if (priv->channel <= MAX_BG_CHANNEL) {
 			sys_config->bandcfg.chanBand = BAND_2GHZ;
@@ -881,6 +920,17 @@ woal_cfg80211_beacon_config(moal_private *priv,
 				memcpy(sys_config->rates, rates_a,
 				       sizeof(rates_a));
 		}
+
+		/* Replaced with rate from userspace, if exist */
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
+		woal_set_uap_rates(sys_config, params->beacon.head,
+				   params->beacon.head_len, params->beacon.tail,
+				   params->beacon.tail_len);
+#else
+		woal_set_uap_rates(sys_config, params->head, params->head_len,
+				   params->tail, params->tail_len);
+#endif
+
 		/* Disable GreenField by default */
 		sys_config->ht_cap_info = 0x10c;
 		if (enable_11n)
@@ -894,11 +944,20 @@ woal_cfg80211_beacon_config(moal_private *priv,
 		}
 		if (priv->bss_type == MLAN_BSS_TYPE_UAP) {
 			ht_cap = woal_get_htcap_info(ie, ie_len);
-			if (ht_cap)
-				sys_config->ht_cap_info =
-					(ht_cap &
-					 (wiphy->bands[IEEE80211_BAND_2GHZ]->
-					  ht_cap.cap & 0x13ff)) | 0x0c;
+			if (ht_cap) {
+				if (sys_config->bandcfg.chanBand == BAND_2GHZ)
+					sys_config->ht_cap_info =
+						(ht_cap &
+						 (wiphy->
+						  bands[IEEE80211_BAND_2GHZ]->
+						  ht_cap.cap & 0x13ff)) | 0x0c;
+				else
+					sys_config->ht_cap_info =
+						(ht_cap &
+						 (wiphy->
+						  bands[IEEE80211_BAND_5GHZ]->
+						  ht_cap.cap & 0x13ff)) | 0x0c;
+			}
 			PRINTM(MCMND,
 			       "11n=%d, ht_cap=0x%x, channel=%d, bandcfg:chanBand=0x%x chanWidth=0x%x chan2Offset=0x%x scanMode=0x%x\n",
 			       enable_11n, sys_config->ht_cap_info,
@@ -941,39 +1000,23 @@ woal_cfg80211_beacon_config(moal_private *priv,
 	}
 
 	sys_config->protocol = PROTOCOL_NO_SECURITY;
-	if (params->crypto.n_akm_suites)
+	if ((params->crypto.wpa_versions & NL80211_WPA_VERSION_1) &&
+	    (params->crypto.wpa_versions & NL80211_WPA_VERSION_2))
+		sys_config->protocol = PROTOCOL_WPA | PROTOCOL_WPA2;
+	else if (params->crypto.wpa_versions & NL80211_WPA_VERSION_2)
+		sys_config->protocol = PROTOCOL_WPA2;
+	else if (params->crypto.wpa_versions & NL80211_WPA_VERSION_1)
+		sys_config->protocol = PROTOCOL_WPA;
+	if (params->crypto.n_akm_suites ||
+	    (params->privacy && params->crypto.wpa_versions))
 		woal_find_wpa_ies(ie, ie_len, sys_config);
 	for (i = 0; i < params->crypto.n_akm_suites; i++) {
 		switch (params->crypto.akm_suites[i]) {
 		case WLAN_AKM_SUITE_8021X:
 			sys_config->key_mgmt |= KEY_MGMT_EAP;
-			if ((params->crypto.
-			     wpa_versions & NL80211_WPA_VERSION_1) &&
-			    (params->crypto.
-			     wpa_versions & NL80211_WPA_VERSION_2))
-				sys_config->protocol =
-					PROTOCOL_WPA | PROTOCOL_WPA2;
-			else if (params->crypto.
-				 wpa_versions & NL80211_WPA_VERSION_2)
-				sys_config->protocol = PROTOCOL_WPA2;
-			else if (params->crypto.
-				 wpa_versions & NL80211_WPA_VERSION_1)
-				sys_config->protocol = PROTOCOL_WPA;
 			break;
 		case WLAN_AKM_SUITE_PSK:
 			sys_config->key_mgmt |= KEY_MGMT_PSK;
-			if ((params->crypto.
-			     wpa_versions & NL80211_WPA_VERSION_1) &&
-			    (params->crypto.
-			     wpa_versions & NL80211_WPA_VERSION_2))
-				sys_config->protocol =
-					PROTOCOL_WPA | PROTOCOL_WPA2;
-			else if (params->crypto.
-				 wpa_versions & NL80211_WPA_VERSION_2)
-				sys_config->protocol = PROTOCOL_WPA2;
-			else if (params->crypto.
-				 wpa_versions & NL80211_WPA_VERSION_1)
-				sys_config->protocol = PROTOCOL_WPA;
 			break;
 		}
 	}
@@ -3008,6 +3051,8 @@ woal_cfg80211_start_radar_detection(struct wiphy *wiphy,
 	mlan_ds_11h_cfg *p11h_cfg = NULL;
 	int ret = 0;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+	chan_band_info channel;
+	t_u16 enable = 0;
 
 	ENTER();
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
@@ -3029,6 +3074,23 @@ woal_cfg80211_start_radar_detection(struct wiphy *wiphy,
 		ret = -EBUSY;
 		goto done;
 	}
+	ret = woal_mc_policy_cfg(priv, &enable, MOAL_IOCTL_WAIT, MLAN_ACT_GET);
+	if (enable) {
+		if (MLAN_STATUS_SUCCESS ==
+		    woal_get_active_intf_channel(priv, &channel)) {
+			if (channel.channel != chandef->chan->hw_value) {
+				PRINTM(MERROR,
+				       "DFS channel is not allowed when another connection exists on different channel\n");
+				PRINTM(MERROR,
+				       "Another connection's channel=%d, dfs channel=%d\n",
+				       channel.channel,
+				       chandef->chan->hw_value);
+				ret = -EINVAL;
+				goto done;
+			}
+		}
+	}
+
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_11h_cfg));
 	if (NULL == req) {
 		ret = -ENOMEM;

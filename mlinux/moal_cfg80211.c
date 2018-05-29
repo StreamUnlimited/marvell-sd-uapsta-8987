@@ -33,9 +33,8 @@
 static struct ieee80211_rate cfg80211_rates[] = {
 	{.bitrate = 10,.hw_value = 2,},
 	{.bitrate = 20,.hw_value = 4,},
-	{.bitrate = 55,.hw_value = 11},
+	{.bitrate = 55,.hw_value = 11,},
 	{.bitrate = 110,.hw_value = 22,},
-	{.bitrate = 220,.hw_value = 44,},
 	{.bitrate = 60,.hw_value = 12,},
 	{.bitrate = 90,.hw_value = 18,},
 	{.bitrate = 120,.hw_value = 24,},
@@ -44,7 +43,6 @@ static struct ieee80211_rate cfg80211_rates[] = {
 	{.bitrate = 360,.hw_value = 72,},
 	{.bitrate = 480,.hw_value = 96,},
 	{.bitrate = 540,.hw_value = 108,},
-	{.bitrate = 720,.hw_value = 144,},
 };
 
 /** Channel definitions for 2 GHz to be advertised to cfg80211 */
@@ -109,8 +107,8 @@ struct ieee80211_supported_band cfg80211_band_2ghz = {
 struct ieee80211_supported_band cfg80211_band_5ghz = {
 	.channels = cfg80211_channels_5ghz,
 	.n_channels = ARRAY_SIZE(cfg80211_channels_5ghz),
-	.bitrates = cfg80211_rates + 5,
-	.n_bitrates = ARRAY_SIZE(cfg80211_rates) - 5,
+	.bitrates = cfg80211_rates + 4,
+	.n_bitrates = ARRAY_SIZE(cfg80211_rates) - 4,
 };
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 29)
@@ -175,8 +173,7 @@ woal_get_active_intf_freq(moal_private *priv)
 	for (i = 0; i < handle->priv_num; i++) {
 #ifdef STA_SUPPORT
 		if (GET_BSS_ROLE(handle->priv[i]) == MLAN_BSS_ROLE_STA) {
-			if ((handle->priv[i]->media_connected == MTRUE) &&
-			    (handle->priv[i]->bss_type == priv->bss_type))
+			if (handle->priv[i]->media_connected == MTRUE)
 				return ieee80211_channel_to_frequency(handle->
 								      priv[i]->
 								      channel
@@ -197,8 +194,7 @@ woal_get_active_intf_freq(moal_private *priv)
 #endif
 #ifdef UAP_SUPPORT
 		if (GET_BSS_ROLE(handle->priv[i]) == MLAN_BSS_ROLE_UAP) {
-			if ((handle->priv[i]->bss_started == MTRUE) &&
-			    (handle->priv[i]->bss_type == priv->bss_type))
+			if (handle->priv[i]->bss_started == MTRUE)
 				return ieee80211_channel_to_frequency(handle->
 								      priv[i]->
 								      channel
@@ -476,7 +472,7 @@ woal_clear_all_mgmt_ies(moal_private *priv, t_u8 wait_option)
 	if (priv->proberesp_p2p_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK)
 		mask |= MGMT_MASK_PROBE_RESP;
 	if (priv->beacon_vendor_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK)
-		mask |= MGMT_MASK_PROBE_RESP;
+		mask |= MGMT_MASK_BEACON;
 	if (mask) {
 		PRINTM(MCMND, "Clear IES: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		       priv->beacon_index, priv->probereq_index,
@@ -3075,6 +3071,8 @@ woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
 		switch (id) {
 		case COUNTRY_INFO:
 			enable_11d = MTRUE;
+			memcpy(ie_out + out_len, pos, length + 2);
+			out_len += length + 2;
 			break;
 		case EXTENDED_SUPPORTED_RATES:
 		case WLAN_EID_ERP_INFO:
@@ -3447,19 +3445,25 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			beacon_ies_data->ie_length = 0;
 			beacon_vendor_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
 		}
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_cfg80211_custom_ie(priv, beacon_ies_data,
-					    &beacon_vendor_index, NULL,
-					    &proberesp_index, NULL,
-					    &assocresp_index, NULL,
-					    &probereq_index, wait_option)) {
-			PRINTM(MERROR, "Fail to set beacon vendor IE\n");
-			ret = -EFAULT;
-			goto done;
+		if ((beacon_ies && beacon_ies_len) ||
+		    (!beacon_ies &&
+		     (beacon_vendor_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK))) {
+			if (MLAN_STATUS_SUCCESS !=
+			    woal_cfg80211_custom_ie(priv, beacon_ies_data,
+						    &beacon_vendor_index, NULL,
+						    &proberesp_index, NULL,
+						    &assocresp_index, NULL,
+						    &probereq_index,
+						    wait_option)) {
+				PRINTM(MERROR,
+				       "Fail to set beacon vendor IE\n");
+				ret = -EFAULT;
+				goto done;
+			}
+			priv->beacon_vendor_index = beacon_vendor_index;
+			PRINTM(MCMND, "beacon_vendor=0x%x len=%d\n",
+			       beacon_vendor_index, beacon_ies_data->ie_length);
 		}
-		priv->beacon_vendor_index = beacon_vendor_index;
-		PRINTM(MCMND, "beacon_vendor=0x%x len=%d\n",
-		       beacon_vendor_index, beacon_ies_data->ie_length);
 		memset(beacon_ies_data, 0x00, sizeof(custom_ie));
 		if (beacon_ies && beacon_ies_len) {
 			/* set the beacon ies */
@@ -3523,19 +3527,26 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			proberesp_ies_data->ie_length = 0;
 			proberesp_p2p_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
 		}
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_cfg80211_custom_ie(priv, NULL, &beacon_index,
-					    proberesp_ies_data,
-					    &proberesp_p2p_index, NULL,
-					    &assocresp_index, NULL,
-					    &probereq_index, wait_option)) {
-			PRINTM(MERROR, "Fail to set proberesp p2p IE\n");
-			ret = -EFAULT;
-			goto done;
+		if ((proberesp_ies && proberesp_ies_len) ||
+		    (!proberesp_ies &&
+		     (proberesp_p2p_index != MLAN_CUSTOM_IE_AUTO_IDX_MASK))) {
+			if (MLAN_STATUS_SUCCESS !=
+			    woal_cfg80211_custom_ie(priv, NULL, &beacon_index,
+						    proberesp_ies_data,
+						    &proberesp_p2p_index, NULL,
+						    &assocresp_index, NULL,
+						    &probereq_index,
+						    wait_option)) {
+				PRINTM(MERROR,
+				       "Fail to set proberesp p2p IE\n");
+				ret = -EFAULT;
+				goto done;
+			}
+			priv->proberesp_p2p_index = proberesp_p2p_index;
+			PRINTM(MCMND, "proberesp_p2p=0x%x len=%d\n",
+			       proberesp_p2p_index,
+			       proberesp_ies_data->ie_length);
 		}
-		priv->proberesp_p2p_index = proberesp_p2p_index;
-		PRINTM(MCMND, "proberesp_p2p=0x%x len=%d\n",
-		       proberesp_p2p_index, proberesp_ies_data->ie_length);
 		memset(proberesp_ies_data, 0x00, sizeof(custom_ie));
 		if (proberesp_ies && proberesp_ies_len) {
 			/* set the probe response ies */

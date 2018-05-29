@@ -11381,6 +11381,207 @@ done:
 }
 
 /**
+ *  @brief determine the center frquency center index for bandwidth
+ *         of 80 MHz and 160 MHz
+ *
+ ** @param priv          Pointer to moal_private structure
+ *  @param band         band
+ *  @param pri_chan     primary channel
+ *  @param chan_bw      channel bandwidth
+ *
+ *  @return             channel center frequency center, if found; O, otherwise
+ */
+
+t_u8
+woal_get_center_freq_idx(IN moal_private *priv,
+			 IN t_u8 band, IN t_u32 pri_chan, IN t_u8 chan_bw)
+{
+	t_u8 center_freq_idx = 0;
+
+	if (band & BAND_AAC) {
+		switch (pri_chan) {
+		case 36:
+		case 40:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 38;
+				break;
+			}
+		case 44:
+		case 48:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 46;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 42;
+				break;
+			}
+		case 52:
+		case 56:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 54;
+				break;
+			}
+		case 60:
+		case 64:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 62;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 58;
+				break;
+			} else if (chan_bw == CHANNEL_BW_160MHZ) {
+				center_freq_idx = 50;
+				break;
+			}
+		case 68:
+		case 72:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 70;
+				break;
+			}
+		case 76:
+		case 80:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 78;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 74;
+				break;
+			}
+		case 84:
+		case 88:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 86;
+				break;
+			}
+		case 92:
+		case 96:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 94;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 90;
+				break;
+			}
+		case 100:
+		case 104:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 102;
+				break;
+			}
+		case 108:
+		case 112:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 110;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 106;
+				break;
+			}
+		case 116:
+		case 120:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 118;
+				break;
+			}
+		case 124:
+		case 128:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 126;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 122;
+			} else if (chan_bw == CHANNEL_BW_160MHZ) {
+				center_freq_idx = 114;
+			}
+			break;
+		case 132:
+		case 136:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 134;
+				break;
+			}
+		case 140:
+		case 144:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 126;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 138;
+			}
+			break;
+		case 149:
+		case 153:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 151;
+				break;
+			}
+		case 157:
+		case 161:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 159;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 155;
+				break;
+			}
+		case 165:
+		case 169:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 167;
+				break;
+			}
+		case 173:
+		case 177:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 175;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 171;
+				break;
+			}
+		case 184:
+		case 188:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 186;
+				break;
+			}
+		case 192:
+		case 196:
+			if (chan_bw == CHANNEL_BW_40MHZ_ABOVE ||
+			    chan_bw == CHANNEL_BW_40MHZ_BELOW) {
+				center_freq_idx = 194;
+				break;
+			} else if (chan_bw == CHANNEL_BW_80MHZ) {
+				center_freq_idx = 190;
+				break;
+			}
+
+		default:	/* error. go to the default */
+			center_freq_idx = 42;
+		}
+	}
+	return center_freq_idx;
+}
+
+/**
  ** @brief               Set extended channel switch ie
  **
  ** @param priv          Pointer to moal_private structure
@@ -11395,10 +11596,14 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 {
 	int ret = 0;
 	int user_data_len = 0;
-	int data[4] = { 0 };
-	woal_extend_chan_switch *ext_chan_switch = NULL;
-	woal_chan_switch *chan_switch = NULL;
+	int data[5] = { 0 };
+	IEEEtypes_ExtChanSwitchAnn_t *ext_chan_switch = NULL;
+	IEEEtypes_ChanSwitchAnn_t *chan_switch = NULL;
 	custom_ie *pcust_chansw_ie = NULL;
+	t_u8 center_freq_idx = 0;
+	IEEEtypes_Header_t *pChanSwWrap_ie = NULL;
+	IEEEtypes_WideBWChanSwitch_t *pbwchansw_ie = NULL;
+	IEEEtypes_VhtTpcEnvelope_t *pvhttpcEnv_ie = NULL;
 	mlan_ioctl_req *ioctl_req = NULL;
 	mlan_ds_misc_cfg *misc = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
@@ -11439,7 +11644,7 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 
 	pcust_chansw_ie = (custom_ie *)&misc->param.cust_ie.ie_data_list[0];
 	pcust_chansw_ie->ie_index = 0xffff;	/*Auto index */
-	pcust_chansw_ie->ie_length = sizeof(woal_chan_switch);
+	pcust_chansw_ie->ie_length = sizeof(IEEEtypes_ChanSwitchAnn_t);
 	pcust_chansw_ie->mgmt_subtype_mask = MGMT_MASK_BEACON | MGMT_MASK_PROBE_RESP;	/*Add IE for BEACON/probe resp */
 
 	parse_arguments(respbuf + strlen(CMD_MARVELL) +
@@ -11451,7 +11656,7 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 		ret = -EINVAL;
 		goto done;
 	}
-	chan_switch = (woal_chan_switch *) pcust_chansw_ie->ie_buffer;
+	chan_switch = (IEEEtypes_ChanSwitchAnn_t *)pcust_chansw_ie->ie_buffer;
 	chan_switch->element_id = CHANNEL_SWITCH_ANN;
 	chan_switch->len = 3;
 	chan_switch->chan_switch_mode = data[0];
@@ -11461,11 +11666,13 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 		    pcust_chansw_ie->ie_length);
 
 	if (data[1] != 0) {
-		pcust_chansw_ie->ie_length += sizeof(woal_extend_chan_switch);
+		pcust_chansw_ie->ie_length +=
+			sizeof(IEEEtypes_ExtChanSwitchAnn_t);
 		ext_chan_switch =
-			(woal_extend_chan_switch *) (pcust_chansw_ie->
-						     ie_buffer +
-						     sizeof(woal_chan_switch));
+			(IEEEtypes_ExtChanSwitchAnn_t *) (pcust_chansw_ie->
+							  ie_buffer +
+							  sizeof
+							  (IEEEtypes_ChanSwitchAnn_t));
 		ext_chan_switch->element_id = EXTEND_CHANNEL_SWITCH_ANN;
 		ext_chan_switch->len = 4;
 		ext_chan_switch->chan_switch_mode = data[0];
@@ -11479,15 +11686,78 @@ woal_priv_extend_channel_switch(moal_private *priv, t_u8 *respbuf,
 		}
 		DBG_HEXDUMP(MCMD_D, "ECSA IE",
 			    (t_u8 *)(pcust_chansw_ie->ie_buffer +
-				     sizeof(woal_chan_switch)),
+				     sizeof(IEEEtypes_ChanSwitchAnn_t)),
 			    pcust_chansw_ie->ie_length -
-			    sizeof(woal_chan_switch));
+			    sizeof(IEEEtypes_ChanSwitchAnn_t));
 	}
-	if (data[2] >= 52 && data[2] <= 144) {
-		PRINTM(MERROR, "Switch to DFS channel is not allowed!\n");
-		ret = -EINVAL;
-		goto done;
+
+	/* bandwidth 40/80/160 should set channel switch wrapper ie for 11ac 5G channel */
+	if (data[4] && data[2] > 14) {
+		pChanSwWrap_ie =
+			(IEEEtypes_Header_t *)(pcust_chansw_ie->ie_buffer +
+					       pcust_chansw_ie->ie_length);
+		pChanSwWrap_ie->element_id = EXT_POWER_CONSTR;
+		pChanSwWrap_ie->len = sizeof(IEEEtypes_WideBWChanSwitch_t);
+
+		pbwchansw_ie =
+			(IEEEtypes_WideBWChanSwitch_t *)((t_u8 *)pChanSwWrap_ie
+							 +
+							 sizeof
+							 (IEEEtypes_Header_t));
+		pbwchansw_ie->ieee_hdr.element_id = BW_CHANNEL_SWITCH;
+		pbwchansw_ie->ieee_hdr.len =
+			sizeof(IEEEtypes_WideBWChanSwitch_t) -
+			sizeof(IEEEtypes_Header_t);
+
+		center_freq_idx =
+			woal_get_center_freq_idx(priv, BAND_AAC, data[2],
+						 data[4]);
+		if (data[4] == CHANNEL_BW_40MHZ_ABOVE ||
+		    data[4] == CHANNEL_BW_40MHZ_BELOW) {
+			pbwchansw_ie->new_channel_width = 0;
+			pbwchansw_ie->new_channel_center_freq0 =
+				center_freq_idx;
+		} else if (data[4] == CHANNEL_BW_80MHZ) {
+			pbwchansw_ie->new_channel_width = 1;
+			pbwchansw_ie->new_channel_center_freq0 =
+				center_freq_idx - 4;
+			pbwchansw_ie->new_channel_center_freq1 =
+				center_freq_idx + 4;
+		} else if (data[4] == CHANNEL_BW_160MHZ) {
+			pbwchansw_ie->new_channel_width = 2;
+			pbwchansw_ie->new_channel_center_freq0 =
+				center_freq_idx - 8;
+			pbwchansw_ie->new_channel_center_freq1 =
+				center_freq_idx + 8;
+		} else
+			PRINTM(MERROR,
+			       "Invalid bandwidth.Support value 1/3/4/5 for 40+/40-/80/160MHZ\n");
+
+		/*prepare the VHT Transmit Power Envelope IE */
+		pvhttpcEnv_ie =
+			(IEEEtypes_VhtTpcEnvelope_t *)((t_u8 *)pChanSwWrap_ie +
+						       sizeof
+						       (IEEEtypes_Header_t) +
+						       sizeof
+						       (IEEEtypes_WideBWChanSwitch_t));
+		pvhttpcEnv_ie->ieee_hdr.element_id = VHT_TX_POWER_ENV;
+		pvhttpcEnv_ie->ieee_hdr.len =
+			sizeof(IEEEtypes_VhtTpcEnvelope_t) -
+			sizeof(IEEEtypes_Header_t);
+		/* Local Max TX Power Count= 3,
+		 * Local TX Power Unit Inter=EIP(0) */
+		pvhttpcEnv_ie->tpc_info = 3;
+		pvhttpcEnv_ie->local_max_tp_20mhz = 0xff;
+		pvhttpcEnv_ie->local_max_tp_40mhz = 0xff;
+		pvhttpcEnv_ie->local_max_tp_80mhz = 0xff;
+		pChanSwWrap_ie->len += sizeof(IEEEtypes_VhtTpcEnvelope_t);
+		pcust_chansw_ie->ie_length +=
+			pChanSwWrap_ie->len + sizeof(IEEEtypes_Header_t);
+		DBG_HEXDUMP(MCMD_D, "Channel switch wrapper IE",
+			    (t_u8 *)pChanSwWrap_ie,
+			    pChanSwWrap_ie->len + sizeof(IEEEtypes_Header_t));
 	}
+
 	if (data[0]) {
 		if (netif_carrier_ok(priv->netdev))
 			netif_carrier_off(priv->netdev);
@@ -11523,56 +11793,6 @@ done:
 }
 
 /**
- * @brief               Get non-global oper class
- *
- * @param priv          Pointer to moal_private structure
- * @param bw            bandwidth
- * @param channel       channel
- * @param oper_class    pointer to oper_class
-
- *  @return             non-global operclass
- */
-static int
-woal_priv_get_nonglobal_operclass_by_bw_channel(moal_private *priv,
-						t_u8 bandwidth, t_u8 channel,
-						t_u8 *oper_class)
-{
-	int ret = 0;
-	mlan_ioctl_req *ioctl_req = NULL;
-	mlan_ds_misc_cfg *misc = NULL;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	ioctl_req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-	if (ioctl_req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-
-	misc = (mlan_ds_misc_cfg *)ioctl_req->pbuf;
-	misc->sub_command = MLAN_OID_MISC_OPER_CLASS;
-	ioctl_req->req_id = MLAN_IOCTL_MISC_CFG;
-	ioctl_req->action = MLAN_ACT_GET;
-	misc->param.bw_chan_oper.bandwidth = bandwidth;
-	misc->param.bw_chan_oper.channel = channel;
-
-	status = woal_request_ioctl(priv, ioctl_req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-	*oper_class = misc->param.bw_chan_oper.oper_class;
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(ioctl_req);
-
-	LEAVE();
-	return ret;
-}
-
-/**
  * @brief               P2P extended channel switch
  *
  * @param priv          Pointer to moal_private structure
@@ -11588,7 +11808,7 @@ woal_priv_p2p_ecsa(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 	int user_data_len = 0, header_len = 0;
 	int data[2] = { 0 };
 	t_u8 bw = 0, oper_class = 0, channel = 0;
-	woal_extend_chan_switch *ext_chan_switch = NULL;
+	IEEEtypes_ExtChanSwitchAnn_t *ext_chan_switch = NULL;
 	custom_ie *pcust_chansw_ie = NULL;
 	mlan_ioctl_req *ioctl_req = NULL;
 	mlan_ds_misc_cfg *misc = NULL;
@@ -11630,10 +11850,10 @@ woal_priv_p2p_ecsa(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 	pcust_chansw_ie = (custom_ie *)&misc->param.cust_ie.ie_data_list[0];
 	pcust_chansw_ie->ie_index = 0xffff;	/*Auto index */
-	pcust_chansw_ie->ie_length = sizeof(woal_extend_chan_switch);
+	pcust_chansw_ie->ie_length = sizeof(IEEEtypes_ExtChanSwitchAnn_t);
 	pcust_chansw_ie->mgmt_subtype_mask = MGMT_MASK_BEACON | MGMT_MASK_PROBE_RESP;	/*Add IE for BEACON/probe resp */
 	ext_chan_switch =
-		(woal_extend_chan_switch *) pcust_chansw_ie->ie_buffer;
+		(IEEEtypes_ExtChanSwitchAnn_t *) pcust_chansw_ie->ie_buffer;
 
 	header_len = strlen("P2P_ECSA");
 	parse_arguments(respbuf + header_len + 1, data, ARRAY_SIZE(data),
@@ -11671,7 +11891,7 @@ woal_priv_p2p_ecsa(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 	ext_chan_switch->chan_switch_mode = 1;
 	ext_chan_switch->new_oper_class = oper_class;
 	ext_chan_switch->new_channel_num = channel;
-	ext_chan_switch->chan_switch_count = 5;
+	ext_chan_switch->chan_switch_count = DEF_CHAN_SWITCH_COUNT;
 
 	if (ext_chan_switch->chan_switch_mode) {
 		if (netif_carrier_ok(priv->netdev))
@@ -11811,7 +12031,7 @@ woal_priv_acs(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 	pacs_result->best_ch = acs->best_ch;
 	pacs_result->ch_stats_num = acs->ch_stats_num;
 	memcpy(pacs_result->ch_stats, acs->ch_stats,
-	       sizeof(ChStat_t) * pacs_result->ch_stats_num);
+	       sizeof(ChStat_t) * MIN(MAX_CH_STATS, pacs_result->ch_stats_num));
 
 	ret = resp_len;
 
@@ -12777,7 +12997,6 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 				strlen(CMD_MARVELL);
 			len = woal_priv_robustcoex(priv, pdata, len);
 			goto handled;
-
 		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_BOOTSLEEP,
 			    strlen(PRIV_CMD_BOOTSLEEP)) == 0) {

@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.14.
+	The driver code supports Linux kernel up to 4.15.
 
 2) FOR DRIVER INSTALL
 
@@ -342,7 +342,7 @@ SYNOPSIS
 	mlanutl mlanX getsignal [m] [n]
         mlanutl mlanX dyn_bw [n]
 	mlanutl uapX getstalist
-	mlanutl uapX channel_switch <switch mode> <oper class> <new channel> <switch count>
+	mlanutl uapX channel_switch <switch mode> <oper class> <new channel> <switch count> <bandwidth>
 	mlanutl mlanX hostcmd <11n_2040coex.conf> 2040coex
 	mlanutl mlanX hostcmd <auto_tx.conf> auto_tx_get
 	mlanutl mlanX hostcmd <auto_tx.conf> auto_tx_unreg
@@ -1500,7 +1500,7 @@ getstalist
     Example:
         mlanutl uap0 getstalist
 
-channel_switch <switch mode> <oper class> <new channel> <switch count>
+channel_switch <switch mode> <oper class> <new channel> <switch count> <bandwidth>
     This command is used to do channel switch according to spec.
 
     Where the paramters are:
@@ -1508,11 +1508,14 @@ channel_switch <switch mode> <oper class> <new channel> <switch count>
         oper class  : operating class according to IEEE std802.11 spec, when 0 is used, only CSA IE will be used
         new channel : the channel will switch to
         switch count: channel switch time to send ECSA ie
+        bandwidth   : channel width switch to(optional),only for 5G channels.
+                      Support value 1 -- 40M above, 3 -- 40M below, 4 -- 80M, 5 -- 160M
 
     Example:
         mlanutl uap0 channel_switch 1 115 36 10      :switch to channel 36, oper class 115
         mlanutl uap0 channel_switch 1 81 6 10        :switch to channel 6, oper class 81
         mlanutl uap0 channel_switch 1 0 6 10         :switch to channel 6
+        mlanutl uap0 channel_switch 1 0 36 10 1      :switch to channel 36, bandwidth 40MHz above
 
 hostcmd 2040coex
 	This command is used to send the 11n 20/40 Coex command to firmware.
@@ -1585,9 +1588,9 @@ hostcmd mode_spatial
 hostcmd mode_none
 	This command is used to get/set Robust BT Coex.
 	mode_get:       get the current mode
-	mode_timeshare: set Robust BT Coex to timeshare mode  (default on 1x1 chips)
-	mode_spatial:   set Robust BT Coex to spatial mode    (only for, and default on 2x2 chips)
-	mode_none:      set Robust BT Coex to mode none       (only for, and default on 2x2_3Antenna chips)
+	mode_timeshare: set Robust BT Coex to timeshare mode  (default on 1x1_1Antenna chips)
+	mode_spatial:   set Robust BT Coex to spatial mode    (default on 2x2 chips)
+	mode_none:      set Robust BT Coex to mode none       (default on chips with dedicated BT Antenna. Example: 2x2_3Antenna, 1x1_2Antenna chips)
 
 	Usage:
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_get
@@ -2260,19 +2263,61 @@ mpactrl
 		                           : Set maximum Tx, Rx ports to 8
 
 netmon
-	This command is used to set/get sniffer mode configuration.
-	Note: The channel and band config is optional. If not specified, or if
-	any STA/uAP/STA+uAP connection is active, sniffer activity will be started
-	on the current config set in the FW.
-	'rtap' monitor interface will be created on enabling sniffer activity and
-	should be made 'up' for capturing in a sniffer app.
+    This command is used to set/get sniffer mode configuration.
+    Note: The channel and band config is optional. If not specified, or if
+    any STA/uAP/STA+uAP connection is active, sniffer activity will be started
+    on the current config set in the FW.
+    'rtap' monitor interface will be created on enabling sniffer activity and
+    should be made 'up' for capturing in a sniffer app.
 
-	Usage:
+    Usage:
         mlanutl <interface> netmon [<act> [<filter>]]
-		mlanutl mlanX netmon [<act> [<filter>] [<band> <chan> [offset]]]
+        mlanutl mlanX netmon [<act> [<filter>] [<band> <chan> [offset]]]
 
-	Where the parameters are:
+    Where the parameters are:
         <interface> : mlanX, uapX
+        <act>	: (0) disable sniffer activity
+                : (1) enable sniffer activity
+
+        <filter> : network monitor fitler flag
+            bit 0: (1/0) enable/disable management frame
+            bit 1: (1/0) enable/disable control frame
+            bit 2: (1/0) enable/disable data frame
+            bit 3: (1/0) enable/disable frames destined to active connection only
+            bit 4: (1/0) enable/disable decrypted unicast data/mgmt frames
+
+        <band>   : 802.11 band
+            bit 0: B
+            bit 1: G
+            bit 2: A
+            bit 3: GN
+            bit 4: AN
+            bit 5: AC 2.4G
+            bit 6: AC 5G
+        <chan>   : channel to monitor
+
+        [offset] : secondary channel bandwidth
+            0 - Bandwidth 20Mhz
+            1 - HT Bandwidth 40Mhz sec channel above
+            3 - HT Bandwidth 40Mhz sec channel below
+            4 - VHT Bandwidth 80Mhz
+
+	Examples:
+        mlanutl mlan0 netmon             : Get the current sniffer mode configuration
+        mlanutl mlan0 netmon 0           : Disable network monitor activity
+        mlanutl uap0 netmon 1 7			 : Enable sniffer activity on current channel set in FW,
+                                           set filter data, control, management frame.
+        mlanutl mlan0 netmon 1 4 11 6    : Enable sniffer activity in absence of active connection,
+                                           set filter data frame, band B/G/GN and channel 6
+        mlanutl mlan0 netmon 1 7 20 64 1 : Enable sniffer activity in absence of active connection
+                                           set filter management, control and data frame, band A/AN,
+                                           channel 64 and secondary channel above
+        mlanutl uap0 netmon 1 0x0c	      : Enable sniffer activity, set filter data frames
+                                            destined to the active uAP connection only
+
+        mlanutl mlan0 netmon 1 0x1d       : Enable sniffer activity, set filter decrypted data and
+                                            management frames destined to the active STA connection
+                                            only
 
 offchannel
 	This command is used to set/cancel the offchannel configuration.
@@ -3492,5 +3537,6 @@ bootsleep
     Example :
             mlanutl mlan0/uap0 bootsleep 1       : Enable boot sleep
             mlanutl mlan0/uap0 bootsleep         : Get boot sleep configure
+
 
 ===============================================================================

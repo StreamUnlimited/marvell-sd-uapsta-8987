@@ -174,6 +174,5 @@ enum mrvl_wlan_vendor_attr {
 	MRVL_WLAN_VENDOR_ATTR_MAX = MRVL_WLAN_VENDOR_ATTR_AFTER_LAST - 1,
 };
 
-#endif /*endif CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
-
+#endif
 #endif /* _MOAL_CFGVENDOR_H_ */

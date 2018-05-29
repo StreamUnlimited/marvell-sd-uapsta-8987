@@ -314,9 +314,9 @@ char *fwdump_fname = NULL;
 int GoAgeoutTime = 0;
 #endif
 
-int multi_dtim = 0;
+t_u16 multi_dtim = 0;
 
-int inact_tmo = 0;
+t_u16 inact_tmo = 0;
 
 #ifdef DEBUG_LEVEL1
 #ifdef DEBUG_LEVEL2
@@ -408,7 +408,8 @@ woal_process_hang(moal_handle *handle)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
 		__pm_wakeup_event(&reset_handle->ws, WAKE_LOCK_HANG);
 #else
-		wake_lock_timeout(&reset_handle->wake_lock, WAKE_LOCK_HANG);
+		wake_lock_timeout(&reset_handle->wake_lock,
+				  msecs_to_jiffies(WAKE_LOCK_HANG));
 #endif
 #endif
 	}
@@ -2453,10 +2454,6 @@ woal_init_fw_dpc(moal_handle *handle)
 		sdio_claim_host(((struct sdio_mmc_card *)handle->card)->func);
 #endif
 		ret = mlan_dnld_fw(handle->pmlan_adapter, &fw);
-#ifdef MFG_CMD_SUPPORT
-		if (mfg_mode == MLAN_INIT_PARA_ENABLED)
-			fw_name = NULL;
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 32)
 		sdio_release_host(((struct sdio_mmc_card *)handle->card)->func);
 #endif
@@ -3659,6 +3656,11 @@ woal_add_interface(moal_handle *handle, t_u8 bss_index, t_u8 bss_type)
 		mlan_fw_info fw_info;
 		woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
 
+		if ((fw_info.antinfo & ANT_DIVERSITY_2G)&&(fw_info.
+							   antinfo &
+							   ANT_DIVERSITY_5G))
+			handle->histogram_table_num = 4;
+
 		for (i = 0; i < handle->histogram_table_num; i++) {
 			priv->hist_data[i] = kmalloc(sizeof(hgm_data) +
 						     RX_RATE_MAX *
@@ -4172,7 +4174,7 @@ woal_close(struct net_device *dev)
 		priv->bg_scan_reported = MFALSE;
 		cfg80211_sched_scan_stopped(priv->wdev->wiphy
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-					    , 0
+					    , priv->bg_scan_reqid
 #endif
 			);
 		priv->sched_scanning = MFALSE;
@@ -5131,11 +5133,12 @@ woal_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		priv->stats.tx_dropped++;
 		goto done;
 	}
-	if (skb_headroom(skb) < (MLAN_MIN_DATA_HEADER_LEN +
-				 sizeof(mlan_buffer) +
-				 priv->extra_tx_head_len)) {
-		PRINTM(MWARN, "Tx: Insufficient skb headroom %d\n",
-		       skb_headroom(skb));
+	if (skb->cloned || (skb_headroom(skb) < (MLAN_MIN_DATA_HEADER_LEN +
+						 sizeof(mlan_buffer) +
+						 priv->extra_tx_head_len))) {
+		PRINTM(MWARN,
+		       "Tx: skb cloned %d or Insufficient skb headroom %d\n",
+		       skb->cloned, skb_headroom(skb));
 		/* Insufficient skb headroom - allocate a new skb */
 		new_skb = skb_realloc_headroom(skb, MLAN_MIN_DATA_HEADER_LEN +
 					       sizeof(mlan_buffer) +
@@ -5844,6 +5847,8 @@ woal_broadcast_event(moal_private *priv, t_u8 *payload, t_u32 len)
 #ifdef WIFI_DIRECT_SUPPORT
 		}
 #endif
+		memset(skb->data, 0, NLMSG_SPACE(NL_MAX_PAYLOAD));
+
 		nlh = (struct nlmsghdr *)skb->data;
 		nlh->nlmsg_len = NLMSG_SPACE(len + IFNAMSIZ);
 
@@ -6331,10 +6336,11 @@ woal_update_dscp_mapping(moal_private *priv)
  *  @brief Sends disconnect event
  *
  *  @param priv A pointer to moal_private struct
+ *  @param disconnect_reason  disconnect reason code
  *  @return     N/A
  */
 t_void
-woal_send_disconnect_to_system(moal_private *priv)
+woal_send_disconnect_to_system(moal_private *priv, t_u16 disconnect_reason)
 {
 	int custom_len = 0;
 	t_u8 event_buf[32];
@@ -6345,9 +6351,14 @@ woal_send_disconnect_to_system(moal_private *priv)
 	unsigned long flags;
 #endif
 	mlan_ds_misc_gtk_rekey_data zero_gtk;
+	t_u16 reason_code = 0;
 
 	ENTER();
 	priv->media_connected = MFALSE;
+	if (!disconnect_reason)
+		reason_code = MLAN_REASON_DEAUTH_LEAVING;
+	else
+		reason_code = disconnect_reason;
 	woal_stop_queue(priv->netdev);
 	if (netif_carrier_ok(priv->netdev))
 		netif_carrier_off(priv->netdev);
@@ -6399,14 +6410,14 @@ woal_send_disconnect_to_system(moal_private *priv)
 			PRINTM(MMSG,
 			       "wlan: Disconnected from " MACSTR
 			       ": Reason code %d\n", MAC2STR(priv->cfg_bssid),
-			       WLAN_REASON_DEAUTH_LEAVING);
+			       reason_code);
 			spin_unlock_irqrestore(&priv->connect_lock, flags);
 			/* This function must be called only when disconnect issued by
 			   the FW, i.e. disconnected by AP. For IBSS mode this call is
 			   not valid */
+
 			cfg80211_disconnected(priv->netdev,
-					      WLAN_REASON_DEAUTH_LEAVING, NULL,
-					      0,
+					      reason_code, NULL, 0,
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
 					      false,
 #endif
@@ -7842,11 +7853,34 @@ t_void
 woal_rx_work_queue(struct work_struct *work)
 {
 	moal_handle *handle = container_of(work, moal_handle, rx_work);
+#ifdef STA_CFG80211
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
+	moal_private *priv;
+#endif
+#endif
 	ENTER();
 	if (handle->surprise_removed == MTRUE) {
 		LEAVE();
 		return;
 	}
+#ifdef STA_CFG80211
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
+	if (handle->rx_bgscan_stop) {
+		handle->rx_bgscan_stop = MFALSE;
+		priv = handle->bg_scan_priv;
+		handle->bg_scan_priv = NULL;
+		if (priv && priv->sched_scanning) {
+			cfg80211_sched_scan_stopped(priv->wdev->wiphy
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+						    , priv->bg_scan_reqid
+#endif
+				);
+			PRINTM(MEVENT, "Report sched_Scan stopped\n");
+			priv->sched_scanning = MFALSE;
+		}
+	}
+#endif
+#endif
 	mlan_rx_process(handle->pmlan_adapter, NULL);
 	LEAVE();
 }
@@ -8011,7 +8045,7 @@ woal_add_card(void *card)
 		}
 	}
 
-	handle->histogram_table_num = 1;
+	handle->histogram_table_num = 3;
 
 	((struct sdio_mmc_card *)card)->handle = handle;
 #ifdef SPI_SUPPORT
@@ -8223,6 +8257,10 @@ woal_remove_card(void *card)
 
 	if (MOAL_ACQ_SEMAPHORE_BLOCK(&AddRemoveCardSem))
 		goto exit_sem_err;
+#ifdef MFG_CMD_SUPPORT
+	if (mfg_mode == MLAN_INIT_PARA_ENABLED)
+		fw_name = NULL;
+#endif
 	/* Find the correct handle */
 	for (index = 0; index < MAX_MLAN_ADAPTER; index++) {
 		if (m_handle[index] && (m_handle[index]->card == card)) {
@@ -8800,7 +8838,10 @@ woal_cleanup_module(void)
 								    priv[i]->
 								    wdev->wiphy
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-								    , 0
+								    ,
+								    handle->
+								    priv[i]->
+								    bg_scan_reqid
 #endif
 						);
 					handle->priv[i]->sched_scanning =
@@ -9078,10 +9119,10 @@ module_param(gtk_rekey_offload, int, 0);
 MODULE_PARM_DESC(gtk_rekey_offload,
 		 "0: disable gtk_rekey_offload; 1: enable gtk_rekey_offload (default); 2: enable gtk_rekey_offload in suspend mode only;");
 
-module_param(multi_dtim, int, 0);
+module_param(multi_dtim, ushort, 0);
 MODULE_PARM_DESC(multi_dtim, "DTIM interval");
 
-module_param(inact_tmo, int, 0);
+module_param(inact_tmo, ushort, 0);
 MODULE_PARM_DESC(inact_tmo, "IEEE ps inactivity timout value");
 
 module_param(napi, int, 0);

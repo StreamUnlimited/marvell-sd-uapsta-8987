@@ -3310,7 +3310,13 @@ woal_uap_bss_ctrl(moal_private *priv, t_u8 wait_option, int data)
 #endif
 			) {
 			/* about to start bss: issue channel check */
-			woal_11h_channel_check_ioctl(priv, MOAL_IOCTL_WAIT);
+			status = woal_11h_channel_check_ioctl(priv,
+							      MOAL_IOCTL_WAIT);
+			if (status) {
+				PRINTM(MMSG, "11h channel check fails\n");
+				ret = -EINVAL;
+				goto done;
+			}
 		}
 		bss->sub_command = MLAN_OID_BSS_START;
 		bss->param.host_based = priv->uap_host_based;
