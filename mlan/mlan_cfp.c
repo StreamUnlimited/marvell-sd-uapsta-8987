@@ -4,20 +4,26 @@
  *  @brief This file contains WLAN client mode channel, frequency and power
  *  related code
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  (C) Copyright 2009-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /*************************************************************
@@ -351,11 +357,11 @@ static chan_freq_power_t channel_freq_power_EU_A[] = {
 	{132, 5660, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
 	{136, 5680, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
 	{140, 5700, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{149, 5745, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{153, 5765, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{157, 5785, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{161, 5805, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{165, 5825, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE}
+	{149, 5745, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{153, 5765, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{157, 5785, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{161, 5805, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{165, 5825, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE}
 };
 
 /** Band: 'A', Region: Japan */
@@ -1698,22 +1704,16 @@ wlan_get_supported_rates(mlan_private *pmpriv, t_u32 bss_mode,
 					    sizeof(AdhocRates_B));
 			break;
 		case (t_u8)BAND_G:
-		case BAND_G | BAND_GN:
-		case BAND_G | BAND_GN | BAND_GAC:
 			PRINTM(MINFO, "Band: Adhoc G only\n");
 			k = wlan_copy_rates(rates, k, AdhocRates_G,
 					    sizeof(AdhocRates_G));
 			break;
 		case BAND_B | BAND_G:
-		case BAND_B | BAND_G | BAND_GN:
-		case BAND_B | BAND_G | BAND_GN | BAND_GAC:
 			PRINTM(MINFO, "Band: Adhoc BG\n");
 			k = wlan_copy_rates(rates, k, AdhocRates_BG,
 					    sizeof(AdhocRates_BG));
 			break;
 		case BAND_A:
-		case BAND_AN:
-		case BAND_A | BAND_AN:
 		case BAND_A | BAND_AN | BAND_AAC:
 			PRINTM(MINFO, "Band: Adhoc A\n");
 			k = wlan_copy_rates(rates, k, AdhocRates_A,

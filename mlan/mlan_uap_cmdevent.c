@@ -2,20 +2,26 @@
  *
  *  @brief This file contains the handling of AP mode command and event
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  (C) Copyright 2009-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /********************************************************
@@ -154,7 +160,6 @@ uap_process_cmdresp_error(mlan_private *pmpriv, HostCmd_DS_COMMAND *resp,
 		ret = MLAN_STATUS_SUCCESS;
 		PRINTM(MCMND, "FW don't support chan region cfg command!\n");
 		break;
-
 	default:
 		break;
 	}
@@ -432,9 +437,14 @@ wlan_process_tx_pause_event(pmlan_private priv, pmlan_buffer pevent)
 	MrvlIEtypes_tx_pause_t *tx_pause_tlv;
 	sta_node *sta_ptr = MNULL;
 	t_u8 bc_mac[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	t_u32 total_pkts_queued;
+	t_u16 tx_pkts_queued = 0;;
 
 	ENTER();
 
+	total_pkts_queued =
+		util_scalar_read(priv->adapter->pmoal_handle,
+				 &priv->wmm.tx_pkts_queued, MNULL, MNULL);
 	while (tlv_buf_left >= (int)sizeof(MrvlIEtypesHeader_t)) {
 		tlv_type = wlan_le16_to_cpu(tlv->type);
 		tlv_len = wlan_le16_to_cpu(tlv->len);
@@ -446,17 +456,16 @@ wlan_process_tx_pause_event(pmlan_private priv, pmlan_buffer pevent)
 		}
 		if (tlv_type == TLV_TYPE_TX_PAUSE) {
 			tx_pause_tlv = (MrvlIEtypes_tx_pause_t *)tlv;
-			PRINTM(MCMND, "TxPause: " MACSTR " pause=%d, pkts=%d\n",
-			       MAC2STR(tx_pause_tlv->peermac),
-			       tx_pause_tlv->tx_pause, tx_pause_tlv->pkt_cnt);
+
 			if (!memcmp
 			    (priv->adapter, bc_mac, tx_pause_tlv->peermac,
 			     MLAN_MAC_ADDR_LENGTH))
-				wlan_update_ralist_tx_pause(priv,
-							    tx_pause_tlv->
-							    peermac,
-							    tx_pause_tlv->
-							    tx_pause);
+				tx_pkts_queued =
+					wlan_update_ralist_tx_pause(priv,
+								    tx_pause_tlv->
+								    peermac,
+								    tx_pause_tlv->
+								    tx_pause);
 			else if (!memcmp
 				 (priv->adapter, priv->curr_addr,
 				  tx_pause_tlv->peermac,
@@ -475,7 +484,8 @@ wlan_process_tx_pause_event(pmlan_private priv, pmlan_buffer pevent)
 					    tx_pause_tlv->tx_pause) {
 						sta_ptr->tx_pause =
 							tx_pause_tlv->tx_pause;
-						wlan_update_ralist_tx_pause
+						tx_pkts_queued =
+							wlan_update_ralist_tx_pause
 							(priv,
 							 tx_pause_tlv->peermac,
 							 tx_pause_tlv->
@@ -483,6 +493,14 @@ wlan_process_tx_pause_event(pmlan_private priv, pmlan_buffer pevent)
 					}
 				}
 			}
+			if (!tx_pause_tlv->tx_pause)
+				total_pkts_queued += tx_pkts_queued;
+			PRINTM(MCMND,
+			       "TxPause: " MACSTR
+			       " pause=%d, pkts=%d  pending=%d total=%d\n",
+			       MAC2STR(tx_pause_tlv->peermac),
+			       tx_pause_tlv->tx_pause, tx_pause_tlv->pkt_cnt,
+			       tx_pkts_queued, total_pkts_queued);
 		}
 		tlv_buf_left -= (sizeof(MrvlIEtypesHeader_t) + tlv_len);
 		tlv = (MrvlIEtypesHeader_t *)((t_u8 *)tlv + tlv_len +
@@ -2663,6 +2681,26 @@ wlan_uap_cmd_802_11_get_log(IN pmlan_private pmpriv, IN HostCmd_DS_COMMAND *cmd)
 }
 
 /**
+ *  @brief This function prepares command of bss_start.
+ *
+ *  @param pmpriv       A pointer to mlan_private structure
+ *  @param cmd          A pointer to HostCmd_DS_COMMAND structure
+ *
+ *  @return             MLAN_STATUS_SUCCESS
+ */
+static mlan_status
+wlan_uap_cmd_bss_start(IN pmlan_private pmpriv, IN HostCmd_DS_COMMAND *cmd)
+{
+
+	ENTER();
+	cmd->command = wlan_cpu_to_le16(HOST_CMD_APCMD_BSS_START);
+	cmd->size = S_DS_GEN;
+	cmd->size = wlan_cpu_to_le16(cmd->size);
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
+}
+
+/**
  *  @brief This function handles the command response of snmp_mib
  *
  *  @param pmpriv       A pointer to mlan_private structure
@@ -3272,10 +3310,13 @@ wlan_uap_ret_sta_list(IN pmlan_private pmpriv,
 			sta_ptr =
 				wlan_get_station_entry(pmpriv,
 						       tlv->mac_address);
-			if (sta_ptr)
+			if (sta_ptr) {
 				info->param.sta_list.info[i].bandmode =
 					sta_ptr->bandmode;
-			else
+				memcpy(pmpriv->adapter,
+				       &(info->param.sta_list.info[i].stats),
+				       &(sta_ptr->stats), sizeof(sta_stats));
+			} else
 				info->param.sta_list.info[i].bandmode = 0xFF;
 			tlv++;
 		}
@@ -3705,12 +3746,14 @@ wlan_ops_uap_prepare_cmd(IN t_void *priv,
 	switch (cmd_no) {
 	case HostCmd_CMD_SOFT_RESET:
 	case HOST_CMD_APCMD_BSS_STOP:
-	case HOST_CMD_APCMD_BSS_START:
 	case HOST_CMD_APCMD_SYS_INFO:
 	case HOST_CMD_APCMD_SYS_RESET:
 	case HOST_CMD_APCMD_STA_LIST:
 		cmd_ptr->command = wlan_cpu_to_le16(cmd_no);
 		cmd_ptr->size = wlan_cpu_to_le16(S_DS_GEN);
+		break;
+	case HOST_CMD_APCMD_BSS_START:
+		ret = wlan_uap_cmd_bss_start(pmpriv, cmd_ptr);
 		break;
 	case HOST_CMD_APCMD_SYS_CONFIGURE:
 		ret = wlan_uap_cmd_sys_configure(pmpriv, cmd_ptr, cmd_action,
@@ -4006,13 +4049,17 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 		pmpriv->uap_bss_started = MFALSE;
 		if (pmpriv->intf_state_11h.is_11h_host)
 			pmpriv->intf_state_11h.tx_disabled = MFALSE;
-		else
+		else {
+			if (pmpriv->adapter->ecsa_enable)
+				wlan_11h_remove_custom_ie(pmpriv->adapter,
+							  pmpriv);
 			wlan_11h_check_update_radar_det_state(pmpriv);
+		}
 
 		if (pmpriv->adapter->state_rdh.stage == RDH_STOP_INTFS)
 			wlan_11h_radar_detected_callback((t_void *)pmpriv);
 		wlan_coex_ampdu_rxwinsize(pmadapter);
-		pmpriv->uap_host_based = MFALSE;
+		pmpriv->uap_host_based = 0;
 		break;
 	case HOST_CMD_APCMD_BSS_START:
 		if (!pmpriv->intf_state_11h.is_11h_host &&
@@ -4030,7 +4077,7 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 		break;
 	case HOST_CMD_APCMD_SYS_RESET:
 		pmpriv->uap_bss_started = MFALSE;
-		pmpriv->uap_host_based = MFALSE;
+		pmpriv->uap_host_based = 0;
 		ret = wlan_uap_ret_sys_reset(pmpriv, resp, pioctl_buf);
 		wlan_11h_check_update_radar_det_state(pmpriv);
 		wlan_coex_ampdu_rxwinsize(pmadapter);
@@ -4119,9 +4166,11 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 				~(1 << (MAX_PORT - ctr));
 		}
 		pmadapter->curr_wr_port = 0;
+#ifdef SDIO_MULTI_PORT_TX_AGGR
 		pmadapter->mpa_tx.pkt_aggr_limit =
 			MIN(SDIO_MP_AGGR_DEF_PKT_LIMIT,
 			    (pmadapter->mp_end_port >> 1));
+#endif
 		PRINTM(MCMND, "end port %d, data port mask %x\n",
 		       wlan_le16_to_cpu(resp->params.tx_buf.mp_end_port),
 		       pmadapter->mp_data_port_mask);
@@ -4265,6 +4314,10 @@ wlan_ops_uap_process_event(IN t_void *priv)
 
 	ENTER();
 
+	if (!pmbuf) {
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
+	}
 	/* Event length check */
 	if (pmbuf && (pmbuf->data_len - sizeof(eventcause)) > MAX_EVENT_SIZE) {
 		pmbuf->status_code = MLAN_ERROR_PKT_SIZE_INVALID;
@@ -4613,6 +4666,20 @@ wlan_ops_uap_process_event(IN t_void *priv)
 		PRINTM(MEVENT, "REQUEST P2P MAC: " MACSTR "\n",
 		       MAC2STR(event_excd_p2p->peer_mac_addr));
 		pevent->event_id = MLAN_EVENT_ID_DRV_PASSTHRU;
+		break;
+	case EVENT_FW_HANG_REPORT:
+		if (pmbuf->data_len < (sizeof(eventcause) + sizeof(t_u16))) {
+			PRINTM(MEVENT,
+			       "EVENT: EVENT_FW_HANG_REPORT skip for len too short: %d\n",
+			       pmbuf->data_len);
+			break;
+		}
+		PRINTM(MEVENT, "EVENT: EVENT_FW_HANG_REPORT reasoncode=%d\n",
+		       wlan_le16_to_cpu(*(t_u16 *)
+					(pmbuf->pbuf + pmbuf->data_offset +
+					 sizeof(eventcause))));
+		pmadapter->fw_hang_report = MTRUE;
+		wlan_recv_event(pmpriv, MLAN_EVENT_ID_DRV_DBG_DUMP, MNULL);
 		break;
 	default:
 		pevent->event_id = MLAN_EVENT_ID_DRV_PASSTHRU;

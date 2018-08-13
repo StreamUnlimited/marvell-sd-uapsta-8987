@@ -2,20 +2,57 @@
  *
  *  @brief This file contains APIs to MOAL module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
+ */
+
+/**
+ *  @mainpage MLAN Driver
+ *
+ *  @section overview_sec Overview
+ *
+ *  The MLAN is an OS independent WLAN driver for Marvell 802.11
+ *  embedded chipset.
+ *
+ *  @section copyright_sec Copyright
+ *
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
+ *
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell International Ltd
+ *  or its suppliers and licensors. The Material contains trade secrets and
+ *  proprietary and confidential information of Marvell or its suppliers and
+ *  licensors. The Material is protected by worldwide copyright and trade secret
+ *  laws and treaty provisions. No part of the Material may be used, copied,
+ *  reproduced, modified, published, uploaded, posted, transmitted, distributed,
+ *  or disclosed in any way without Marvell's prior express written permission.
+ *
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /********************************************************
@@ -235,10 +272,12 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	ENTER();
 
 	MASSERT(pmdevice->callbacks.moal_malloc);
+	MASSERT(pmdevice->callbacks.moal_mfree);
 	MASSERT(pmdevice->callbacks.moal_memset);
 	MASSERT(pmdevice->callbacks.moal_memmove);
 
 	if (!pmdevice->callbacks.moal_malloc ||
+	    !pmdevice->callbacks.moal_mfree ||
 	    !pmdevice->callbacks.moal_memset ||
 	    !pmdevice->callbacks.moal_memmove) {
 		LEAVE();
@@ -1068,7 +1107,7 @@ process_start:
 		     || !wlan_bypass_tx_list_empty(pmadapter)
 		     || !wlan_wmm_lists_empty(pmadapter)
 		    )) {
-			wlan_pm_wakeup_card(pmadapter);
+			wlan_pm_wakeup_card(pmadapter, MTRUE);
 			pmadapter->pm_wakeup_fw_try = MTRUE;
 			continue;
 		}
@@ -1396,7 +1435,7 @@ mlan_pm_wakeup_card(IN t_void *adapter)
 {
 	mlan_adapter *pmadapter = (mlan_adapter *)adapter;
 	ENTER();
-	wlan_pm_wakeup_card(pmadapter);
+	wlan_pm_wakeup_card(pmadapter, MFALSE);
 	LEAVE();
 }
 

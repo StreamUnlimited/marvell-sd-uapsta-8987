@@ -3,20 +3,26 @@
  *  @brief This file contains the handling of RxReordering in wlan
  *  driver.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /********************************************************
@@ -503,11 +509,6 @@ wlan_11n_create_rxreorder_tbl(mlan_private *priv, t_u8 *ta, int tid,
 				if (sta_ptr)
 					last_seq = sta_ptr->rx_seq[tid];
 			}
-			if (priv->bss_mode == MLAN_BSS_MODE_IBSS) {
-				sta_ptr = wlan_get_station_entry(priv, ta);
-				if (sta_ptr)
-					last_seq = sta_ptr->rx_seq[tid];
-			}
 			PRINTM(MINFO, "UAP/ADHOC:last_seq=%d start_win=%d\n",
 			       last_seq, new_node->start_win);
 		} else {
@@ -653,8 +654,6 @@ t_u8
 wlan_is_addba_reject(mlan_private *priv, t_u8 tid)
 {
 #ifdef STA_SUPPORT
-	if (priv->bss_mode == MLAN_BSS_MODE_IBSS)
-		return priv->ibss_addba_reject[tid];
 #endif
 	return priv->addba_reject[tid];
 }
@@ -705,8 +704,6 @@ wlan_cmd_11n_addba_rspgen(mlan_private *priv,
 		>> BLOCKACKPARAM_TID_POS;
 	if (wlan_is_addba_reject(priv, tid)
 #ifdef STA_SUPPORT
-	    || ((priv->bss_mode == MLAN_BSS_MODE_IBSS)
-		&& !wlan_is_11n_enabled(priv, pevt_addba_req->peer_mac_addr))
 	    || ((GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA)
 		&& priv->wps.session_enable)
 #endif
@@ -1158,7 +1155,10 @@ mlan_11n_delete_bastream_tbl(mlan_private *priv, int tid,
 				else
 					ra_list->del_ba_count++;
 				ra_list->packet_count = 0;
+/** after delba, we will try to set up BA again after sending 1k packets*/
+#define MIN_BA_SETUP_PACKET_REQIRED     1024
 				ra_list->ba_packet_threshold =
+					MIN_BA_SETUP_PACKET_REQIRED +
 					wlan_get_random_ba_threshold(priv->
 								     adapter);
 			}

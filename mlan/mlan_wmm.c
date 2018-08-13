@@ -2,20 +2,26 @@
  *
  *  @brief This file contains functions for WMM.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /********************************************************
@@ -1209,9 +1215,10 @@ wlan_dequeue_tx_packet(pmlan_adapter pmadapter)
  *  @param mac        peer mac address
  *  @param tx_pause   tx_pause flag (0/1)
  *
- *  @return           N/A
+ *
+ *  @return           packets queued for this mac
  */
-t_void
+t_u16
 wlan_update_ralist_tx_pause(pmlan_private priv, t_u8 *mac, t_u8 tx_pause)
 {
 	raListTbl *ra_list;
@@ -1253,6 +1260,7 @@ wlan_update_ralist_tx_pause(pmlan_private priv, t_u8 *mac, t_u8 tx_pause)
 	pmadapter->callbacks.moal_spin_unlock(pmadapter->pmoal_handle,
 					      priv->wmm.ra_list_spinlock);
 	LEAVE();
+	return pkt_cnt;
 }
 
 #ifdef STA_SUPPORT
@@ -1421,6 +1429,10 @@ wlan_wmm_delete_tdls_ralist(pmlan_private priv, t_u8 *mac)
 							    tid_tbl_ptr[i].
 							    ra_list, MNULL,
 							    MNULL);
+			if (!ra_list_ap) {
+				LEAVE();
+				return;
+			}
 			while ((pmbuf =
 				(pmlan_buffer)util_peek_list(pmadapter->
 							     pmoal_handle,

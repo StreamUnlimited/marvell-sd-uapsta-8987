@@ -2,20 +2,25 @@
  *
  *  @brief This file contains functions for 11n handling.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
  *
  */
 
@@ -1822,10 +1827,6 @@ wlan_ret_11n_addba_req(mlan_private *priv, HostCmd_DS_COMMAND *resp)
 						      padd_ba_rsp->
 						      peer_mac_addr);
 #endif /* UAP_SUPPORT */
-			if (priv->bss_mode == MLAN_BSS_MODE_IBSS)
-				disable_station_ampdu(priv, tid,
-						      padd_ba_rsp->
-						      peer_mac_addr);
 			if (ra_list && ra_list->is_tdls_link)
 				disable_station_ampdu(priv, tid,
 						      padd_ba_rsp->
@@ -2461,7 +2462,6 @@ wlan_cmd_append_11n_tlv(IN mlan_private *pmpriv,
 {
 	pmlan_adapter pmadapter = pmpriv->adapter;
 	MrvlIETypes_HTCap_t *pht_cap;
-	MrvlIETypes_HTInfo_t *pht_info;
 	MrvlIEtypes_ChanListParamSet_t *pchan_list;
 	MrvlIETypes_2040BSSCo_t *p2040_bss_co;
 	MrvlIETypes_ExtCap_t *pext_cap;
@@ -2533,27 +2533,6 @@ wlan_cmd_append_11n_tlv(IN mlan_private *pmpriv,
 	}
 
 	if (pbss_desc->pht_info) {
-		if (pmpriv->bss_mode == MLAN_BSS_MODE_IBSS) {
-			pht_info = (MrvlIETypes_HTInfo_t *)*ppbuffer;
-			memset(pmadapter, pht_info, 0,
-			       sizeof(MrvlIETypes_HTInfo_t));
-			pht_info->header.type = wlan_cpu_to_le16(HT_OPERATION);
-			pht_info->header.len = sizeof(HTInfo_t);
-
-			memcpy(pmadapter,
-			       (t_u8 *)pht_info + sizeof(MrvlIEtypesHeader_t),
-			       (t_u8 *)pbss_desc->pht_info +
-			       sizeof(IEEEtypes_Header_t),
-			       pht_info->header.len);
-
-			if (!ISSUPP_CHANWIDTH40(usr_dot_11n_dev_cap))
-				RESET_CHANWIDTH40(pht_info->ht_info.field2);
-
-			*ppbuffer += sizeof(MrvlIETypes_HTInfo_t);
-			ret_len += sizeof(MrvlIETypes_HTInfo_t);
-			pht_info->header.len =
-				wlan_cpu_to_le16(pht_info->header.len);
-		}
 
 		pchan_list = (MrvlIEtypes_ChanListParamSet_t *)*ppbuffer;
 		memset(pmadapter, pchan_list, 0,

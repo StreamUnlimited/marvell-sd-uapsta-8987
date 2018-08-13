@@ -3,20 +3,26 @@
  *
  *  @brief This file contains the handling of CMD/EVENT in MLAN
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  (C) Copyright 2009-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /*************************************************************
@@ -485,10 +491,18 @@ wlan_process_hostcmd_cfg(IN pmlan_private pmpriv, IN t_u16 cfg_type,
 	mlan_ds_misc_cmd *hostcmd;
 	HostCmd_DS_GEN *pcmd = MNULL;
 	HostCmd_DS_802_11_CFG_DATA *pcfg_cmd = MNULL;
-	mlan_adapter *pmadapter = pmpriv->adapter;
-	mlan_callbacks *pcb = (mlan_callbacks *)&pmadapter->callbacks;
+	mlan_adapter *pmadapter = MNULL;
+	mlan_callbacks *pcb = MNULL;
 
 	ENTER();
+	if (!pmpriv) {
+		PRINTM(MERROR, "pmpriv is NULL\n");
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
+	}
+	pmadapter = pmpriv->adapter;
+	pcb = (mlan_callbacks *)&pmadapter->callbacks;
+
 	ret = pcb->moal_malloc(pmadapter->pmoal_handle,
 			       sizeof(mlan_ds_misc_cmd), MLAN_MEM_DEF,
 			       (t_u8 **)&hostcmd);
@@ -2558,8 +2572,9 @@ wlan_process_hs_config(pmlan_adapter pmadapter)
 {
 	ENTER();
 	PRINTM(MINFO, "Recevie interrupt/data in HS mode\n");
-	if (pmadapter->hs_cfg.gap == HOST_SLEEP_CFG_GAP_FF)
-		wlan_pm_wakeup_card(pmadapter);
+	if (pmadapter->hs_cfg.gap == HOST_SLEEP_CFG_GAP_FF) {
+		wlan_pm_wakeup_card(pmadapter, MTRUE);
+	}
 	LEAVE();
 	return;
 }
@@ -2682,8 +2697,6 @@ wlan_cmd_enh_power_mode(pmlan_private pmpriv,
 			ps_mode->local_listen_interval =
 				wlan_cpu_to_le16(pmadapter->
 						 local_listen_interval);
-			ps_mode->adhoc_wake_period =
-				wlan_cpu_to_le16(pmadapter->adhoc_awake_period);
 			ps_mode->delay_to_ps =
 				wlan_cpu_to_le16(pmadapter->delay_to_ps);
 			ps_mode->mode =
@@ -4529,18 +4542,8 @@ wlan_ret_get_hw_spec(IN pmlan_private pmpriv,
 						BAND_GAC;
 			}
 		}
-		if ((pmadapter->fw_bands & BAND_AN)
-			) {
-			pmadapter->adhoc_start_band = BAND_A | BAND_AN;
-			pmadapter->adhoc_11n_enabled = MTRUE;
-		} else
-			pmadapter->adhoc_start_band = BAND_A;
+		pmadapter->adhoc_start_band = BAND_A;
 		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL_A;
-	} else if ((pmadapter->fw_bands & BAND_GN)
-		) {
-		pmadapter->adhoc_start_band = BAND_G | BAND_B | BAND_GN;
-		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
-		pmadapter->adhoc_11n_enabled = MTRUE;
 	} else if (pmadapter->fw_bands & BAND_G) {
 		pmadapter->adhoc_start_band = BAND_G | BAND_B;
 		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;

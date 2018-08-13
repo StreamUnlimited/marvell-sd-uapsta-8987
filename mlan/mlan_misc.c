@@ -1,22 +1,28 @@
 /**
  * @file mlan_misc.c
  *
- *  @brief This file include miscellaneous functions for MLAN module
+ *  @brief This file include Miscellaneous functions for MLAN module
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  (C) Copyright 2009-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /*************************************************************
@@ -632,6 +638,7 @@ wlan_get_info_debug_info(IN pmlan_adapter pmadapter,
 					 pmadapter->callbacks.moal_spin_unlock);
 		debug_info->num_drop_pkts = pmpriv->num_drop_pkts;
 #endif
+		debug_info->fw_hang_report = pmadapter->fw_hang_report;
 		debug_info->mlan_processing = pmadapter->mlan_processing;
 		debug_info->mlan_rx_processing = pmadapter->mlan_rx_processing;
 		debug_info->rx_pkts_queued = pmadapter->rx_pkts_queued;
@@ -694,14 +701,39 @@ wlan_misc_ioctl_mac_control(IN pmlan_adapter pmadapter,
 }
 
 /**
+ *  @brief This timer function handles wakeup card timeout.
+ *
+ *  @param function_context   A pointer to function_context
+ *  @return        N/A
+ */
+t_void
+wlan_wakeup_card_timeout_func(void *function_context)
+{
+	pmlan_adapter pmadapter = (pmlan_adapter)function_context;
+
+	ENTER();
+
+	PRINTM(MERROR, "%s: ps_state=%d\n", __FUNCTION__, pmadapter->ps_state);
+	if (pmadapter->ps_state != PS_STATE_AWAKE) {
+		PRINTM(MERROR, "Wakeup card timeout!\n");
+		wlan_recv_event(wlan_get_priv(pmadapter, MLAN_BSS_ROLE_ANY),
+				MLAN_EVENT_ID_DRV_DBG_DUMP, MNULL);
+	}
+	pmadapter->wakeup_fw_timer_is_set = MFALSE;
+
+	LEAVE();
+}
+
+/**
  *  @brief This function wakes up the card.
  *
  *  @param pmadapter		A pointer to mlan_adapter structure
+ *  @param timeout          set timeout flag
  *
  *  @return			MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
  */
 mlan_status
-wlan_pm_wakeup_card(IN pmlan_adapter pmadapter)
+wlan_pm_wakeup_card(IN pmlan_adapter pmadapter, IN t_u8 timeout)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	t_u32 age_ts_usec;
@@ -713,6 +745,13 @@ wlan_pm_wakeup_card(IN pmlan_adapter pmadapter)
 						  &pmadapter->pm_wakeup_in_secs,
 						  &age_ts_usec);
 
+	if (timeout) {
+		pmadapter->callbacks.moal_start_timer(pmadapter->pmoal_handle,
+						      pmadapter->
+						      pwakeup_fw_timer, MFALSE,
+						      MRVDRV_TIMER_3S);
+		pmadapter->wakeup_fw_timer_is_set = MTRUE;
+	}
 	if (pmadapter->fw_wakeup_method == WAKEUP_FW_THRU_GPIO) {
 		/* GPIO_PORT_TO_LOW(); */
 	} else
@@ -1098,46 +1137,6 @@ wlan_delay_func(mlan_adapter *pmadapter, t_u32 delay, t_delay_unit u)
 
 	LEAVE();
 	return;
-}
-
-/**
- *  @brief Send coalescing status command to firmware
- *
- *  @param pmadapter	A pointer to mlan_adapter structure
- *  @param pioctl_req	A pointer to ioctl request buffer
- *
- *  @return		MLAN_STATUS_PENDING --success, otherwise fail
- */
-mlan_status
-wlan_misc_ioctl_coalescing_status(IN pmlan_adapter pmadapter,
-				  IN pmlan_ioctl_req pioctl_req)
-{
-	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
-	mlan_status ret = MLAN_STATUS_SUCCESS;
-	mlan_ds_misc_cfg *misc = MNULL;
-	t_u16 cmd_action = 0;
-
-	ENTER();
-
-	misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
-
-	if (pioctl_req->action == MLAN_ACT_SET)
-		cmd_action = HostCmd_ACT_GEN_SET;
-	else
-		cmd_action = HostCmd_ACT_GEN_GET;
-
-	ret = wlan_prepare_cmd(pmpriv,
-			       HostCmd_CMD_802_11_IBSS_COALESCING_STATUS,
-			       cmd_action,
-			       0,
-			       (t_void *)pioctl_req,
-			       &misc->param.coalescing_status);
-
-	if (ret == MLAN_STATUS_SUCCESS)
-		ret = MLAN_STATUS_PENDING;
-
-	LEAVE();
-	return ret;
 }
 
 /**
@@ -2886,6 +2885,18 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 		    (pmadapter, pieee_pkt_hdr->addr1, broadcast,
 		     MLAN_MAC_ADDR_LENGTH))
 			unicast = MTRUE;
+		if (priv->bss_role == MLAN_BSS_ROLE_STA) {
+			if (memcmp(pmadapter, pieee_pkt_hdr->addr3,
+				   priv->curr_bss_params.bss_descriptor.
+				   mac_address, MLAN_MAC_ADDR_LENGTH)) {
+				PRINTM(MEVENT,
+				       "Deauth received from Unknown BSSID "
+				       MACSTR " ignoring\n",
+				       MAC2STR(pieee_pkt_hdr->addr3));
+				LEAVE();
+				return ret;
+			}
+		}
 		break;
 	case SUBTYPE_ACTION:
 		category = *(payload + sizeof(wlan_802_11_header));
@@ -2948,6 +2959,7 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 			return ret;
 		}
 	}
+
 	/* Allocate memory for event buffer */
 	ret = pcb->moal_malloc(pmadapter->pmoal_handle, MAX_EVENT_SIZE,
 			       MLAN_MEM_DEF, &event_buf);
@@ -2959,7 +2971,8 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 	pevent = (pmlan_event)event_buf;
 	pevent->bss_index = priv->bss_index;
 	mgmt = (IEEE80211_MGMT *)payload;
-	if (sub_type == SUBTYPE_ACTION &&
+	if (!priv->curr_bss_params.host_mlme &&
+	    sub_type == SUBTYPE_ACTION &&
 	    mgmt->u.ft_resp.category == FT_CATEGORY &&
 	    mgmt->u.ft_resp.action == FT_ACTION_RESPONSE &&
 	    mgmt->u.ft_resp.status_code == 0) {
@@ -2974,8 +2987,8 @@ wlan_process_802dot11_mgmt_pkt(IN mlan_private *priv,
 		       (t_u8 *)(pevent->event_buf + MLAN_MAC_ADDR_LENGTH),
 		       payload + FT_ACTION_HEAD_LEN,
 		       payload_len - FT_ACTION_HEAD_LEN);
-	} else if (sub_type == SUBTYPE_AUTH &&
-		   mgmt->u.auth.auth_alg == MLAN_AUTH_MODE_FT &&
+	} else if (!priv->curr_bss_params.host_mlme && sub_type == SUBTYPE_AUTH
+		   && mgmt->u.auth.auth_alg == MLAN_AUTH_MODE_FT &&
 		   mgmt->u.auth.auth_transaction == 2 &&
 		   mgmt->u.auth.status_code == 0) {
 		PRINTM(MCMND, "FT auth response received \n");
@@ -4547,6 +4560,11 @@ wlan_sec_ioctl_passphrase(IN pmlan_adapter pmadapter,
 
 	sec = (mlan_ds_sec_cfg *)pioctl_req->pbuf;
 
+	if (!IS_FW_SUPPORT_SUPPLICANT(pmpriv->adapter)) {
+		LEAVE();
+		return ret;
+	}
+
 	if (pioctl_req->action == MLAN_ACT_SET) {
 		if (sec->param.passphrase.psk_type == MLAN_PSK_CLEAR)
 			cmd_action = HostCmd_ACT_GEN_REMOVE;
@@ -5009,4 +5027,131 @@ wlan_misc_bootsleep(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 
 	LEAVE();
 	return ret;
+}
+
+/**
+ *  @brief Set/Get Infra/Ad-hoc band configuration
+ *
+ *  @param pmadapter    A pointer to mlan_adapter structure
+ *  @param pioctl_req   A pointer to ioctl request buffer
+ *
+ *  @return     MLAN_STATUS_SUCCESS --success, otherwise fail
+ */
+mlan_status
+wlan_radio_ioctl_band_cfg(IN pmlan_adapter pmadapter,
+			  IN pmlan_ioctl_req pioctl_req)
+{
+	t_u8 i, global_band = 0;
+	t_u8 infra_band = 0;
+	t_u8 adhoc_band = 0;
+	t_u32 adhoc_channel = 0;
+	mlan_ds_radio_cfg *radio_cfg = MNULL;
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+
+	ENTER();
+
+	radio_cfg = (mlan_ds_radio_cfg *)pioctl_req->pbuf;
+	if (pioctl_req->action == MLAN_ACT_SET) {
+		infra_band = (t_u8)radio_cfg->param.band_cfg.config_bands;
+		adhoc_band = (t_u8)radio_cfg->param.band_cfg.adhoc_start_band;
+		adhoc_channel = radio_cfg->param.band_cfg.adhoc_channel;
+
+		/* SET Infra band */
+		if ((infra_band | pmadapter->fw_bands) & ~pmadapter->fw_bands) {
+			pioctl_req->status_code = MLAN_ERROR_INVALID_PARAMETER;
+			LEAVE();
+			return MLAN_STATUS_FAILURE;
+		}
+
+		/* SET Ad-hoc Band */
+		if ((adhoc_band | pmadapter->fw_bands) & ~pmadapter->fw_bands) {
+			pioctl_req->status_code = MLAN_ERROR_INVALID_PARAMETER;
+			LEAVE();
+			return MLAN_STATUS_FAILURE;
+		}
+		if (!adhoc_band)
+			adhoc_band = pmadapter->adhoc_start_band;
+
+		for (i = 0; i < pmadapter->priv_num; i++) {
+			if (pmadapter->priv[i] && pmadapter->priv[i] != pmpriv
+			    && GET_BSS_ROLE(pmadapter->priv[i]) ==
+			    MLAN_BSS_ROLE_STA)
+				global_band |= pmadapter->priv[i]->config_bands;
+		}
+		global_band |= infra_band;
+
+		if (wlan_set_regiontable
+		    (pmpriv, (t_u8)pmadapter->region_code,
+		     global_band | adhoc_band)) {
+			pioctl_req->status_code = MLAN_ERROR_IOCTL_FAIL;
+			LEAVE();
+			return MLAN_STATUS_FAILURE;
+		}
+#ifdef STA_SUPPORT
+		if (wlan_11d_set_universaltable
+		    (pmpriv, global_band | adhoc_band)) {
+			pioctl_req->status_code = MLAN_ERROR_IOCTL_FAIL;
+			LEAVE();
+			return MLAN_STATUS_FAILURE;
+		}
+#endif
+		pmpriv->config_bands = infra_band;
+		pmadapter->config_bands = global_band;
+
+		pmadapter->adhoc_start_band = adhoc_band;
+		pmpriv->intf_state_11h.adhoc_auto_sel_chan = MFALSE;
+
+#ifdef STA_SUPPORT
+		/*
+		 * If no adhoc_channel is supplied verify if the existing
+		 * adhoc channel compiles with new adhoc_band
+		 */
+		if (!adhoc_channel) {
+			if (!wlan_find_cfp_by_band_and_channel
+			    (pmadapter, pmadapter->adhoc_start_band,
+			     pmpriv->adhoc_channel)) {
+				/* Pass back the default channel */
+				radio_cfg->param.band_cfg.adhoc_channel =
+					DEFAULT_AD_HOC_CHANNEL;
+				if ((pmadapter->adhoc_start_band & BAND_A)
+					) {
+					radio_cfg->param.band_cfg.
+						adhoc_channel =
+						DEFAULT_AD_HOC_CHANNEL_A;
+				}
+			}
+		} else {
+			/* Return error if adhoc_band and adhoc_channel
+			 * combination is invalid
+			 */
+			if (!wlan_find_cfp_by_band_and_channel
+			    (pmadapter, pmadapter->adhoc_start_band,
+			     (t_u16)adhoc_channel)) {
+				pioctl_req->status_code =
+					MLAN_ERROR_INVALID_PARAMETER;
+				LEAVE();
+				return MLAN_STATUS_FAILURE;
+			}
+			pmpriv->adhoc_channel = (t_u8)adhoc_channel;
+		}
+#endif
+
+	} else {
+		/* Infra Bands   */
+		radio_cfg->param.band_cfg.config_bands = pmpriv->config_bands;
+		/* Adhoc Band    */
+		radio_cfg->param.band_cfg.adhoc_start_band =
+			pmadapter->adhoc_start_band;
+		/* Adhoc Channel */
+		radio_cfg->param.band_cfg.adhoc_channel = pmpriv->adhoc_channel;
+		/* FW support Bands */
+		radio_cfg->param.band_cfg.fw_bands = pmadapter->fw_bands;
+		PRINTM(MINFO, "Global config band = %d\n",
+		       pmadapter->config_bands);
+#ifdef STA_SUPPORT
+#endif
+	}
+
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
 }

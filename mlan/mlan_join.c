@@ -6,20 +6,27 @@
  *  for sending adhoc start, adhoc join, and association commands
  *  to the firmware.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
+ *  @sa mlan_join.h
  */
 
 /******************************************************
@@ -685,6 +692,7 @@ wlan_cmd_802_11_associate(IN mlan_private *pmpriv,
 	t_u8 *pos;
 	t_u8 ft_akm = 0;
 	t_u8 oper_class;
+	MrvlIEtypes_HostMlme_t *host_mlme_tlv = MNULL;
 
 	ENTER();
 
@@ -948,6 +956,17 @@ wlan_cmd_802_11_associate(IN mlan_private *pmpriv,
 						pbss_desc->pmd_ie, &pos);
 	wlan_cmd_append_tsf_tlv(pmpriv, &pos, pbss_desc);
 
+	if (pmpriv->curr_bss_params.host_mlme) {
+		host_mlme_tlv = (MrvlIEtypes_HostMlme_t *) pos;
+		host_mlme_tlv->header.type =
+			wlan_cpu_to_le16(TLV_TYPE_HOST_MLME);
+		host_mlme_tlv->header.len =
+			wlan_cpu_to_le16(sizeof(host_mlme_tlv->host_mlme));
+		host_mlme_tlv->host_mlme = MTRUE;
+		pos += sizeof(host_mlme_tlv->header) +
+			host_mlme_tlv->header.len;
+	}
+
 	if (wlan_11d_create_dnld_countryinfo(pmpriv, (t_u8)pbss_desc->bss_band)) {
 		PRINTM(MERROR, "Dnld_countryinfo_11d failed\n");
 		ret = MLAN_STATUS_FAILURE;
@@ -1082,7 +1101,12 @@ wlan_ret_802_11_associate(IN mlan_private *pmpriv,
 	mlan_ds_bss *bss;
 	ENTER();
 
-	passoc_rsp = (IEEEtypes_AssocRsp_t *)&resp->params;
+	if (pmpriv->curr_bss_params.host_mlme)
+		passoc_rsp =
+			(IEEEtypes_AssocRsp_t *)((t_u8 *)(&resp->params) +
+						 sizeof(IEEEtypes_MgmtHdr_t));
+	else
+		passoc_rsp = (IEEEtypes_AssocRsp_t *)&resp->params;
 	passoc_rsp->status_code = wlan_le16_to_cpu(passoc_rsp->status_code);
 	if (pmpriv->media_connected == MTRUE)
 		memcpy(pmpriv->adapter, cur_mac,
@@ -1325,12 +1349,6 @@ wlan_cmd_802_11_ad_hoc_start(IN mlan_private *pmpriv,
 	MrvlIEtypes_ChanListParamSet_t *pchan_tlv;
 
 	MrvlIEtypes_RsnParamSet_t *prsn_ie_tlv;
-	MrvlIETypes_HTCap_t *pht_cap;
-	MrvlIETypes_HTInfo_t *pht_info;
-	t_u32 rx_mcs_supp = 0;
-	MrvlIETypes_VHTCap_t *pvht_cap = MNULL;
-	MrvlIETypes_VHTOprat_t *pvht_op = MNULL;
-	t_u16 mcs_map_user = 0;
 	/* wpa ie for WPA_NONE AES */
 	const t_u8 wpa_ie[24] =
 		{ 0xdd, 0x16, 0x00, 0x50, 0xf2, 0x01, 0x01, 0x00,
@@ -1450,7 +1468,6 @@ wlan_cmd_802_11_ad_hoc_start(IN mlan_private *pmpriv,
 
 	/* Set up privacy in pbss_desc */
 	if (pmpriv->sec_info.wep_status == Wlan802_11WEPEnabled
-	    || pmpriv->adhoc_aes_enabled
 	    || pmpriv->sec_info.wpa_enabled || pmpriv->sec_info.ewpa_enabled) {
 /** Ad-Hoc capability privacy on */
 #define AD_HOC_CAP_PRIVACY_ON   1
@@ -1526,27 +1543,6 @@ wlan_cmd_802_11_ad_hoc_start(IN mlan_private *pmpriv,
 
 		pchan_tlv->chan_scan_param[0].bandcfg.chanBand
 			= wlan_band_to_radio_type(pmpriv->curr_bss_params.band);
-		if (pmadapter->adhoc_start_band & BAND_GN
-		    || pmadapter->adhoc_start_band & BAND_AN
-		    || pmadapter->adhoc_start_band & BAND_GAC
-		    || pmadapter->adhoc_start_band & BAND_AAC) {
-			if (pmadapter->chan_bandwidth == CHANNEL_BW_40MHZ_ABOVE) {
-				pchan_tlv->chan_scan_param[0].bandcfg.
-					chan2Offset = SEC_CHAN_ABOVE;
-				pchan_tlv->chan_scan_param[0].bandcfg.
-					chanWidth = CHAN_BW_40MHZ;
-			} else if (pmadapter->chan_bandwidth ==
-				   CHANNEL_BW_40MHZ_BELOW) {
-				pchan_tlv->chan_scan_param[0].bandcfg.
-					chan2Offset = SEC_CHAN_BELOW;
-				pchan_tlv->chan_scan_param[0].bandcfg.
-					chanWidth = CHAN_BW_40MHZ;
-			} else if (pmadapter->chan_bandwidth ==
-				   CHANNEL_BW_80MHZ) {
-				pchan_tlv->chan_scan_param[0].bandcfg.
-					chanWidth = CHAN_BW_80MHZ;
-			}
-		}
 		PRINTM(MINFO, "ADHOC_S_CMD: TLV Bandcfg = %x\n",
 		       pchan_tlv->chan_scan_param[0].bandcfg);
 		pos += sizeof(pchan_tlv->header) + sizeof(ChanScanParamSet_t);
@@ -1605,147 +1601,6 @@ wlan_cmd_802_11_ad_hoc_start(IN mlan_private *pmpriv,
 			sizeof(prsn_ie_tlv->header) + prsn_ie_tlv->header.len;
 		prsn_ie_tlv->header.len =
 			wlan_cpu_to_le16(prsn_ie_tlv->header.len);
-	}
-
-	if (pmadapter->adhoc_11n_enabled == MTRUE) {
-		{
-			pht_cap = (MrvlIETypes_HTCap_t *)pos;
-			memset(pmadapter, pht_cap, 0,
-			       sizeof(MrvlIETypes_HTCap_t));
-			pht_cap->header.type = wlan_cpu_to_le16(HT_CAPABILITY);
-			pht_cap->header.len = sizeof(HTCap_t);
-			rx_mcs_supp =
-				GET_RXMCSSUPP(pmpriv->usr_dev_mcs_support);
-			/* Set MCS for 1x1/2x2 */
-			memset(pmadapter,
-			       (t_u8 *)pht_cap->ht_cap.supported_mcs_set, 0xff,
-			       rx_mcs_supp);
-			wlan_fill_ht_cap_tlv(pmpriv, pht_cap,
-					     pmpriv->curr_bss_params.band,
-					     MTRUE);
-			HEXDUMP("ADHOC_START: HT_CAPABILITIES IE",
-				(t_u8 *)pht_cap, sizeof(MrvlIETypes_HTCap_t));
-			pos += sizeof(MrvlIETypes_HTCap_t);
-			cmd_append_size += sizeof(MrvlIETypes_HTCap_t);
-			pht_cap->header.len =
-				wlan_cpu_to_le16(pht_cap->header.len);
-		}
-		{
-			pht_info = (MrvlIETypes_HTInfo_t *)pos;
-			memset(pmadapter, pht_info, 0,
-			       sizeof(MrvlIETypes_HTInfo_t));
-			pht_info->header.type = wlan_cpu_to_le16(HT_OPERATION);
-			pht_info->header.len = sizeof(HTInfo_t);
-			pht_info->ht_info.pri_chan =
-				(t_u8)pmpriv->curr_bss_params.bss_descriptor.
-				channel;
-			if ((pmadapter->chan_bandwidth ==
-			     CHANNEL_BW_40MHZ_ABOVE) ||
-			    (pmadapter->chan_bandwidth ==
-			     CHANNEL_BW_40MHZ_BELOW)) {
-				pht_info->ht_info.field2 =
-					pmadapter->chan_bandwidth;
-				SET_CHANWIDTH40(pht_info->ht_info.field2);
-			}
-			if (pmadapter->chan_bandwidth == CHANNEL_BW_80MHZ) {
-				pht_info->ht_info.field2 =
-					wlan_get_second_channel_offset
-					(pht_info->ht_info.pri_chan);
-				pht_info->ht_info.field2 |= MBIT(2);
-			}
-			pht_info->ht_info.field3 =
-				wlan_cpu_to_le16(NON_GREENFIELD_STAS);
-			pht_info->ht_info.basic_mcs_set[0] = 0xff;
-			HEXDUMP("ADHOC_START: HT_INFORMATION IE",
-				(t_u8 *)pht_info, sizeof(MrvlIETypes_HTInfo_t));
-			pos += sizeof(MrvlIETypes_HTInfo_t);
-			cmd_append_size += sizeof(MrvlIETypes_HTInfo_t);
-			pht_info->header.len =
-				wlan_cpu_to_le16(pht_info->header.len);
-		}
-		if (ISSUPP_11ACENABLED(pmadapter->fw_cap_info)
-		    && (pmadapter->adhoc_start_band & BAND_GAC
-			|| pmadapter->adhoc_start_band & BAND_AAC)) {
-			/* VHT Capabilities IE */
-			pvht_cap = (MrvlIETypes_VHTCap_t *)pos;
-			memset(pmadapter, pvht_cap, 0,
-			       sizeof(MrvlIETypes_VHTCap_t));
-			pvht_cap->header.type =
-				wlan_cpu_to_le16(VHT_CAPABILITY);
-			pvht_cap->header.len = sizeof(VHT_capa_t);
-			/* rx MCS Map */
-			mcs_map_user =
-				GET_DEVRXMCSMAP(pmpriv->
-						usr_dot_11ac_mcs_support);
-			pvht_cap->vht_cap.mcs_sets.rx_mcs_map =
-				wlan_cpu_to_le16(mcs_map_user);
-			/* rx highest rate */
-			pvht_cap->vht_cap.mcs_sets.rx_max_rate =
-				wlan_convert_mcsmap_to_maxrate(pmpriv,
-							       pmadapter->
-							       adhoc_start_band,
-							       mcs_map_user);
-			pvht_cap->vht_cap.mcs_sets.rx_max_rate =
-				wlan_cpu_to_le16(pvht_cap->vht_cap.mcs_sets.
-						 rx_max_rate);
-			/* tx MCS map */
-			mcs_map_user =
-				GET_DEVTXMCSMAP(pmpriv->
-						usr_dot_11ac_mcs_support);
-			pvht_cap->vht_cap.mcs_sets.tx_mcs_map =
-				wlan_cpu_to_le16(mcs_map_user);
-			/* tx highest rate */
-			pvht_cap->vht_cap.mcs_sets.tx_max_rate =
-				wlan_convert_mcsmap_to_maxrate(pmpriv,
-							       pmadapter->
-							       adhoc_start_band,
-							       mcs_map_user);
-			pvht_cap->vht_cap.mcs_sets.tx_max_rate =
-				wlan_cpu_to_le16(pvht_cap->vht_cap.mcs_sets.
-						 tx_max_rate);
-
-			wlan_fill_vht_cap_tlv(pmpriv, pvht_cap,
-					      pmadapter->adhoc_start_band,
-					      MTRUE);
-			HEXDUMP("VHT_CAPABILITIES IE", (t_u8 *)pvht_cap,
-				sizeof(MrvlIETypes_VHTCap_t));
-			pos += sizeof(MrvlIETypes_VHTCap_t);
-			cmd_append_size += sizeof(MrvlIETypes_VHTCap_t);
-			pvht_cap->header.len =
-				wlan_cpu_to_le16(pvht_cap->header.len);
-			/* VHT Operation IE */
-			pvht_op = (MrvlIETypes_VHTOprat_t *)pos;
-			memset(pmadapter, pvht_op, 0,
-			       sizeof(MrvlIETypes_VHTOprat_t));
-			pvht_op->header.type = wlan_cpu_to_le16(VHT_OPERATION);
-			pvht_op->header.len = sizeof(MrvlIETypes_VHTOprat_t) -
-				sizeof(MrvlIEtypesHeader_t);
-			if (pmadapter->chan_bandwidth == CHANNEL_BW_80MHZ) {
-				pvht_op->chan_width = VHT_OPER_CHWD_80MHZ;
-				/* central frequency */
-				pvht_op->chan_center_freq_1 =
-					wlan_get_center_freq_idx(pmpriv,
-								 pmadapter->
-								 adhoc_start_band,
-								 pmpriv->
-								 adhoc_channel,
-								 pmadapter->
-								 chan_bandwidth);
-			}
-			/* basic MCS (rx MCS Map) */
-			pvht_op->basic_MCS_map =
-				GET_DEVRXMCSMAP(pmpriv->
-						usr_dot_11ac_mcs_support);
-			pvht_op->basic_MCS_map =
-				wlan_cpu_to_le16(pvht_op->basic_MCS_map);
-
-			HEXDUMP("VHT_OPERATION IE", (t_u8 *)pvht_op,
-				sizeof(MrvlIETypes_VHTOprat_t));
-			pos += sizeof(MrvlIETypes_VHTOprat_t);
-			cmd_append_size += sizeof(MrvlIETypes_VHTOprat_t);
-			pvht_op->header.len =
-				wlan_cpu_to_le16(pvht_op->header.len);
-		}
 	}
 
 	cmd->size =
@@ -1842,6 +1697,7 @@ wlan_cmd_802_11_ad_hoc_join(IN mlan_private *pmpriv,
 
 	memcpy(pmadapter, &padhoc_join->bss_descriptor.ss_param_set,
 	       &pbss_desc->ss_param_set, sizeof(IEEEtypes_SsParamSet_t));
+	padhoc_join->bss_descriptor.ss_param_set.ibss_param_set.atim_window = 0;
 	padhoc_join->bss_descriptor.ss_param_set.ibss_param_set.atim_window
 		=
 		wlan_cpu_to_le16(padhoc_join->bss_descriptor.ss_param_set.
@@ -1888,7 +1744,6 @@ wlan_cmd_802_11_ad_hoc_join(IN mlan_private *pmpriv,
 	pmpriv->curr_bss_params.band = (t_u8)pbss_desc->bss_band;
 
 	if (pmpriv->sec_info.wep_status == Wlan802_11WEPEnabled
-	    || pmpriv->adhoc_aes_enabled
 	    || pmpriv->sec_info.wpa_enabled || pmpriv->sec_info.ewpa_enabled)
 		padhoc_join->bss_descriptor.cap.privacy = AD_HOC_CAP_PRIVACY_ON;
 
@@ -2030,16 +1885,6 @@ wlan_cmd_802_11_ad_hoc_join(IN mlan_private *pmpriv,
 				wlan_cpu_to_le16(prsn_ie_tlv->header.len);
 		}
 	}
-
-	if (ISSUPP_11NENABLED(pmadapter->fw_cap_info)
-	    && wlan_11n_bandconfig_allowed(pmpriv, pbss_desc->bss_band)
-		)
-		cmd_append_size +=
-			wlan_cmd_append_11n_tlv(pmpriv, pbss_desc, &pos);
-	if (ISSUPP_11ACENABLED(pmadapter->fw_cap_info)
-	    && wlan_11ac_bandconfig_allowed(pmpriv, pbss_desc->bss_band))
-		cmd_append_size +=
-			wlan_cmd_append_11ac_tlv(pmpriv, pbss_desc, &pos);
 
 	cmd->size =
 		(t_u16)

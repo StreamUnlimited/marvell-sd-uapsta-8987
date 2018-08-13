@@ -3,20 +3,26 @@
  *  @brief This file contains the initialization for FW
  *  and HW.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /********************************************************
@@ -369,7 +375,6 @@ wlan_init_priv(pmlan_private priv)
 		memset(pmadapter, &priv->wep_key[i], 0, sizeof(mrvl_wep_key_t));
 	priv->wep_key_curr_index = 0;
 	priv->ewpa_query = MFALSE;
-	priv->adhoc_aes_enabled = MFALSE;
 	priv->curr_pkt_filter =
 		HostCmd_ACT_MAC_STATIC_DYNAMIC_BW_ENABLE |
 		HostCmd_ACT_MAC_RTS_CTS_ENABLE |
@@ -404,7 +409,6 @@ wlan_init_priv(pmlan_private priv)
 	memset(pmadapter, &priv->adhoc_last_start_ssid, 0,
 	       sizeof(priv->adhoc_last_start_ssid));
 #endif
-	priv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
 	priv->atim_window = 0;
 	priv->adhoc_state = ADHOC_IDLE;
 	priv->tx_power_level = 0;
@@ -593,6 +597,8 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 
 	/* PnP and power profile */
 	pmadapter->surprise_removed = MFALSE;
+	/* FW hang report */
+	pmadapter->fw_hang_report = MFALSE;
 
 	if (!pmadapter->init_para.ps_mode) {
 		pmadapter->ps_mode = DEFAULT_PS_MODE;
@@ -613,6 +619,7 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	pmadapter->specific_scan_time = MRVDRV_SPECIFIC_SCAN_CHAN_TIME;
 	pmadapter->active_scan_time = MRVDRV_ACTIVE_SCAN_CHAN_TIME;
 	pmadapter->passive_scan_time = MRVDRV_PASSIVE_SCAN_CHAN_TIME;
+	pmadapter->passive_to_active_scan = MLAN_PASS_TO_ACT_SCAN_EN;
 
 	pmadapter->num_in_scan_table = 0;
 	memset(pmadapter, pmadapter->pscan_table, 0,
@@ -676,7 +683,6 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	pmadapter->coex_rx_winsize = 1;
 #ifdef STA_SUPPORT
 	pmadapter->chan_bandwidth = 0;
-	pmadapter->adhoc_11n_enabled = MFALSE;
 	pmadapter->tdls_status = TDLS_NOT_SETUP;
 #endif /* STA_SUPPORT */
 
@@ -730,7 +736,6 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	memcpy(pmadapter, pmadapter->country_code, MRVDRV_DEFAULT_COUNTRY_CODE,
 	       COUNTRY_CODE_LEN);
 	pmadapter->bcn_miss_time_out = DEFAULT_BCN_MISS_TIMEOUT;
-	pmadapter->adhoc_awake_period = 0;
 #ifdef STA_SUPPORT
 	memset(pmadapter, &pmadapter->arp_filter, 0,
 	       sizeof(pmadapter->arp_filter));
@@ -1071,6 +1076,15 @@ wlan_init_timer(IN pmlan_adapter pmadapter)
 		ret = MLAN_STATUS_FAILURE;
 		goto error;
 	}
+	if (pcb->
+	    moal_init_timer(pmadapter->pmoal_handle,
+			    &pmadapter->pwakeup_fw_timer,
+			    wlan_wakeup_card_timeout_func, pmadapter)
+	    != MLAN_STATUS_SUCCESS) {
+		ret = MLAN_STATUS_FAILURE;
+		goto error;
+	}
+	pmadapter->wakeup_fw_timer_is_set = MFALSE;
 error:
 	LEAVE();
 	return ret;
@@ -1093,6 +1107,10 @@ wlan_free_timer(IN pmlan_adapter pmadapter)
 	if (pmadapter->pmlan_cmd_timer)
 		pcb->moal_free_timer(pmadapter->pmoal_handle,
 				     pmadapter->pmlan_cmd_timer);
+
+	if (pmadapter->pwakeup_fw_timer)
+		pcb->moal_free_timer(pmadapter->pmoal_handle,
+				     pmadapter->pwakeup_fw_timer);
 
 	LEAVE();
 	return;
@@ -1185,27 +1203,13 @@ wlan_update_hw_spec(IN pmlan_adapter pmadapter)
 						BAND_AAC;
 			}
 		}
-		if ((pmadapter->fw_bands & BAND_AN)
-			) {
-			pmadapter->adhoc_start_band = BAND_A | BAND_AN;
-			pmadapter->adhoc_11n_enabled = MTRUE;
-		} else
-			pmadapter->adhoc_start_band = BAND_A;
+		pmadapter->adhoc_start_band = BAND_A;
 		for (i = 0; i < pmadapter->priv_num; i++) {
 			if (pmadapter->priv[i])
 				pmadapter->priv[i]->adhoc_channel =
 					DEFAULT_AD_HOC_CHANNEL_A;
 		}
 
-	} else if ((pmadapter->fw_bands & BAND_GN)
-		) {
-		pmadapter->adhoc_start_band = BAND_G | BAND_B | BAND_GN;
-		for (i = 0; i < pmadapter->priv_num; i++) {
-			if (pmadapter->priv[i])
-				pmadapter->priv[i]->adhoc_channel =
-					DEFAULT_AD_HOC_CHANNEL;
-		}
-		pmadapter->adhoc_11n_enabled = MTRUE;
 	} else if (pmadapter->fw_bands & BAND_G) {
 		pmadapter->adhoc_start_band = BAND_G | BAND_B;
 		for (i = 0; i < pmadapter->priv_num; i++) {
@@ -1344,6 +1348,12 @@ wlan_free_adapter(pmlan_adapter pmadapter)
 		pcb->moal_stop_timer(pmadapter->pmoal_handle,
 				     pmadapter->pmlan_cmd_timer);
 		pmadapter->cmd_timer_is_set = MFALSE;
+	}
+	if (pmadapter->wakeup_fw_timer_is_set) {
+		/* Cancel wakeup card timer */
+		pcb->moal_stop_timer(pmadapter->pmoal_handle,
+				     pmadapter->pwakeup_fw_timer);
+		pmadapter->wakeup_fw_timer_is_set = MFALSE;
 	}
 	wlan_free_fw_cfp_tables(pmadapter);
 #ifdef STA_SUPPORT

@@ -2,20 +2,26 @@
  *
  *  @brief This file declares the generic data structures and APIs.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /******************************************************
@@ -27,7 +33,7 @@ Change log:
 #define _MLAN_DECL_H_
 
 /** MLAN release version */
-#define MLAN_RELEASE_VERSION		 "C540"
+#define MLAN_RELEASE_VERSION		 "C604"
 
 /** Re-define generic data types for MLAN/MOAL */
 /** Signed char (1-byte) */
@@ -229,8 +235,8 @@ typedef t_s32 t_sval;
 /** MU beamformer */
 #define DEFALUT_11AC_CAP_BEAMFORMING_RESET_MASK   (MBIT(19))
 
-/** Size of rx data buffer */
-#define MLAN_RX_DATA_BUF_SIZE     (4 * 1024)
+/** Size of rx data buffer 4096+256 */
+#define MLAN_RX_DATA_BUF_SIZE     4352
 /** Size of rx command buffer */
 #define MLAN_RX_CMD_BUF_SIZE      (2 * 1024)
 
@@ -270,7 +276,7 @@ typedef t_u8 mlan_802_11_mac_addr[MLAN_MAC_ADDR_LENGTH];
 #define MLAN_SDIO_BLOCK_SIZE_FW_DNLD	MLAN_SDIO_BLOCK_SIZE
 
 /** define allocated buffer size */
-#define ALLOC_BUF_SIZE           (4 * 1024)
+#define ALLOC_BUF_SIZE              MLAN_RX_DATA_BUF_SIZE
 /** SDIO MP aggr pkt limit */
 #define SDIO_MP_AGGR_DEF_PKT_LIMIT       (16)
 
@@ -508,6 +514,22 @@ typedef struct _mlan_fw_image {
     /** Firmware reload flag */
 	t_u8 fw_reload;
 } mlan_fw_image, *pmlan_fw_image;
+
+/** MrvlIEtypesHeader_t */
+typedef MLAN_PACK_START struct _MrvlIEtypesHeader {
+    /** Header type */
+	t_u16 type;
+    /** Header length */
+	t_u16 len;
+} MLAN_PACK_END MrvlIEtypesHeader_t;
+
+/** MrvlIEtypes_Data_t */
+typedef MLAN_PACK_START struct _MrvlIEtypes_Data_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** Data */
+	t_u8 data[1];
+} MLAN_PACK_END MrvlIEtypes_Data_t;
 
 #define OID_TYPE_CAL    0x2
 #define OID_TYPE_DPD    0xa
@@ -1157,6 +1179,11 @@ typedef struct _tdls_tear_down_event {
     /** Reason code */
 	t_u16 reason_code;
 } tdls_tear_down_event;
+
+/** station stats */
+typedef struct _sta_stats {
+	t_u64 last_rx_in_msec;
+} sta_stats;
 
 #ifdef PRAGMA_PACK
 #pragma pack(pop)

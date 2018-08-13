@@ -2,20 +2,26 @@
  *
  *  @brief This file contains the functions for station ioctl.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /******************************************************
@@ -45,29 +51,6 @@ Change log:
 /********************************************************
 			Local Functions
 ********************************************************/
-/**
- *  @brief enable adhoc aes key
- *
- *  @param pmpriv   A pointer to mlan_private structure
- *
- *  @return         N/A
- */
-static void
-wlan_enable_aes_key(pmlan_private pmpriv)
-{
-
-	ENTER();
-
-	if (pmpriv->aes_key.key_len != WPA_AES_KEY_LEN) {
-		LEAVE();
-		return;
-	}
-	wlan_prepare_cmd(pmpriv, HostCmd_CMD_802_11_KEY_MATERIAL,
-			 HostCmd_ACT_GEN_SET, 0, MNULL, &pmpriv->aes_key);
-
-	LEAVE();
-	return;
-}
 
 /**
  *  @brief Get signal information
@@ -558,157 +541,6 @@ exit:
 }
 
 /**
- *  @brief Set/Get Infra/Ad-hoc band configuration
- *
- *  @param pmadapter	A pointer to mlan_adapter structure
- *  @param pioctl_req	A pointer to ioctl request buffer
- *
- *  @return		MLAN_STATUS_SUCCESS --success, otherwise fail
- */
-static mlan_status
-wlan_radio_ioctl_band_cfg(IN pmlan_adapter pmadapter,
-			  IN pmlan_ioctl_req pioctl_req)
-{
-	t_u8 i, global_band = 0;
-	t_u8 chan_offset;
-	t_u8 infra_band = 0;
-	t_u8 adhoc_band = 0;
-	t_u32 adhoc_channel = 0;
-	mlan_ds_radio_cfg *radio_cfg = MNULL;
-	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
-
-	ENTER();
-
-	radio_cfg = (mlan_ds_radio_cfg *)pioctl_req->pbuf;
-	if (pioctl_req->action == MLAN_ACT_SET) {
-		infra_band = (t_u8)radio_cfg->param.band_cfg.config_bands;
-		adhoc_band = (t_u8)radio_cfg->param.band_cfg.adhoc_start_band;
-		adhoc_channel = radio_cfg->param.band_cfg.adhoc_channel;
-
-		/* SET Infra band */
-		if ((infra_band | pmadapter->fw_bands) & ~pmadapter->fw_bands) {
-			pioctl_req->status_code = MLAN_ERROR_INVALID_PARAMETER;
-			LEAVE();
-			return MLAN_STATUS_FAILURE;
-		}
-
-		/* SET Ad-hoc Band */
-		if ((adhoc_band | pmadapter->fw_bands) & ~pmadapter->fw_bands) {
-			pioctl_req->status_code = MLAN_ERROR_INVALID_PARAMETER;
-			LEAVE();
-			return MLAN_STATUS_FAILURE;
-		}
-		if (!adhoc_band)
-			adhoc_band = pmadapter->adhoc_start_band;
-
-		for (i = 0; i < pmadapter->priv_num; i++) {
-			if (pmadapter->priv[i] && pmadapter->priv[i] != pmpriv
-			    && GET_BSS_ROLE(pmadapter->priv[i]) ==
-			    MLAN_BSS_ROLE_STA)
-				global_band |= pmadapter->priv[i]->config_bands;
-		}
-		global_band |= infra_band;
-
-		if (wlan_set_regiontable
-		    (pmpriv, (t_u8)pmadapter->region_code,
-		     global_band | adhoc_band)) {
-			pioctl_req->status_code = MLAN_ERROR_IOCTL_FAIL;
-			LEAVE();
-			return MLAN_STATUS_FAILURE;
-		}
-
-		if (wlan_11d_set_universaltable
-		    (pmpriv, global_band | adhoc_band)) {
-			pioctl_req->status_code = MLAN_ERROR_IOCTL_FAIL;
-			LEAVE();
-			return MLAN_STATUS_FAILURE;
-		}
-		pmpriv->config_bands = infra_band;
-		pmadapter->config_bands = global_band;
-
-		pmadapter->adhoc_start_band = adhoc_band;
-		pmpriv->intf_state_11h.adhoc_auto_sel_chan = MFALSE;
-		pmadapter->chan_bandwidth =
-			(t_u8)radio_cfg->param.band_cfg.adhoc_chan_bandwidth;
-		/*
-		 * If no adhoc_channel is supplied verify if the existing
-		 * adhoc channel compiles with new adhoc_band
-		 */
-		if (!adhoc_channel) {
-			if (!wlan_find_cfp_by_band_and_channel
-			    (pmadapter, pmadapter->adhoc_start_band,
-			     pmpriv->adhoc_channel)) {
-				/* Pass back the default channel */
-				radio_cfg->param.band_cfg.adhoc_channel =
-					DEFAULT_AD_HOC_CHANNEL;
-				if ((pmadapter->adhoc_start_band & BAND_A)
-				    || (pmadapter->adhoc_start_band & BAND_AN)
-					) {
-					radio_cfg->param.band_cfg.
-						adhoc_channel =
-						DEFAULT_AD_HOC_CHANNEL_A;
-				}
-			}
-		} else {
-			/* Return error if adhoc_band and adhoc_channel
-			 * combination is invalid
-			 */
-			if (!wlan_find_cfp_by_band_and_channel
-			    (pmadapter, pmadapter->adhoc_start_band,
-			     (t_u16)adhoc_channel)) {
-				pioctl_req->status_code =
-					MLAN_ERROR_INVALID_PARAMETER;
-				LEAVE();
-				return MLAN_STATUS_FAILURE;
-			}
-			pmpriv->adhoc_channel = (t_u8)adhoc_channel;
-		}
-
-		/* validate the channel offset */
-		chan_offset = wlan_validate_chan_offset(pmpriv,
-							pmadapter->
-							adhoc_start_band,
-							pmpriv->adhoc_channel,
-							pmadapter->
-							chan_bandwidth);
-
-		if (chan_offset != SEC_CHAN_NONE) {
-			if (chan_offset == SEC_CHAN_ABOVE)
-				pmadapter->chan_bandwidth =
-					CHANNEL_BW_40MHZ_ABOVE;
-			else
-				pmadapter->chan_bandwidth =
-					CHANNEL_BW_40MHZ_BELOW;
-		}
-		if ((adhoc_band & BAND_GN)
-		    || (adhoc_band & BAND_AN)
-			) {
-			pmadapter->adhoc_11n_enabled = MTRUE;
-		} else {
-			pmadapter->adhoc_11n_enabled = MFALSE;
-		}
-	} else {
-		/* Infra Bands   */
-		radio_cfg->param.band_cfg.config_bands = pmpriv->config_bands;
-		/* Adhoc Band    */
-		radio_cfg->param.band_cfg.adhoc_start_band =
-			pmadapter->adhoc_start_band;
-		/* Adhoc Channel */
-		radio_cfg->param.band_cfg.adhoc_channel = pmpriv->adhoc_channel;
-		/* FW support Bands */
-		radio_cfg->param.band_cfg.fw_bands = pmadapter->fw_bands;
-		PRINTM(MINFO, "Global config band = %d\n",
-		       pmadapter->config_bands);
-		/* adhoc channel bandwidth */
-		radio_cfg->param.band_cfg.adhoc_chan_bandwidth =
-			pmadapter->chan_bandwidth;
-	}
-
-	LEAVE();
-	return MLAN_STATUS_SUCCESS;
-}
-
-/**
  *  @brief Radio command handler
  *
  *  @param pmadapter	A pointer to mlan_adapter structure
@@ -1046,9 +878,7 @@ wlan_bss_ioctl_channel(IN pmlan_adapter pmadapter,
 		LEAVE();
 		return MLAN_STATUS_FAILURE;
 	}
-	if (pmadapter->adhoc_start_band & BAND_AN)
-		pmadapter->adhoc_start_band = BAND_G | BAND_B | BAND_GN;
-	else if (pmadapter->adhoc_start_band & BAND_A)
+	if (pmadapter->adhoc_start_band & BAND_A)
 		pmadapter->adhoc_start_band = BAND_G | BAND_B;
 	if (bss->param.bss_chan.channel) {
 		if (bss->param.bss_chan.channel <= MAX_CHANNEL_BAND_B)
@@ -1064,11 +894,7 @@ wlan_bss_ioctl_channel(IN pmlan_adapter pmadapter,
 								param.bss_chan.
 								channel);
 			if (cfp) {
-				if (pmadapter->adhoc_11n_enabled)
-					pmadapter->adhoc_start_band =
-						BAND_A | BAND_AN;
-				else
-					pmadapter->adhoc_start_band = BAND_A;
+				pmadapter->adhoc_start_band = BAND_A;
 			}
 		}
 	} else {
@@ -1081,11 +907,7 @@ wlan_bss_ioctl_channel(IN pmlan_adapter pmadapter,
 							     bss->param.
 							     bss_chan.freq);
 			if (cfp) {
-				if (pmadapter->adhoc_11n_enabled)
-					pmadapter->adhoc_start_band =
-						BAND_A | BAND_AN;
-				else
-					pmadapter->adhoc_start_band = BAND_A;
+				pmadapter->adhoc_start_band = BAND_A;
 			}
 		}
 	}
@@ -1244,6 +1066,8 @@ wlan_bss_ioctl_start(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 			}
 			PRINTM(MINFO,
 			       "SSID found in scan list ... associating...\n");
+			pmpriv->curr_bss_params.host_mlme =
+				bss->param.ssid_bssid.host_mlme;
 			/* Clear any past association response stored for application retrieval */
 			pmpriv->assoc_rsp_size = 0;
 			pmpriv->curr_chan_flags =
@@ -1313,8 +1137,6 @@ wlan_bss_ioctl_start(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 					      &pmadapter->pscan_table[i]);
 			if (ret)
 				goto start_ssid_done;
-			if (pmpriv->adhoc_aes_enabled)
-				wlan_enable_aes_key(pmpriv);
 		} else {	/* i >= 0 */
 			PRINTM(MINFO, "Network not found in the list, "
 			       "creating adhoc with ssid = %s\n",
@@ -1325,8 +1147,6 @@ wlan_bss_ioctl_start(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 					       &bss->param.ssid_bssid.ssid);
 			if (ret)
 				goto start_ssid_done;
-			if (pmpriv->adhoc_aes_enabled)
-				wlan_enable_aes_key(pmpriv);
 		}
 	}
 
@@ -2302,8 +2122,6 @@ wlan_set_get_ps_cfg(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 			(t_u32)pmadapter->multiple_dtim;
 		pm_cfg->param.ps_cfg.listen_interval =
 			(t_u32)pmadapter->local_listen_interval;
-		pm_cfg->param.ps_cfg.adhoc_awake_period =
-			(t_u32)pmadapter->adhoc_awake_period;
 		pm_cfg->param.ps_cfg.bcn_miss_timeout =
 			(t_u32)pmadapter->bcn_miss_time_out;
 		pm_cfg->param.ps_cfg.delay_to_ps =
@@ -2333,12 +2151,6 @@ wlan_set_get_ps_cfg(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 		else
 			pm_cfg->param.ps_cfg.listen_interval =
 				(t_u32)pmadapter->local_listen_interval;
-		if (pm_cfg->param.ps_cfg.adhoc_awake_period)
-			pmadapter->adhoc_awake_period =
-				(t_u16)pm_cfg->param.ps_cfg.adhoc_awake_period;
-		else
-			pm_cfg->param.ps_cfg.adhoc_awake_period =
-				(t_u32)pmadapter->adhoc_awake_period;
 		if (pm_cfg->param.ps_cfg.bcn_miss_timeout)
 			pmadapter->bcn_miss_time_out =
 				(t_u16)pm_cfg->param.ps_cfg.bcn_miss_timeout;
@@ -2882,9 +2694,6 @@ wlan_sec_ioctl_wpa_enable(IN pmlan_adapter pmadapter,
 	} else {
 		if (sec->param.wpa_enabled == MFALSE)
 			wlan_set_wpa_ie_helper(pmpriv, MNULL, 0);
-		/** clear adhoc aes flag, when WPA enabled */
-		pmpriv->adhoc_aes_enabled = MFALSE;
-		pmpriv->aes_key.key_len = 0;
 	}
 	pioctl_req->data_read_written = sizeof(t_u32) + MLAN_SUB_COMMAND_SIZE;
 	LEAVE();
@@ -3120,35 +2929,6 @@ wlan_sec_ioctl_set_wpa_key(IN pmlan_adapter pmadapter,
 		goto exit;
 	}
 
-	if (sec->param.encrypt_key.key_len == WPA_AES_KEY_LEN) {
-	/** back up adhoc AES key */
-		memset(pmpriv->adapter, &pmpriv->aes_key, 0,
-		       sizeof(pmpriv->aes_key));
-		memcpy(pmpriv->adapter, (t_u8 *)&pmpriv->aes_key,
-		       (t_u8 *)&sec->param.encrypt_key,
-		       sizeof(pmpriv->aes_key));
-	}
-
-    /** only adhoc aes key_index = MLAN_KEY_INDEX_UNICAST */
-	if (pmpriv->bss_mode == MLAN_BSS_MODE_IBSS &&
-	    sec->param.encrypt_key.key_len == WPA_AES_KEY_LEN
-	    && sec->param.encrypt_key.key_index & MLAN_KEY_INDEX_UNICAST) {
-		t_u8 zero_key_material[WPA_AES_KEY_LEN];
-		memset(pmadapter, zero_key_material, 0,
-		       sizeof(zero_key_material));
-		if (memcmp
-		    (pmadapter, sec->param.encrypt_key.key_material,
-		     zero_key_material, WPA_AES_KEY_LEN)) {
-			PRINTM(MINFO, "Adhoc AES Enabled.\n");
-			pmpriv->adhoc_aes_enabled = MTRUE;
-		} else {
-			PRINTM(MINFO, "Adhoc AES Disabled.\n");
-			pmpriv->adhoc_aes_enabled = MFALSE;
-	    /** clear adhoc AES key */
-			pmpriv->aes_key.key_len = 0;
-		}
-	}
-
 	ret = wlan_prepare_cmd(pmpriv,
 			       HostCmd_CMD_802_11_KEY_MATERIAL,
 			       HostCmd_ACT_GEN_SET,
@@ -3183,32 +2963,13 @@ wlan_sec_ioctl_get_key(IN pmlan_adapter pmadapter,
 
 	sec = (mlan_ds_sec_cfg *)pioctl_req->pbuf;
 
-	if ((sec->param.encrypt_key.key_index == MLAN_KEY_INDEX_UNICAST)&&
-	    (sec->param.encrypt_key.key_len == WPA_AES_KEY_LEN)) {
-		if (pmpriv->adhoc_aes_enabled == MTRUE &&
-		    (pmpriv->aes_key.key_len == WPA_AES_KEY_LEN)) {
-			HEXDUMP("Get ADHOCAES Key",
-				pmpriv->aes_key.key_material, WPA_AES_KEY_LEN);
-			memcpy(pmadapter, sec->param.encrypt_key.key_material,
-			       pmpriv->aes_key.key_material, WPA_AES_KEY_LEN);
-			LEAVE();
-			return ret;
-		} else {
-			PRINTM(MERROR, " ADHOCAES key is not set yet!\n");
-			pioctl_req->status_code = MLAN_ERROR_INVALID_PARAMETER;
-			ret = MLAN_STATUS_FAILURE;
-			LEAVE();
-			return ret;
-		}
-	}
 	if (pmpriv->wep_key_curr_index >= MRVL_NUM_WEP_KEY)
 		pmpriv->wep_key_curr_index = 0;
 
 	if ((pmpriv->sec_info.wep_status == Wlan802_11WEPEnabled)
 	    || (pmpriv->sec_info.wep_status == Wlan802_11WEPKeyAbsent)
 	    || pmpriv->sec_info.ewpa_enabled
-	    || pmpriv->sec_info.wpa_enabled
-	    || pmpriv->sec_info.wpa2_enabled || pmpriv->adhoc_aes_enabled) {
+	    || pmpriv->sec_info.wpa_enabled || pmpriv->sec_info.wpa2_enabled) {
 		sec->param.encrypt_key.key_disable = MFALSE;
 	} else {
 		sec->param.encrypt_key.key_disable = MTRUE;
@@ -3230,7 +2991,6 @@ wlan_sec_ioctl_get_key(IN pmlan_adapter pmadapter,
 			   || (pmpriv->sec_info.ewpa_enabled)
 			   || (pmpriv->sec_info.wpa2_enabled)
 			   || (pmpriv->sec_info.wapi_enabled)
-			   || (pmpriv->adhoc_aes_enabled)
 			) {
 			/* Return WPA enabled */
 			sec->param.encrypt_key.key_disable = MFALSE;
@@ -3261,7 +3021,6 @@ wlan_sec_ioctl_get_key(IN pmlan_adapter pmadapter,
 			   || (pmpriv->sec_info.ewpa_enabled)
 			   || (pmpriv->sec_info.wpa2_enabled)
 			   || (pmpriv->sec_info.wapi_enabled)
-			   || (pmpriv->adhoc_aes_enabled)
 			) {
 			/* Return WPA enabled */
 			sec->param.encrypt_key.key_disable = MFALSE;
@@ -3919,7 +3678,6 @@ wlan_11h_channel_check_req(IN pmlan_adapter pmadapter,
 	pmpriv->adhoc_state = ADHOC_STARTING;
 
 	if ((pmadapter->adhoc_start_band & BAND_A)
-	    || (pmadapter->adhoc_start_band & BAND_AN)
 		) {
 		if (pmpriv->intf_state_11h.adhoc_auto_sel_chan)
 			pmpriv->adhoc_channel =
@@ -5266,10 +5024,6 @@ wlan_misc_cfg_ioctl(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	case MLAN_OID_MISC_SOFT_RESET:
 		status = wlan_misc_ioctl_soft_reset(pmadapter, pioctl_req);
 		break;
-	case MLAN_OID_MISC_COALESCING_STATUS:
-		status = wlan_misc_ioctl_coalescing_status(pmadapter,
-							   pioctl_req);
-		break;
 	case MLAN_OID_MISC_CUSTOM_IE:
 		status = wlan_misc_ioctl_custom_ie_list(pmadapter, pioctl_req,
 							MTRUE);
@@ -5440,18 +5194,7 @@ wlan_set_get_scan_cfg(IN pmlan_adapter pmadapter,
 	ENTER();
 
 	scan = (mlan_ds_scan *)pioctl_req->pbuf;
-	if (action == MLAN_ACT_GET) {
-		scan->param.scan_cfg.scan_type = (t_u32)pmadapter->scan_type;
-		scan->param.scan_cfg.scan_mode = pmadapter->scan_mode;
-		scan->param.scan_cfg.scan_probe = (t_u32)pmadapter->scan_probes;
-		scan->param.scan_cfg.scan_time.specific_scan_time =
-			(t_u32)pmadapter->specific_scan_time;
-		scan->param.scan_cfg.scan_time.active_scan_time =
-			(t_u32)pmadapter->active_scan_time;
-		scan->param.scan_cfg.scan_time.passive_scan_time =
-			(t_u32)pmadapter->passive_scan_time;
-		scan->param.scan_cfg.ext_scan = pmadapter->ext_scan;
-	} else {
+	if (action == MLAN_ACT_SET) {
 		if (scan->param.scan_cfg.scan_type)
 			pmadapter->scan_type =
 				(t_u8)scan->param.scan_cfg.scan_type;
@@ -5472,8 +5215,23 @@ wlan_set_get_scan_cfg(IN pmlan_adapter pmadapter,
 			pmadapter->passive_scan_time =
 				(t_u16)scan->param.scan_cfg.scan_time.
 				passive_scan_time;
+		if (scan->param.scan_cfg.passive_to_active_scan)
+			pmadapter->passive_to_active_scan =
+				scan->param.scan_cfg.passive_to_active_scan;
 		pmadapter->ext_scan = scan->param.scan_cfg.ext_scan;
 	}
+	scan->param.scan_cfg.scan_type = (t_u32)pmadapter->scan_type;
+	scan->param.scan_cfg.scan_mode = pmadapter->scan_mode;
+	scan->param.scan_cfg.scan_probe = (t_u32)pmadapter->scan_probes;
+	scan->param.scan_cfg.scan_time.specific_scan_time =
+		(t_u32)pmadapter->specific_scan_time;
+	scan->param.scan_cfg.scan_time.active_scan_time =
+		(t_u32)pmadapter->active_scan_time;
+	scan->param.scan_cfg.scan_time.passive_scan_time =
+		(t_u32)pmadapter->passive_scan_time;
+	scan->param.scan_cfg.passive_to_active_scan =
+		pmadapter->passive_to_active_scan;
+	scan->param.scan_cfg.ext_scan = pmadapter->ext_scan;
 	pioctl_req->data_read_written = sizeof(t_u32) + MLAN_SUB_COMMAND_SIZE;
 
 	LEAVE();

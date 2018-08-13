@@ -4,20 +4,26 @@
  *  structures and declares global function prototypes used
  *  in MLAN module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /******************************************************
@@ -35,6 +41,7 @@ Change log:
 #pragma pack(push, 1)
 #endif
 
+#define WPA_GCMP_KEY_LEN 32
 /** Ethernet header */
 typedef MLAN_PACK_START struct {
     /** Ethernet header destination address */
@@ -182,6 +189,10 @@ typedef enum _KEY_TYPE_ID {
 	KEY_TYPE_ID_AES = 2,
 	KEY_TYPE_ID_WAPI = 3,
 	KEY_TYPE_ID_AES_CMAC = 4,
+	KEY_TYPE_ID_GCMP = 5,
+    /** Key type : GCMP */
+	KEY_TYPE_ID_GCMP_256 = 6,
+    /** Key type : GCMP_256 */
 } KEY_TYPE_ID;
 
 /** Key Info flag for multicast key */
@@ -246,8 +257,8 @@ typedef enum _KEY_INFO_WAPI {
      become active. (polling the scratch register). */
 #define MAX_FIRMWARE_POLL_TRIES		100
 
-/** This is for firmware specific length */
-#define EXTRA_LEN	36
+/** FW fill in rx_len with extra 204 bytes */
+#define EXTRA_LEN	256
 
 /** Buffer size for ethernet Tx packets */
 #define MRVDRV_ETH_TX_PACKET_BUFFER_SIZE \
@@ -315,6 +326,8 @@ typedef enum _WLAN_802_11_WEP_STATUS {
 #define TLV_TYPE_POWER_CAPABILITY               0x0021
 
 #define TLV_TYPE_HT_CAPABILITY                  0x002d
+/**TLV type : Host MLME Flag*/
+#define TLV_TYPE_HOST_MLME                      (PROPRIETARY_TLV_BASE_ID + 307)
 
 /** TLV type : Vendor Specific IE */
 #define TLV_TYPE_VENDOR_SPECIFIC_IE             0x00dd
@@ -490,13 +503,11 @@ typedef enum _WLAN_802_11_WEP_STATUS {
 #define BA_STREAM_NOT_ALLOWED   0xff
 
 #ifdef STA_SUPPORT
-/** Test if adhoc 11n is enabled */
-#define IS_11N_ADHOC_ENABLED(priv) ((priv->bss_mode == MLAN_BSS_MODE_IBSS) && pmadapter->adhoc_11n_enabled)
 #endif
 
 /** Test if 11n is enabled by checking the HTCap IE */
 #define IS_11N_ENABLED(priv) ((priv->config_bands & BAND_GN || priv->config_bands & BAND_AN) \
-	&& priv->curr_bss_params.bss_descriptor.pht_cap)
+	 && priv->curr_bss_params.bss_descriptor.pht_cap && !priv->curr_bss_params.bss_descriptor.disable_11n)
 /** Find out if we are the initiator or not */
 #define INITIATOR_BIT(DelBAParamSet) (((DelBAParamSet) & \
 			MBIT(DELBA_INITIATOR_POS)) >> DELBA_INITIATOR_POS)
@@ -1637,6 +1648,8 @@ typedef enum _ENH_PS_MODES {
 
 #define EVENT_EXCEED_MAX_P2P_CONN     0x00000089
 
+#define EVENT_FW_HANG_REPORT     0x0000008F
+
 #define EVENT_FW_DUMP_INFO      0x00000073
 /** Event ID mask */
 #define EVENT_ID_MASK                   0xffff
@@ -1767,22 +1780,6 @@ typedef MLAN_PACK_START struct _WLAN_802_11_VARIABLE_IEs {
 } MLAN_PACK_END WLAN_802_11_VARIABLE_IEs;
 
 /** TLV related data structures*/
-/** MrvlIEtypesHeader_t */
-typedef MLAN_PACK_START struct _MrvlIEtypesHeader {
-    /** Header type */
-	t_u16 type;
-    /** Header length */
-	t_u16 len;
-} MLAN_PACK_END MrvlIEtypesHeader_t;
-
-/** MrvlIEtypes_Data_t */
-typedef MLAN_PACK_START struct _MrvlIEtypes_Data_t {
-    /** Header */
-	MrvlIEtypesHeader_t header;
-    /** Data */
-	t_u8 data[1];
-} MLAN_PACK_END MrvlIEtypes_Data_t;
-
 /*TDLS TIMEOUT VALUE (seconds)*/
 #define TDLS_IDLE_TIMEOUT             60
 /** MrvlIEtypes_Data_t */
@@ -2154,7 +2151,9 @@ typedef MLAN_PACK_START struct _parsed_region_chan_11d {
 typedef MLAN_PACK_START struct _ChanScanMode_t {
 #ifdef BIG_ENDIAN_SUPPORT
     /** Reserved */
-	t_u8 reserved_6_7:2;
+	t_u8 reserved_7:1;
+    /** First passive scan then active scan */
+	t_u8 passive_to_active_scan:1;
     /** First channel in scan */
 	t_u8 first_chan:1;
     /** Enable hidden ssid report */
@@ -2180,8 +2179,10 @@ typedef MLAN_PACK_START struct _ChanScanMode_t {
 	t_u8 hidden_ssid_report:1;
     /** First channel in scan */
 	t_u8 first_chan:1;
+    /** First passive scan then active scan */
+	t_u8 passive_to_active_scan:1;
     /** Reserved */
-	t_u8 reserved_6_7:2;
+	t_u8 reserved_7:1;
 #endif
 } MLAN_PACK_END ChanScanMode_t;
 
@@ -2281,6 +2282,13 @@ typedef MLAN_PACK_START struct _MrvlIEtypes_SsIdParamSet_t {
 	t_u8 ssid[1];
 } MLAN_PACK_END MrvlIEtypes_SsIdParamSet_t;
 
+    /**MrvlIEtypes_AssocType_t */
+typedef MLAN_PACK_START struct _MrvlIEtypes_HostMlme_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** Authentication type */
+	t_u8 host_mlme;
+} MLAN_PACK_END MrvlIEtypes_HostMlme_t;
 /** MrvlIEtypes_NumProbes_t */
 typedef MLAN_PACK_START struct _MrvlIEtypes_NumProbes_t {
     /** Header */
@@ -2510,6 +2518,15 @@ typedef MLAN_PACK_START struct _cmac_aes_param {
 	t_u8 key[CMAC_AES_KEY_LEN];
 } MLAN_PACK_END cmac_aes_param;
 
+/** gmac_param */
+typedef MLAN_PACK_START struct _gcmp_param {
+    /** GCMP pn */
+	t_u8 pn[WPA_PN_SIZE];
+    /** key_len */
+	t_u16 key_len;
+    /** aes key */
+	t_u8 key[WPA_GCMP_KEY_LEN];
+} MLAN_PACK_END gcmp_param;
 /** MrvlIEtype_KeyParamSet_t */
 typedef MLAN_PACK_START struct _MrvlIEtype_KeyParamSetV2_t {
     /** Type ID */
@@ -2535,6 +2552,8 @@ typedef MLAN_PACK_START struct _MrvlIEtype_KeyParamSetV2_t {
 		wapi_param wapi;
 	/** IGTK key param */
 		cmac_aes_param cmac_aes;
+	/** gcmp key param */
+		gcmp_param gcmp;
 	} key_params;
 } MLAN_PACK_END MrvlIEtype_KeyParamSetV2_t;
 

@@ -5,20 +5,26 @@
  *  IOCTL handlers as well as command preparation and response routines
  *  for sending scan commands to the firmware.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /******************************************************
@@ -37,6 +43,9 @@ Change log:
 /********************************************************
 			Local Constants
 ********************************************************/
+/** minimum scan time for passive to active scan */
+#define MIN_PASSIVE_TO_ACTIVE_SCAN_TIME 150
+
 #define MRVDRV_MAX_CHANNELS_PER_SCAN     40
 /** The maximum number of channels the firmware can scan per command */
 #define MRVDRV_MAX_CHANNELS_PER_SPECIFIC_SCAN   4
@@ -105,6 +114,8 @@ enum cipher_suite {
 	CIPHER_SUITE_TKIP,
 	CIPHER_SUITE_CCMP,
 	CIPHER_SUITE_WEP104,
+	CIPHER_SUITE_GCMP,
+	CIPHER_SUITE_GCMP_256,
 	CIPHER_SUITE_MAX
 };
 
@@ -115,11 +126,13 @@ static t_u8 wpa_oui[CIPHER_SUITE_MAX][4] = {
 	{0x00, 0x50, 0xf2, 0x05},	/* WEP104 */
 };
 
-static t_u8 rsn_oui[CIPHER_SUITE_MAX][4] = {
+static t_u8 rsn_oui[CIPHER_SUITE_MAX][6] = {
 	{0x00, 0x0f, 0xac, 0x01},	/* WEP40 */
 	{0x00, 0x0f, 0xac, 0x02},	/* TKIP */
 	{0x00, 0x0f, 0xac, 0x04},	/* AES */
 	{0x00, 0x0f, 0xac, 0x05},	/* WEP104 */
+	{0x00, 0x0f, 0xac, 0x08},	/* GCMP */
+	{0x00, 0x0f, 0xac, 0x09},	/* GCMP-256 */
 };
 
 /**
@@ -422,6 +435,7 @@ wlan_scan_create_channel_list(IN mlan_private *pmpriv,
 	t_u8 scan_type;
 	t_u8 radio_type;
 	t_u8 band;
+	t_u16 scan_dur = 0;
 
 	ENTER();
 
@@ -496,23 +510,27 @@ wlan_scan_create_channel_list(IN mlan_private *pmpriv,
 
 			if (puser_scan_in &&
 			    puser_scan_in->chan_list[0].scan_time) {
-				pscan_chan_list[chan_idx].max_scan_time =
-					wlan_cpu_to_le16((t_u16)puser_scan_in->
-							 chan_list[0].
-							 scan_time);
+				scan_dur =
+					(t_u16)puser_scan_in->chan_list[0].
+					scan_time;
 			} else if (scan_type == MLAN_SCAN_TYPE_PASSIVE) {
-				pscan_chan_list[chan_idx].max_scan_time =
-					wlan_cpu_to_le16(pmadapter->
-							 passive_scan_time);
+				scan_dur = pmadapter->passive_scan_time;
 			} else if (filtered_scan) {
-				pscan_chan_list[chan_idx].max_scan_time =
-					wlan_cpu_to_le16(pmadapter->
-							 specific_scan_time);
+				scan_dur = pmadapter->specific_scan_time;
 			} else {
-				pscan_chan_list[chan_idx].max_scan_time =
-					wlan_cpu_to_le16(pmadapter->
-							 active_scan_time);
+				scan_dur = pmadapter->active_scan_time;
 			}
+			if (scan_type == MLAN_SCAN_TYPE_PASSIVE &&
+			    pmadapter->passive_to_active_scan ==
+			    MLAN_PASS_TO_ACT_SCAN_EN) {
+				scan_dur =
+					MAX(scan_dur,
+					    MIN_PASSIVE_TO_ACTIVE_SCAN_TIME);
+				pscan_chan_list[chan_idx].chan_scan_mode.
+					passive_to_active_scan = MTRUE;
+			}
+			pscan_chan_list[chan_idx].max_scan_time =
+				wlan_cpu_to_le16(scan_dur);
 
 			if (scan_type == MLAN_SCAN_TYPE_PASSIVE) {
 				pscan_chan_list[chan_idx].chan_scan_mode.
@@ -1634,10 +1652,21 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 					scan_dur = pmadapter->active_scan_time;
 				}
 			}
+
 			if (pmadapter->coex_scan &&
 			    pmadapter->coex_min_scan_time &&
 			    (pmadapter->coex_min_scan_time > scan_dur))
 				scan_dur = pmadapter->coex_min_scan_time;
+			if (scan_type == MLAN_SCAN_TYPE_PASSIVE &&
+			    pmadapter->passive_to_active_scan ==
+			    MLAN_PASS_TO_ACT_SCAN_EN) {
+				(pscan_chan_list +
+				 chan_list_idx)->chan_scan_mode.
+		      passive_to_active_scan = MTRUE;
+				scan_dur =
+					MAX(MIN_PASSIVE_TO_ACTIVE_SCAN_TIME,
+					    scan_dur);
+			}
 			(pscan_chan_list + chan_list_idx)->min_scan_time =
 				wlan_cpu_to_le16(scan_dur);
 			(pscan_chan_list + chan_list_idx)->max_scan_time =
@@ -3529,6 +3558,10 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 						   CIPHER_SUITE_CCMP)
 			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
 						   CIPHER_SUITE_CCMP)
+			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
+						   CIPHER_SUITE_GCMP)
+			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
+						   CIPHER_SUITE_GCMP_256)
 				) {
 
 				if (is_wpa_oui_present
@@ -3571,8 +3604,7 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			((*(pbss_desc->pwpa_ie)).vend_hdr.element_id != WPA_IE))
 		    && ((!pbss_desc->prsn_ie) ||
 			((*(pbss_desc->prsn_ie)).ieee_hdr.element_id != RSN_IE))
-		    && !pmpriv->adhoc_aes_enabled &&
-		    pmpriv->sec_info.encryption_mode ==
+		    && pmpriv->sec_info.encryption_mode ==
 		    MLAN_ENCRYPTION_MODE_NONE && !pbss_desc->privacy) {
 			/* No security */
 			LEAVE();
@@ -3580,7 +3612,6 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 		} else if (pmpriv->sec_info.wep_status == Wlan802_11WEPEnabled
 			   && !pmpriv->sec_info.wpa_enabled
 			   && !pmpriv->sec_info.wpa2_enabled
-			   && !pmpriv->adhoc_aes_enabled
 			   && pbss_desc->privacy) {
 			/* Static WEP enabled */
 			PRINTM(MINFO, "Disable 11n in WEP mode\n");
@@ -3619,7 +3650,6 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			   && ((pbss_desc->pwpa_ie) &&
 			       ((*(pbss_desc->pwpa_ie)).vend_hdr.element_id ==
 				WPA_IE))
-			   && !pmpriv->adhoc_aes_enabled
 			   /*
 			    * Privacy bit may NOT be set in some APs like
 			    * LinkSys WRT54G && pbss_desc->privacy
@@ -3665,7 +3695,6 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			   && ((pbss_desc->prsn_ie) &&
 			       ((*(pbss_desc->prsn_ie)).ieee_hdr.element_id ==
 				RSN_IE))
-			   && !pmpriv->adhoc_aes_enabled
 			   /*
 			    * Privacy bit may NOT be set in some APs like
 			    * LinkSys WRT54G && pbss_desc->privacy
@@ -3692,6 +3721,10 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			    && (pmpriv->bss_mode == MLAN_BSS_MODE_INFRA)
 			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
 						   CIPHER_SUITE_CCMP)
+			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
+						   CIPHER_SUITE_GCMP)
+			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
+						   CIPHER_SUITE_GCMP_256)
 				) {
 				if (is_rsn_oui_present
 				    (pmpriv->adapter, pbss_desc,
@@ -3715,23 +3748,7 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 			   && ((!pbss_desc->prsn_ie) ||
 			       ((*(pbss_desc->prsn_ie)).ieee_hdr.element_id !=
 				RSN_IE))
-			   && pmpriv->adhoc_aes_enabled &&
-			   pmpriv->sec_info.encryption_mode ==
-			   MLAN_ENCRYPTION_MODE_NONE && pbss_desc->privacy) {
-			/* Ad-hoc AES enabled */
-			LEAVE();
-			return index;
-		} else if (pmpriv->sec_info.wep_status == Wlan802_11WEPDisabled
-			   && !pmpriv->sec_info.wpa_enabled
-			   && !pmpriv->sec_info.wpa2_enabled
-			   && ((!pbss_desc->pwpa_ie) ||
-			       ((*(pbss_desc->pwpa_ie)).vend_hdr.element_id !=
-				WPA_IE))
-			   && ((!pbss_desc->prsn_ie) ||
-			       ((*(pbss_desc->prsn_ie)).ieee_hdr.element_id !=
-				RSN_IE))
-			   && !pmpriv->adhoc_aes_enabled &&
-			   pmpriv->sec_info.encryption_mode !=
+			   && pmpriv->sec_info.encryption_mode !=
 			   MLAN_ENCRYPTION_MODE_NONE && pbss_desc->privacy) {
 			/* Dynamic WEP enabled */
 			pbss_desc->disable_11n = MTRUE;
@@ -4873,6 +4890,9 @@ wlan_parse_ext_scan_result(IN mlan_private *pmpriv,
 				       sizeof(bss_new_entry->network_tsf));
 				band = radio_type_to_band(pscan_info_tlv->
 							  bandcfg.chanBand);
+				if (!bss_new_entry->channel)
+					bss_new_entry->channel =
+						pscan_info_tlv->channel;
 			}
 			/* Save the band designation for this entry for use in join */
 			bss_new_entry->bss_band = band;
@@ -6079,6 +6099,7 @@ wlan_find_best_network(IN mlan_private *pmpriv,
 			preq_ssid_bssid->ft_cap = preq_bss->pmd_ie->ft_cap;
 		}
 		preq_ssid_bssid->bss_band = preq_bss->bss_band;
+		preq_ssid_bssid->idx = i + 1;
 	}
 
 	if (!preq_ssid_bssid->ssid.ssid_len) {

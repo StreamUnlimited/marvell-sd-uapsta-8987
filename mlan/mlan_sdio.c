@@ -2,20 +2,26 @@
  *
  *  @brief This file contains SDIO specific code
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /********************************************************
@@ -1571,6 +1577,12 @@ wlan_interrupt(pmlan_adapter pmadapter)
 		if (!pmadapter->pps_uapsd_mode &&
 		    pmadapter->ps_state == PS_STATE_SLEEP) {
 			pmadapter->pm_wakeup_fw_try = MFALSE;
+			if (pmadapter->wakeup_fw_timer_is_set) {
+				pcb->moal_stop_timer(pmadapter->pmoal_handle,
+						     pmadapter->
+						     pwakeup_fw_timer);
+				pmadapter->wakeup_fw_timer_is_set = MFALSE;
+			}
 			pmadapter->ps_state = PS_STATE_AWAKE;
 			pmadapter->pm_wakeup_card_req = MFALSE;
 		}
@@ -1772,8 +1784,9 @@ wlan_process_int_status(mlan_adapter *pmadapter)
 				memset(pmadapter, pmadapter->mp_update, 0,
 				       sizeof(pmadapter->mp_update));
 		}
-
+#ifdef SDIO_MULTI_PORT_TX_AGGR
 		pmadapter->last_recv_wr_bitmap = pmadapter->mp_wr_bitmap;
+#endif
 		PRINTM(MINTR, "DNLD: wr_bitmap=0x%08x\n",
 		       pmadapter->mp_wr_bitmap);
 		if (pmadapter->data_sent &&
@@ -1819,7 +1832,7 @@ wlan_process_int_status(mlan_adapter *pmadapter)
 				goto done;
 			}
 			rx_len = (t_u16)(rx_blocks * MLAN_SDIO_BLOCK_SIZE);
-			if (rx_len > MLAN_TX_DATA_BUF_SIZE_2K
+			if (rx_len > MRVDRV_ETH_RX_PACKET_BUFFER_SIZE
 			    && !pmadapter->enable_net_mon)
 				pmbuf = wlan_alloc_mlan_buffer(pmadapter,
 							       rx_len, 0,
@@ -2222,7 +2235,7 @@ wlan_reset_fw(pmlan_adapter pmadapter)
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 
 	ENTER();
-	wlan_pm_wakeup_card(pmadapter);
+	wlan_pm_wakeup_card(pmadapter, MFALSE);
 
     /** wait SOC fully wake up */
 	for (tries = 0; tries < MAX_POLL_TRIES; ++tries) {

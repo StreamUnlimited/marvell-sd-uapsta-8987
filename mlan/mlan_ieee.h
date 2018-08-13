@@ -3,20 +3,26 @@
  *  @brief This file contains IEEE information element related
  *  definitions used in MLAN and MOAL module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  (C) Copyright 2008-2018 Marvell International Ltd. All Rights Reserved
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
- *  accordance with the terms and conditions of the License, a copy of which
- *  is available by writing to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- *  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *  MARVELL CONFIDENTIAL
+ *  The source code contained or described herein and all documents related to
+ *  the source code ("Material") are owned by Marvell International Ltd or its
+ *  suppliers or licensors. Title to the Material remains with Marvell
+ *  International Ltd or its suppliers and licensors. The Material contains
+ *  trade secrets and proprietary and confidential information of Marvell or its
+ *  suppliers and licensors. The Material is protected by worldwide copyright
+ *  and trade secret laws and treaty provisions. No part of the Material may be
+ *  used, copied, reproduced, modified, published, uploaded, posted,
+ *  transmitted, distributed, or disclosed in any way without Marvell's prior
+ *  express written permission.
  *
- *  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- *  this warranty disclaimer.
+ *  No license under any patent, copyright, trade secret or other intellectual
+ *  property right is granted to or conferred upon you by disclosure or delivery
+ *  of the Materials, either expressly, by implication, inducement, estoppel or
+ *  otherwise. Any license under such intellectual property rights must be
+ *  express and approved by Marvell in writing.
+ *
  */
 
 /******************************************************
@@ -222,18 +228,6 @@ typedef MLAN_PACK_START struct _IEEEtypes_FastBssTransElement_t {
 	t_u8 sub_element[1];
 } MLAN_PACK_END IEEEtypes_FastBssTransElement_t;
 
-/** auth frame body*/
-typedef MLAN_PACK_START struct {
-    /** auth alg */
-	t_u16 auth_alg;
-    /** auth transaction */
-	t_u16 auth_transaction;
-    /** status code */
-	t_u16 status_code;
-    /** variable */
-	t_u8 variable[0];
-} MLAN_PACK_END IEEEtypes_Auth_framebody;
-
 /*Category for FT*/
 #define FT_CATEGORY 6
 /** FT ACTION request */
@@ -270,6 +264,18 @@ typedef MLAN_PACK_START struct {
     /** varible */
 	t_u8 variable[0];
 } MLAN_PACK_END IEEEtypes_Ft_action_request;
+
+/** auth frame body*/
+typedef MLAN_PACK_START struct {
+    /** auth alg */
+	t_u16 auth_alg;
+    /** auth transaction */
+	t_u16 auth_transaction;
+    /** status code */
+	t_u16 status_code;
+    /** variable */
+	t_u8 variable[0];
+} MLAN_PACK_END IEEEtypes_Auth_framebody;
 
 /*Mgmt frame*/
 typedef MLAN_PACK_START struct {
@@ -446,6 +452,30 @@ typedef t_u16 IEEEtypes_StatusCode_t;
 
 /** Fixed size in assoc_resp */
 #define ASSOC_RESP_FIXED_SIZE      6
+
+/** IEEEtypes_SeqCtl_t */
+typedef MLAN_PACK_START struct _IEEEtypes_SeqCtl_t {
+/** Fragment Number */
+	t_u16 FragNum:4;
+/** Sequence Number */
+	t_u16 SeqNum:12;
+} MLAN_PACK_END IEEEtypes_SeqCtl_t;
+
+/** IEEEtypes_MgmtHdr_t */
+typedef MLAN_PACK_START struct _IEEEtypes_MgmtHdr_t {
+/** FrmCtl*/
+	t_u16 FrmCtl;
+/** Duration*/
+	t_u16 Duration;
+/** Destination Addr*/
+	t_u8 DestAddr[6];
+/** Source Addr*/
+	t_u8 SrcAddr[6];
+/** BSSID */
+	t_u8 BssId[6];
+/** IEEEtypes_SeqCtl_t */
+	IEEEtypes_SeqCtl_t SeqCtl;
+} MLAN_PACK_END IEEEtypes_MgmtHdr_t;
 
 /** IEEEtypes_AssocRsp_t */
 typedef MLAN_PACK_START struct _IEEEtypes_AssocRsp_t {
