@@ -79,8 +79,6 @@ Change log:
 #endif
 /** Private command ID to set/get beacon interval */
 #define WOAL_BEACON_INTERVAL        3
-/** Private command ID to set/get ATIM window */
-#define WOAL_ATIM_WINDOW            4
 /** Private command ID to get RSSI */
 #define WOAL_SIGNAL                 5
 /** Private command ID to set/get Deep Sleep mode */
@@ -171,8 +169,6 @@ Change log:
 #define WOAL_AUTH_TYPE              18
 /** Private command ID to set/get port control */
 #define WOAL_PORT_CTRL              19
-/** Private command ID for coalesced status */
-#define WOAL_COALESCING_STATUS      20
 #if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 /** Private command ID for set/get BSS role */
@@ -198,8 +194,6 @@ Change log:
 #define WOAL_SET_GET_256_CHAR       (WOAL_IOCTL + 9)
 /** Private command to read/write passphrase */
 #define WOAL_PASSPHRASE             1
-/** Private command to get/set Ad-Hoc AES */
-#define WOAL_ADHOC_AES              2
 #define WOAL_ASSOCIATE              3
 /** Private command ID to get WMM queue status */
 #define WOAL_WMM_QUEUE_STATUS       4
@@ -380,11 +374,6 @@ static const struct iw_priv_args woal_private_args[] = {
 	 IW_PRIV_TYPE_INT | 1,
 	 IW_PRIV_TYPE_INT | 1,
 	 "port_ctrl"},
-	{
-	 WOAL_COALESCING_STATUS,
-	 IW_PRIV_TYPE_INT | 1,
-	 IW_PRIV_TYPE_INT | 1,
-	 "coalesce_status"},
 #if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 	{
@@ -431,11 +420,6 @@ static const struct iw_priv_args woal_private_args[] = {
 	 IW_PRIV_TYPE_INT | 16,
 	 IW_PRIV_TYPE_INT | 16,
 	 "bcninterval"},
-	{
-	 WOAL_ATIM_WINDOW,
-	 IW_PRIV_TYPE_INT | 16,
-	 IW_PRIV_TYPE_INT | 16,
-	 "atimwindow"},
 	{
 	 WOAL_SIGNAL,
 	 IW_PRIV_TYPE_INT | 16,
@@ -601,11 +585,6 @@ static const struct iw_priv_args woal_private_args[] = {
 	 IW_PRIV_TYPE_CHAR | 256,
 	 IW_PRIV_TYPE_CHAR | 256,
 	 "passphrase"},
-	{
-	 WOAL_ADHOC_AES,
-	 IW_PRIV_TYPE_CHAR | 256,
-	 IW_PRIV_TYPE_CHAR | 256,
-	 "adhocaes"},
 	{
 	 WOAL_ASSOCIATE,
 	 IW_PRIV_TYPE_CHAR | 256,

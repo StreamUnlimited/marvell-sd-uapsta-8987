@@ -922,6 +922,7 @@ done:
 
 #endif
 
+#ifdef UAP_SUPPORT
 /**
  *  @brief Check current uap/go connection status
  *         Need handle channel switch if current channel is DFS channel
@@ -1074,6 +1075,7 @@ done:
 #endif
 	return;
 }
+#endif
 
 /**
  *  @brief Check current multi-channel connections
@@ -1087,8 +1089,8 @@ done:
 void
 woal_check_mc_connection(moal_private *priv, t_u8 wait_option, t_u8 new_channel)
 {
-	moal_handle *handle = priv->phandle;
 #ifdef UAP_SUPPORT
+	moal_handle *handle = priv->phandle;
 	int i;
 #endif
 	t_u16 enable = 0;
@@ -1134,6 +1136,10 @@ woal_bss_start(moal_private *priv, t_u8 wait_option,
 	if (priv->media_connected == MFALSE) {
 		if (netif_carrier_ok(priv->netdev))
 			netif_carrier_off(priv->netdev);
+	}
+	if (!ssid_bssid) {
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
 	}
 	memcpy(&temp_ssid_bssid, ssid_bssid, sizeof(mlan_ssid_bssid));
 	if (MLAN_STATUS_SUCCESS ==
@@ -3778,8 +3784,10 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_11h_cfg *ds_11hcfg = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+#ifdef UAP_SUPPORT
 	chan_band_info chan;
 	chan_band_info uapchan;
+#endif
 	ENTER();
 
 	if (woal_is_any_interface_active(priv->phandle)) {
@@ -3791,7 +3799,9 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 		if (!enable) {
 			LEAVE();
 			return ret;
-		} else {
+		}
+#ifdef UAP_SUPPORT
+		else {
 			woal_get_active_intf_channel(priv, &chan);
 			woal_set_get_ap_channel(priv, MLAN_ACT_GET,
 						MOAL_IOCTL_WAIT, &uapchan);
@@ -3812,6 +3822,7 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 				}
 			}
 		}
+#endif
 	}
 
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_11h_cfg));

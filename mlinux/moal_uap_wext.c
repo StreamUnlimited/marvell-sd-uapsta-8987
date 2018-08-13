@@ -1136,7 +1136,7 @@ woal_set_mlme(struct net_device *dev,
 		req->req_id = MLAN_IOCTL_BSS;
 		req->action = MLAN_ACT_SET;
 
-		if (!memcmp(bc_addr, sta_addr, ETH_ALEN)) {
+		if (sta_list && !memcmp(bc_addr, sta_addr, ETH_ALEN)) {
 			for (i = 0; i < sta_list->sta_count; i++) {
 				memcpy(bss->param.deauth_param.mac_addr,
 				       sta_list->info[i].mac_address, ETH_ALEN);

@@ -43,6 +43,7 @@ Change log:
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 extern int dfs_offload;
 #endif
+
 /********************************************************
 		Local Functions
 ********************************************************/
@@ -1119,13 +1120,10 @@ woal_uap_ht_tx_cfg(struct net_device *dev, struct ifreq *req)
 	if (!param.action) {
 		/* Get 11n tx parameters from MLAN */
 		ioctl_req->action = MLAN_ACT_GET;
-		cfg_11n->param.tx_cfg.misc_cfg = BAND_SELECT_BG;
 	} else {
 		/* Set HT Tx configurations */
 		cfg_11n->param.tx_cfg.httxcap = httx_cfg.httxcap;
 		PRINTM(MINFO, "SET: httxcap:0x%x\n", httx_cfg.httxcap);
-		cfg_11n->param.tx_cfg.misc_cfg = httx_cfg.misc_cfg;
-		PRINTM(MINFO, "SET: httxcap band:0x%x\n", httx_cfg.misc_cfg);
 		/* Update 11n tx parameters in MLAN */
 		ioctl_req->action = MLAN_ACT_SET;
 	}
@@ -1137,16 +1135,6 @@ woal_uap_ht_tx_cfg(struct net_device *dev, struct ifreq *req)
 	if (ioctl_req->action == MLAN_ACT_GET) {
 		httx_cfg.httxcap = cfg_11n->param.tx_cfg.httxcap;
 		PRINTM(MINFO, "GET: httxcap:0x%x\n", httx_cfg.httxcap);
-		cfg_11n->param.tx_cfg.httxcap = 0;
-		cfg_11n->param.tx_cfg.misc_cfg = BAND_SELECT_A;
-		status = woal_request_ioctl(priv, ioctl_req, MOAL_IOCTL_WAIT);
-		if (status != MLAN_STATUS_SUCCESS) {
-			ret = -EFAULT;
-			goto done;
-		}
-		httx_cfg.misc_cfg = cfg_11n->param.tx_cfg.httxcap;
-		PRINTM(MINFO, "GET: httxcap for 5GHz:0x%x\n",
-		       httx_cfg.misc_cfg);
 	}
 	/* Copy to user */
 	if (copy_to_user(req->ifr_data + sizeof(ht_tx_cfg_para_hdr),
@@ -3319,7 +3307,9 @@ woal_uap_bss_ctrl(moal_private *priv, t_u8 wait_option, int data)
 			}
 		}
 		bss->sub_command = MLAN_OID_BSS_START;
-		bss->param.host_based = priv->uap_host_based;
+		if (priv->uap_host_based) {
+			bss->param.host_based |= UAP_FLAG_HOST_BASED;
+		}
 		break;
 	case UAP_BSS_STOP:
 		if (priv->bss_started == MFALSE) {

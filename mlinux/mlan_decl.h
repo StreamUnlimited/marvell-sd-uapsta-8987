@@ -27,7 +27,7 @@ Change log:
 #define _MLAN_DECL_H_
 
 /** MLAN release version */
-#define MLAN_RELEASE_VERSION		 "C540"
+#define MLAN_RELEASE_VERSION		 "C604"
 
 /** Re-define generic data types for MLAN/MOAL */
 /** Signed char (1-byte) */
@@ -229,8 +229,8 @@ typedef t_s32 t_sval;
 /** MU beamformer */
 #define DEFALUT_11AC_CAP_BEAMFORMING_RESET_MASK   (MBIT(19))
 
-/** Size of rx data buffer */
-#define MLAN_RX_DATA_BUF_SIZE     (4 * 1024)
+/** Size of rx data buffer 4096+256 */
+#define MLAN_RX_DATA_BUF_SIZE     4352
 /** Size of rx command buffer */
 #define MLAN_RX_CMD_BUF_SIZE      (2 * 1024)
 
@@ -270,7 +270,7 @@ typedef t_u8 mlan_802_11_mac_addr[MLAN_MAC_ADDR_LENGTH];
 #define MLAN_SDIO_BLOCK_SIZE_FW_DNLD	MLAN_SDIO_BLOCK_SIZE
 
 /** define allocated buffer size */
-#define ALLOC_BUF_SIZE           (4 * 1024)
+#define ALLOC_BUF_SIZE              MLAN_RX_DATA_BUF_SIZE
 /** SDIO MP aggr pkt limit */
 #define SDIO_MP_AGGR_DEF_PKT_LIMIT       (16)
 
@@ -508,6 +508,22 @@ typedef struct _mlan_fw_image {
     /** Firmware reload flag */
 	t_u8 fw_reload;
 } mlan_fw_image, *pmlan_fw_image;
+
+/** MrvlIEtypesHeader_t */
+typedef MLAN_PACK_START struct _MrvlIEtypesHeader {
+    /** Header type */
+	t_u16 type;
+    /** Header length */
+	t_u16 len;
+} MLAN_PACK_END MrvlIEtypesHeader_t;
+
+/** MrvlIEtypes_Data_t */
+typedef MLAN_PACK_START struct _MrvlIEtypes_Data_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** Data */
+	t_u8 data[1];
+} MLAN_PACK_END MrvlIEtypes_Data_t;
 
 #define OID_TYPE_CAL    0x2
 #define OID_TYPE_DPD    0xa
@@ -1157,6 +1173,11 @@ typedef struct _tdls_tear_down_event {
     /** Reason code */
 	t_u16 reason_code;
 } tdls_tear_down_event;
+
+/** station stats */
+typedef struct _sta_stats {
+	t_u64 last_rx_in_msec;
+} sta_stats;
 
 #ifdef PRAGMA_PACK
 #pragma pack(pop)

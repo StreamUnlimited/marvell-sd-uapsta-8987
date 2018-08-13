@@ -36,6 +36,9 @@ extern int GoAgeoutTime;
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 extern int dfs_offload;
 #endif
+#ifdef UAP_SUPPORT
+extern int uap_max_sta;
+#endif
 /********************************************************
 				Local Functions
 ********************************************************/
@@ -756,6 +759,8 @@ woal_cfg80211_beacon_config(moal_private *priv,
 		ret = -EFAULT;
 		goto done;
 	}
+	if (uap_max_sta)
+		sys_config->max_sta_count = uap_max_sta;
 
 	/* Setting the default values */
 	sys_config->channel = 6;
@@ -1167,6 +1172,17 @@ woal_cfg80211_beacon_config(moal_private *priv,
 			woal_uap_set_11ac_status(priv, MLAN_ACT_DISABLE,
 						 vht20_40, NULL);
 	}
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
+	if (params->inactivity_timeout) {
+		sys_config->sta_ageout_timer = params->inactivity_timeout * 10;
+		sys_config->ps_sta_ageout_timer =
+			params->inactivity_timeout * 10;
+	}
+	PRINTM(MIOCTL, "inactivity_timeout=%d\n", params->inactivity_timeout);
+	PRINTM(MIOCTL, "sta_ageout_timer=%d ps_sta_ageout_timer=%d\n",
+	       sys_config->sta_ageout_timer, sys_config->ps_sta_ageout_timer);
+#endif
+
 	if (MLAN_STATUS_SUCCESS != woal_set_get_sys_config(priv,
 							   MLAN_ACT_SET,
 							   MOAL_IOCTL_WAIT,
@@ -2677,6 +2693,8 @@ woal_uap_cfg80211_dump_station(struct wiphy *wiphy,
 	mlan_ds_get_info *info = NULL;
 	mlan_ioctl_req *ioctl_req = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+	t_u32 sec = 0, usec = 0;
+	t_u64 cur_msec = 0;
 
 	ENTER();
 	if (priv->media_connected == MFALSE) {
@@ -2717,7 +2735,20 @@ woal_uap_cfg80211_dump_station(struct wiphy *wiphy,
 #else
 	sinfo->filled = STATION_INFO_INACTIVE_TIME | STATION_INFO_SIGNAL;
 #endif
-	sinfo->inactive_time = 0;
+	if (info->param.sta_list.info[idx].stats.last_rx_in_msec) {
+		moal_get_system_time(priv->phandle, &sec, &usec);
+		cur_msec = (t_u64)sec *1000 + (t_u64)usec / 1000;
+		sinfo->inactive_time =
+			(t_u32)(cur_msec -
+				info->param.sta_list.info[idx].stats.
+				last_rx_in_msec);
+		PRINTM(MIOCTL,
+		       "cur:%llu - [%d].last_rx:%llu = inactive_time:%d\n",
+		       cur_msec, idx,
+		       info->param.sta_list.info[idx].stats.last_rx_in_msec,
+		       sinfo->inactive_time);
+	} else
+		sinfo->inactive_time = 0;
 	sinfo->signal = info->param.sta_list.info[idx].rssi;
 done:
 	if (status != MLAN_STATUS_PENDING)
@@ -3240,72 +3271,6 @@ done:
 	kfree(bss_cfg);
 	LEAVE();
 	return ret;
-}
-#endif
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
-/**
- * @brief Notify cfg80211 uap channel changed
- *
- * @param priv          A pointer moal_private structure
- * @param pchan_info    A pointer to chan_band structure
- *
- * @return          N/A
- */
-void
-woal_cfg80211_notify_uap_channel(moal_private *priv,
-				 chan_band_info * pchan_info)
-{
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
-	struct cfg80211_chan_def chandef;
-#else
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
-	enum nl80211_channel_type type;
-	enum ieee80211_band band;
-	int freq = 0;
-#endif
-#endif
-	ENTER();
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
-	if (MLAN_STATUS_SUCCESS ==
-	    woal_chandef_create(priv, &chandef, pchan_info)) {
-		cfg80211_ch_switch_notify(priv->netdev, &chandef);
-		priv->channel = pchan_info->channel;
-		memcpy(&priv->chan, &chandef, sizeof(struct cfg80211_chan_def));
-	}
-#else
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
-	if (pchan_info->bandcfg.chanBand == BAND_2GHZ)
-		band = IEEE80211_BAND_2GHZ;
-	else if (pchan_info->bandcfg.chanBand == BAND_5GHZ)
-		band = IEEE80211_BAND_5GHZ;
-	else {
-		LEAVE();
-		return;
-	}
-	priv->channel = pchan_info->channel;
-	freq = ieee80211_channel_to_frequency(pchan_info->channel, band);
-	switch (pchan_info->bandcfg.chanWidth) {
-	case CHAN_BW_20MHZ:
-		if (pchan_info->is_11n_enabled)
-			type = NL80211_CHAN_HT20;
-		else
-			type = NL80211_CHAN_NO_HT;
-		break;
-	default:
-		if (pchan_info->bandcfg.chan2Offset == SEC_CHAN_ABOVE)
-			type = NL80211_CHAN_HT40PLUS;
-		else if (pchan_info->bandcfg.chan2Offset == SEC_CHAN_BELOW)
-			type = NL80211_CHAN_HT40MINUS;
-		else
-			type = NL80211_CHAN_HT20;
-		break;
-	}
-	cfg80211_ch_switch_notify(priv->netdev, freq, type);
-#endif
-#endif
-	LEAVE();
 }
 #endif
 

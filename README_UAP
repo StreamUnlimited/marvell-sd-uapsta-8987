@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src.
 		make [clean] build
 	The driver binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.14.
+	The driver code supports Linux kernel up to 4.16.
 
 2) FOR DRIVER INSTALL
 
@@ -258,7 +258,7 @@ addbapara [timeout txwinsize rxwinsize txamsdu rxamsdu]
 aggrpriotbl <m0> <n0> <m1> <n1> ... <m7> <n7>
 addbareject <m0> <m1> ... <m7>
 httxbfcfg <ACTION> [ACT_DATA]
-httxcfg [<m>] [<n>]
+httxcfg [<m>]
 deepsleep [MODE] [IDLE_TIME]
 sdcmd52rw <FN no.> <address> [data]
 hostcmd <txpwrlimit_cfg.conf> txpwrlimit_cfg_get
@@ -2158,23 +2158,15 @@ httxcfg
 	on rate adaptation. When this bit is reset then firmware will only
 	transmit in 20Mhz.
 
-	where <n> is <band>
-	<band> - This is the band info for <txcfg> settings.
-		0: Settings for both 2.4G and 5G bands
-		1: Settings for 2.4G band
-		2: Settings for 5G band
-
 	Example:
 		./uaputl.exe -i uapX httxcfg
-		This will display HT Tx configuration for 2.4G and 5G band.
+		This will display HT Tx configuration.
 
 		./uaputl.exe -i uapX httxcfg 0x62
-		This will enable 20/40 and Short GI but will disable Green field for 2.4G and 5G band.
+		This will enable 20/40 and Short GI but will disable Green field.
 
-		./uaputl.exe -i uapX httxcfg 0x30 1
-		This will enable Short GI 20 Mhz and Green field for 2.4G band.
-
-	The default value is 0x20 for 2.4G and 0x62 for 5G.
+		./uaputl.exe -i uapX httxcfg 0x30
+		This will enable Short GI 20 Mhz and Green field.
 
 	Note:- If 20/40 MHz support is disabled in htcapinfo, device will not transmit
 	in 40 MHz even 20/40 MHz is enabled in httxcfg.

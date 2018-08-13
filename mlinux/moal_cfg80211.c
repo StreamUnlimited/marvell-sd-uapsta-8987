@@ -124,6 +124,7 @@ extern const struct net_device_ops woal_netdev_ops;
 
 /** gtk rekey offload mode */
 extern int gtk_rekey_offload;
+
 /********************************************************
 				Local Functions
 ********************************************************/
@@ -327,6 +328,11 @@ woal_cfg80211_set_key(moal_private *priv, t_u8 is_enable_wep,
 		    cipher != WLAN_CIPHER_SUITE_TKIP &&
 		    cipher != WLAN_CIPHER_SUITE_SMS4 &&
 		    cipher != WLAN_CIPHER_SUITE_AES_CMAC &&
+		    cipher != WLAN_CIPHER_SUITE_GCMP &&
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+		    cipher != WLAN_CIPHER_SUITE_BIP_GMAC_256 &&
+		    cipher != WLAN_CIPHER_SUITE_GCMP_256 &&
+#endif
 		    cipher != WLAN_CIPHER_SUITE_CCMP) {
 			PRINTM(MERROR, "Invalid cipher suite specified\n");
 			ret = MLAN_STATUS_FAILURE;
@@ -368,8 +374,19 @@ woal_cfg80211_set_key(moal_private *priv, t_u8 is_enable_wep,
 			sec->param.encrypt_key.key_flags |=
 				KEY_FLAG_RX_SEQ_VALID;
 		}
+		if (cipher == WLAN_CIPHER_SUITE_GCMP)
+			sec->param.encrypt_key.key_flags |= KEY_FLAG_GCMP;
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+		else if (cipher == WLAN_CIPHER_SUITE_GCMP_256)
+			sec->param.encrypt_key.key_flags |= KEY_FLAG_GCMP_256;
+#endif
 
-		if (cipher == WLAN_CIPHER_SUITE_AES_CMAC) {
+		if (cipher == WLAN_CIPHER_SUITE_AES_CMAC
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+		    || cipher == WLAN_CIPHER_SUITE_BIP_GMAC_256
+#endif
+			) {
+
 			sec->param.encrypt_key.key_flags |=
 				KEY_FLAG_AES_MCAST_IGTK;
 		}
@@ -989,11 +1006,6 @@ woal_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 	req->action = MLAN_ACT_SET;
 
 	switch (type) {
-	case NL80211_IFTYPE_ADHOC:
-		bss->param.bss_mode = MLAN_BSS_MODE_IBSS;
-		priv->wdev->iftype = NL80211_IFTYPE_ADHOC;
-		PRINTM(MINFO, "Setting interface type to adhoc\n");
-		break;
 	case NL80211_IFTYPE_STATION:
 #if defined(WIFI_DIRECT_SUPPORT)
 #if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
@@ -3812,6 +3824,73 @@ done:
 		kfree(req);
 	LEAVE();
 	return;
+}
+#endif
+
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+/**
+ * @brief Notify cfg80211 supplicant channel changed
+ *
+ * @param priv          A pointer moal_private structure
+ * @param pchan_info    A pointer to chan_band structure
+ *
+ * @return          N/A
+ */
+void
+woal_cfg80211_notify_channel(moal_private *priv, chan_band_info * pchan_info)
+{
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+	struct cfg80211_chan_def chandef;
+#else
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+	enum nl80211_channel_type type;
+	enum ieee80211_band band;
+	int freq = 0;
+#endif
+#endif
+	ENTER();
+
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+	if (MLAN_STATUS_SUCCESS ==
+	    woal_chandef_create(priv, &chandef, pchan_info)) {
+		cfg80211_ch_switch_notify(priv->netdev, &chandef);
+		priv->channel = pchan_info->channel;
+#ifdef UAP_CFG80211
+		memcpy(&priv->chan, &chandef, sizeof(struct cfg80211_chan_def));
+#endif
+	}
+#else
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+	if (pchan_info->bandcfg.chanBand == BAND_2GHZ)
+		band = IEEE80211_BAND_2GHZ;
+	else if (pchan_info->bandcfg.chanBand == BAND_5GHZ)
+		band = IEEE80211_BAND_5GHZ;
+	else {
+		LEAVE();
+		return;
+	}
+	priv->channel = pchan_info->channel;
+	freq = ieee80211_channel_to_frequency(pchan_info->channel, band);
+	switch (pchan_info->bandcfg.chanWidth) {
+	case CHAN_BW_20MHZ:
+		if (pchan_info->is_11n_enabled)
+			type = NL80211_CHAN_HT20;
+		else
+			type = NL80211_CHAN_NO_HT;
+		break;
+	default:
+		if (pchan_info->bandcfg.chan2Offset == SEC_CHAN_ABOVE)
+			type = NL80211_CHAN_HT40PLUS;
+		else if (pchan_info->bandcfg.chan2Offset == SEC_CHAN_BELOW)
+			type = NL80211_CHAN_HT40MINUS;
+		else
+			type = NL80211_CHAN_HT20;
+		break;
+	}
+	cfg80211_ch_switch_notify(priv->netdev, freq, type);
+#endif
+#endif
+	LEAVE();
 }
 #endif
 
