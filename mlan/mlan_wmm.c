@@ -1209,9 +1209,10 @@ wlan_dequeue_tx_packet(pmlan_adapter pmadapter)
  *  @param mac        peer mac address
  *  @param tx_pause   tx_pause flag (0/1)
  *
- *  @return           N/A
+ *
+ *  @return           packets queued for this mac
  */
-t_void
+t_u16
 wlan_update_ralist_tx_pause(pmlan_private priv, t_u8 *mac, t_u8 tx_pause)
 {
 	raListTbl *ra_list;
@@ -1253,6 +1254,7 @@ wlan_update_ralist_tx_pause(pmlan_private priv, t_u8 *mac, t_u8 tx_pause)
 	pmadapter->callbacks.moal_spin_unlock(pmadapter->pmoal_handle,
 					      priv->wmm.ra_list_spinlock);
 	LEAVE();
+	return pkt_cnt;
 }
 
 #ifdef STA_SUPPORT
@@ -1421,6 +1423,10 @@ wlan_wmm_delete_tdls_ralist(pmlan_private priv, t_u8 *mac)
 							    tid_tbl_ptr[i].
 							    ra_list, MNULL,
 							    MNULL);
+			if (!ra_list_ap) {
+				LEAVE();
+				return;
+			}
 			while ((pmbuf =
 				(pmlan_buffer)util_peek_list(pmadapter->
 							     pmoal_handle,
@@ -2066,11 +2072,20 @@ wlan_ralist_update(mlan_private *priv, t_u8 *old_ra, t_u8 *new_ra)
 		if (ra_list) {
 			update_count++;
 
-			if (queuing_ra_based(priv))
+			if (queuing_ra_based(priv)) {
 				ra_list->is_11n_enabled =
 					wlan_is_11n_enabled(priv, new_ra);
-			else
+				if (ra_list->is_11n_enabled)
+					ra_list->max_amsdu =
+						get_station_max_amsdu_size(priv,
+									   new_ra);
+			} else {
 				ra_list->is_11n_enabled = IS_11N_ENABLED(priv);
+				if (ra_list->is_11n_enabled)
+					ra_list->max_amsdu = priv->max_amsdu;
+			}
+
+			ra_list->tx_pause = MFALSE;
 			ra_list->packet_count = 0;
 			ra_list->ba_packet_threshold =
 				wlan_get_random_ba_threshold(priv->adapter);

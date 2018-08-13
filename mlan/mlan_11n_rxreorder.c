@@ -503,11 +503,6 @@ wlan_11n_create_rxreorder_tbl(mlan_private *priv, t_u8 *ta, int tid,
 				if (sta_ptr)
 					last_seq = sta_ptr->rx_seq[tid];
 			}
-			if (priv->bss_mode == MLAN_BSS_MODE_IBSS) {
-				sta_ptr = wlan_get_station_entry(priv, ta);
-				if (sta_ptr)
-					last_seq = sta_ptr->rx_seq[tid];
-			}
 			PRINTM(MINFO, "UAP/ADHOC:last_seq=%d start_win=%d\n",
 			       last_seq, new_node->start_win);
 		} else {
@@ -653,8 +648,6 @@ t_u8
 wlan_is_addba_reject(mlan_private *priv, t_u8 tid)
 {
 #ifdef STA_SUPPORT
-	if (priv->bss_mode == MLAN_BSS_MODE_IBSS)
-		return priv->ibss_addba_reject[tid];
 #endif
 	return priv->addba_reject[tid];
 }
@@ -705,8 +698,6 @@ wlan_cmd_11n_addba_rspgen(mlan_private *priv,
 		>> BLOCKACKPARAM_TID_POS;
 	if (wlan_is_addba_reject(priv, tid)
 #ifdef STA_SUPPORT
-	    || ((priv->bss_mode == MLAN_BSS_MODE_IBSS)
-		&& !wlan_is_11n_enabled(priv, pevt_addba_req->peer_mac_addr))
 	    || ((GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA)
 		&& priv->wps.session_enable)
 #endif
@@ -1158,7 +1149,10 @@ mlan_11n_delete_bastream_tbl(mlan_private *priv, int tid,
 				else
 					ra_list->del_ba_count++;
 				ra_list->packet_count = 0;
+/** after delba, we will try to set up BA again after sending 1k packets*/
+#define MIN_BA_SETUP_PACKET_REQIRED     1024
 				ra_list->ba_packet_threshold =
+					MIN_BA_SETUP_PACKET_REQIRED +
 					wlan_get_random_ba_threshold(priv->
 								     adapter);
 			}

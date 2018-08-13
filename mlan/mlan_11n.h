@@ -251,8 +251,6 @@ wlan_is_ampdu_allowed(mlan_private *priv, raListTbl *ptr, int tid)
 		return is_station_ampdu_allowed(priv, ptr, tid);
 	if (priv->adapter->tdls_status != TDLS_NOT_SETUP && !priv->txaggrctrl)
 		return MFALSE;
-	if (priv->bss_mode == MLAN_BSS_MODE_IBSS)
-		return is_station_ampdu_allowed(priv, ptr, tid);
 	return (priv->aggr_prio_tbl[tid].ampdu_ap != BA_STREAM_NOT_ALLOWED)
 		? MTRUE : MFALSE;
 }
@@ -379,12 +377,6 @@ wlan_is_11n_enabled(mlan_private *priv, t_u8 *ra)
 			ret = is_station_11n_enabled(priv, ra);
 	}
 #endif /* UAP_SUPPORT */
-#ifdef STA_SUPPORT
-	if (priv->bss_mode == MLAN_BSS_MODE_IBSS) {
-		if ((!(ra[0] & 0x01)) && (priv->adapter->adhoc_11n_enabled))
-			ret = is_station_11n_enabled(priv, ra);
-	}
-#endif
 	LEAVE();
 	return ret;
 }

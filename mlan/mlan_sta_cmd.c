@@ -1020,6 +1020,37 @@ wlan_cmd_802_11_key_material(IN pmlan_private pmpriv,
 	}
 	pkey_material->key_param_set.key_info =
 		wlan_cpu_to_le16(pkey_material->key_param_set.key_info);
+	if (pkey->key_flags & KEY_FLAG_GCMP ||
+	    pkey->key_flags & KEY_FLAG_GCMP_256) {
+		if (pkey->
+		    key_flags & (KEY_FLAG_RX_SEQ_VALID | KEY_FLAG_TX_SEQ_VALID))
+		{
+			memcpy(pmpriv->adapter,
+			       pkey_material->key_param_set.key_params.gcmp.pn,
+			       pkey->pn, SEQ_MAX_SIZE);
+		}
+		if (pkey->key_flags & KEY_FLAG_GCMP)
+			pkey_material->key_param_set.key_type =
+				KEY_TYPE_ID_GCMP;
+		else
+			pkey_material->key_param_set.key_type =
+				KEY_TYPE_ID_GCMP_256;
+		pkey_material->key_param_set.key_params.gcmp.key_len =
+			wlan_cpu_to_le16(pkey->key_len);
+		memcpy(pmpriv->adapter,
+		       pkey_material->key_param_set.key_params.gcmp.key,
+		       pkey->key_material, pkey->key_len);
+		pkey_material->key_param_set.length =
+			wlan_cpu_to_le16(KEY_PARAMS_FIXED_LEN +
+					 sizeof(gcmp_param));
+		cmd->size =
+			wlan_cpu_to_le16(sizeof(MrvlIEtypesHeader_t) +
+					 S_DS_GEN + KEY_PARAMS_FIXED_LEN +
+					 sizeof(gcmp_param)
+					 + sizeof(pkey_material->action));
+
+		goto done;
+	}
 	if (pkey->key_len == WPA_AES_KEY_LEN &&
 	    !(pkey->key_flags & KEY_FLAG_AES_MCAST_IGTK)) {
 		if (pkey->
@@ -1279,7 +1310,6 @@ wlan_cmd_802_11_rf_channel(IN pmlan_private pmpriv,
 
 	if (cmd_action == HostCmd_ACT_GEN_SET) {
 		if ((pmpriv->adapter->adhoc_start_band & BAND_A)
-		    || (pmpriv->adapter->adhoc_start_band & BAND_AN)
 			)
 			prf_chan->rf_type.bandcfg.chanBand = BAND_5GHZ;
 		prf_chan->rf_type.bandcfg.chanWidth =
@@ -3024,7 +3054,6 @@ wlan_ops_sta_init_cmd(IN t_void *priv, IN t_u8 first_bss)
 {
 	pmlan_private pmpriv = (pmlan_private)priv;
 	mlan_status ret = MLAN_STATUS_SUCCESS;
-	t_u16 enable = MTRUE;
 	mlan_ds_11n_amsdu_aggr_ctrl amsdu_aggr_ctrl;
 
 	ENTER();
@@ -3057,17 +3086,6 @@ wlan_ops_sta_init_cmd(IN t_void *priv, IN t_u8 first_bss)
 	if (ret) {
 		ret = MLAN_STATUS_FAILURE;
 		goto done;
-	}
-
-	if (IS_FW_SUPPORT_ADHOC(pmpriv->adapter)) {
-		/* set ibss coalescing_status */
-		ret = wlan_prepare_cmd(pmpriv,
-				       HostCmd_CMD_802_11_IBSS_COALESCING_STATUS,
-				       HostCmd_ACT_GEN_SET, 0, MNULL, &enable);
-		if (ret) {
-			ret = MLAN_STATUS_FAILURE;
-			goto done;
-		}
 	}
 
 	memset(pmpriv->adapter, &amsdu_aggr_ctrl, 0, sizeof(amsdu_aggr_ctrl));

@@ -28,7 +28,7 @@ Change log:
 #define _MLAN_INIT_H_
 
 /** Tx buffer size for firmware download*/
-#define FW_DNLD_TX_BUF_SIZE	620
+#define FW_DNLD_TX_BUF_SIZE	2312
 /** Rx buffer size for firmware download*/
 #define FW_DNLD_RX_BUF_SIZE       2048
 /** Max firmware retry */

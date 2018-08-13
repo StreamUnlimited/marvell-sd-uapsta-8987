@@ -1057,9 +1057,6 @@ wlan_cmd_append_11ac_tlv(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc,
 	MrvlIETypes_OperModeNtf_t *pmrvl_oper_mode;
 	t_u16 mcs_map_user = 0;
 	t_u16 nss;
-	MrvlIETypes_VHTOprat_t *pvht_op;
-	t_u8 supp_chwd_set;
-	t_u32 usr_vht_cap_info;
 	int ret_len = 0;
 
 	ENTER();
@@ -1073,10 +1070,6 @@ wlan_cmd_append_11ac_tlv(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc,
 		LEAVE();
 		return 0;
 	}
-	if (pbss_desc->bss_band & BAND_A)
-		usr_vht_cap_info = pmpriv->usr_dot_11ac_dev_cap_a;
-	else
-		usr_vht_cap_info = pmpriv->usr_dot_11ac_dev_cap_bg;
 
 	/* VHT Capabilities IE */
 	if (pbss_desc->pvht_cap &&
@@ -1104,50 +1097,6 @@ wlan_cmd_append_11ac_tlv(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc,
 		return 0;
 	}
 
-	/* VHT Operation IE */
-	if (pbss_desc->pvht_oprat) {
-		if (pmpriv->bss_mode == MLAN_BSS_MODE_IBSS) {
-			pvht_op = (MrvlIETypes_VHTOprat_t *)*ppbuffer;
-			memset(pmadapter, pvht_op, 0,
-			       sizeof(MrvlIETypes_VHTOprat_t));
-			pvht_op->header.type = wlan_cpu_to_le16(VHT_OPERATION);
-			pvht_op->header.len = sizeof(MrvlIETypes_VHTOprat_t) -
-				sizeof(MrvlIEtypesHeader_t);
-			memcpy(pmadapter,
-			       (t_u8 *)pvht_op + sizeof(MrvlIEtypesHeader_t),
-			       (t_u8 *)pbss_desc->pvht_oprat +
-			       sizeof(IEEEtypes_Header_t), pvht_op->header.len);
-
-			/* negotiate the channel width and central freq */
-			/* and keep the central freq as the peer suggests */
-			supp_chwd_set = GET_VHTCAP_CHWDSET(usr_vht_cap_info);
-			if (supp_chwd_set == VHT_CAP_CHWD_80MHZ)
-				pvht_op->chan_width = MIN(VHT_OPER_CHWD_80MHZ,
-							  pbss_desc->
-							  pvht_oprat->
-							  chan_width);
-			else if (supp_chwd_set == VHT_CAP_CHWD_160MHZ)
-				pvht_op->chan_width = MIN(VHT_OPER_CHWD_160MHZ,
-							  pbss_desc->
-							  pvht_oprat->
-							  chan_width);
-			else if (supp_chwd_set == VHT_CAP_CHWD_80_80MHZ)
-				pvht_op->chan_width =
-					MIN(VHT_OPER_CHWD_80_80MHZ,
-					    pbss_desc->pvht_oprat->chan_width);
-			else
-				pvht_op->chan_width = VHT_OPER_CHWD_20_40MHZ;
-	    /** current region don't allow bandwidth 80 */
-			if (pmpriv->curr_chan_flags & CHAN_FLAGS_NO_80MHZ)
-				pvht_op->chan_width = VHT_OPER_CHWD_20_40MHZ;
-			HEXDUMP("VHT_OPERATION IE", (t_u8 *)pvht_op,
-				sizeof(MrvlIETypes_VHTOprat_t));
-			*ppbuffer += sizeof(MrvlIETypes_VHTOprat_t);
-			ret_len += sizeof(MrvlIETypes_VHTOprat_t);
-			pvht_op->header.len =
-				wlan_cpu_to_le16(pvht_op->header.len);
-		}
-	}
 	/* Operating Mode Notification IE */
 	pmrvl_oper_mode = (MrvlIETypes_OperModeNtf_t *)*ppbuffer;
 	memset(pmadapter, pmrvl_oper_mode, 0,

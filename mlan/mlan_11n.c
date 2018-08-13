@@ -1822,10 +1822,6 @@ wlan_ret_11n_addba_req(mlan_private *priv, HostCmd_DS_COMMAND *resp)
 						      padd_ba_rsp->
 						      peer_mac_addr);
 #endif /* UAP_SUPPORT */
-			if (priv->bss_mode == MLAN_BSS_MODE_IBSS)
-				disable_station_ampdu(priv, tid,
-						      padd_ba_rsp->
-						      peer_mac_addr);
 			if (ra_list && ra_list->is_tdls_link)
 				disable_station_ampdu(priv, tid,
 						      padd_ba_rsp->
@@ -2461,7 +2457,6 @@ wlan_cmd_append_11n_tlv(IN mlan_private *pmpriv,
 {
 	pmlan_adapter pmadapter = pmpriv->adapter;
 	MrvlIETypes_HTCap_t *pht_cap;
-	MrvlIETypes_HTInfo_t *pht_info;
 	MrvlIEtypes_ChanListParamSet_t *pchan_list;
 	MrvlIETypes_2040BSSCo_t *p2040_bss_co;
 	MrvlIETypes_ExtCap_t *pext_cap;
@@ -2495,7 +2490,7 @@ wlan_cmd_append_11n_tlv(IN mlan_private *pmpriv,
 		usr_dot_11ac_bw = BW_FOLLOW_VHTCAP;
 	else
 		usr_dot_11ac_bw = pmpriv->usr_dot_11ac_bw;
-	if ((pbss_desc->bss_band & (BAND_B | BAND_G)) &&
+	if ((pbss_desc->bss_band & (BAND_B | BAND_G | BAND_A)) &&
 	    ISSUPP_CHANWIDTH40(usr_dot_11n_dev_cap) &&
 	    !wlan_check_chan_width_ht40_by_region(pmpriv, pbss_desc)) {
 		orig_usr_dot_11n_dev_cap = usr_dot_11n_dev_cap;
@@ -2533,27 +2528,6 @@ wlan_cmd_append_11n_tlv(IN mlan_private *pmpriv,
 	}
 
 	if (pbss_desc->pht_info) {
-		if (pmpriv->bss_mode == MLAN_BSS_MODE_IBSS) {
-			pht_info = (MrvlIETypes_HTInfo_t *)*ppbuffer;
-			memset(pmadapter, pht_info, 0,
-			       sizeof(MrvlIETypes_HTInfo_t));
-			pht_info->header.type = wlan_cpu_to_le16(HT_OPERATION);
-			pht_info->header.len = sizeof(HTInfo_t);
-
-			memcpy(pmadapter,
-			       (t_u8 *)pht_info + sizeof(MrvlIEtypesHeader_t),
-			       (t_u8 *)pbss_desc->pht_info +
-			       sizeof(IEEEtypes_Header_t),
-			       pht_info->header.len);
-
-			if (!ISSUPP_CHANWIDTH40(usr_dot_11n_dev_cap))
-				RESET_CHANWIDTH40(pht_info->ht_info.field2);
-
-			*ppbuffer += sizeof(MrvlIETypes_HTInfo_t);
-			ret_len += sizeof(MrvlIETypes_HTInfo_t);
-			pht_info->header.len =
-				wlan_cpu_to_le16(pht_info->header.len);
-		}
 
 		pchan_list = (MrvlIEtypes_ChanListParamSet_t *)*ppbuffer;
 		memset(pmadapter, pchan_list, 0,

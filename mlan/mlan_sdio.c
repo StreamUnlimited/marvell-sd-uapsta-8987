@@ -1772,8 +1772,9 @@ wlan_process_int_status(mlan_adapter *pmadapter)
 				memset(pmadapter, pmadapter->mp_update, 0,
 				       sizeof(pmadapter->mp_update));
 		}
-
+#ifdef SDIO_MULTI_PORT_TX_AGGR
 		pmadapter->last_recv_wr_bitmap = pmadapter->mp_wr_bitmap;
+#endif
 		PRINTM(MINTR, "DNLD: wr_bitmap=0x%08x\n",
 		       pmadapter->mp_wr_bitmap);
 		if (pmadapter->data_sent &&
@@ -1819,7 +1820,7 @@ wlan_process_int_status(mlan_adapter *pmadapter)
 				goto done;
 			}
 			rx_len = (t_u16)(rx_blocks * MLAN_SDIO_BLOCK_SIZE);
-			if (rx_len > MLAN_TX_DATA_BUF_SIZE_2K
+			if (rx_len > MRVDRV_ETH_RX_PACKET_BUFFER_SIZE
 			    && !pmadapter->enable_net_mon)
 				pmbuf = wlan_alloc_mlan_buffer(pmadapter,
 							       rx_len, 0,
@@ -2222,7 +2223,7 @@ wlan_reset_fw(pmlan_adapter pmadapter)
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 
 	ENTER();
-	wlan_pm_wakeup_card(pmadapter);
+	wlan_pm_wakeup_card(pmadapter, MFALSE);
 
     /** wait SOC fully wake up */
 	for (tries = 0; tries < MAX_POLL_TRIES; ++tries) {

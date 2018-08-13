@@ -585,7 +585,6 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	 * directly to os. Don't pass thru rx reordering
 	 */
 	if ((!IS_11N_ENABLED(priv)
-	     && !IS_11N_ADHOC_ENABLED(priv)
 	     && !(prx_pd->flags & RXPD_FLAG_PKT_DIRECT_LINK)
 	    ) ||
 	    memcmp(priv->adapter, priv->curr_addr,

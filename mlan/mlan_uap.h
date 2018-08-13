@@ -44,7 +44,9 @@ Change log:
 	    (x)->rx_pkt_offset = wlan_le16_to_cpu((x)->rx_pkt_offset);      \
 	    (x)->rx_pkt_type   = wlan_le16_to_cpu((x)->rx_pkt_type);        \
 	    (x)->seq_num       = wlan_le16_to_cpu((x)->seq_num);            \
-        (x)->rx_info       = wlan_le32_to_cpu((x)->rx_info);            \
+	    (x)->rx_info       = wlan_le32_to_cpu((x)->rx_info);            \
+	    (x)->hi_rx_count32 = wlan_le32_to_cpu((x)->hi_rx_count32);      \
+	    (x)->lo_rx_count16 = wlan_le16_to_cpu((x)->lo_rx_count16);      \
 	}
 #else
 /** Convert TxPD to little endian format from CPU format */

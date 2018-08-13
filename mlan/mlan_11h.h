@@ -168,6 +168,10 @@ extern mlan_status wlan_11h_radar_detected_callback(t_void *priv);
 /** Handler for RADAR_DETECTED */
 extern mlan_status wlan_11h_radar_detected_handling(mlan_adapter *pmadapter,
 						    mlan_private *priv);
+
+mlan_status wlan_11h_remove_custom_ie(mlan_adapter *pmadapter,
+				      mlan_private *pmpriv);
+
 /** DFS Event pre-processing */
 extern mlan_status wlan_11h_dfs_event_preprocessing(mlan_adapter *pmadapter);
 

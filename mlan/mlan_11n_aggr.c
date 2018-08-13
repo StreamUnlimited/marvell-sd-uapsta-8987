@@ -467,17 +467,20 @@ wlan_11n_aggregate_pkt(mlan_private *priv, raListTbl *pra_list,
 						      priv->wmm.
 						      ra_list_spinlock);
 
-		pkt_size += wlan_11n_form_amsdu_pkt(pmadapter,
-						    (data + pkt_size),
-						    pmbuf_src->pbuf +
-						    pmbuf_src->data_offset,
-						    pmbuf_src->data_len, &pad);
+		if (pmbuf_src) {
+			pkt_size += wlan_11n_form_amsdu_pkt(pmadapter,
+							    (data + pkt_size),
+							    pmbuf_src->pbuf +
+							    pmbuf_src->
+							    data_offset,
+							    pmbuf_src->data_len,
+							    &pad);
 
-		DBG_HEXDUMP(MDAT_D, "pmbuf_src", pmbuf_src,
-			    sizeof(mlan_buffer));
-		wlan_write_data_complete(pmadapter, pmbuf_src,
-					 MLAN_STATUS_SUCCESS);
-
+			DBG_HEXDUMP(MDAT_D, "pmbuf_src", pmbuf_src,
+				    sizeof(mlan_buffer));
+			wlan_write_data_complete(pmadapter, pmbuf_src,
+						 MLAN_STATUS_SUCCESS);
+		}
 		pmadapter->callbacks.moal_spin_lock(pmadapter->pmoal_handle,
 						    priv->wmm.ra_list_spinlock);
 

@@ -301,6 +301,8 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	sta_node *sta_ptr = MNULL;
 	t_u8 adj_rx_rate = 0;
 	t_u8 antenna = 0;
+	t_u32 last_rx_sec = 0;
+	t_u32 last_rx_usec = 0;
 
 	ENTER();
 
@@ -376,6 +378,16 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 						       (RxPD *)prx_pd);
 		wlan_free_mlan_buffer(pmadapter, pmbuf);
 		goto done;
+	}
+
+	sta_ptr = wlan_get_station_entry(priv, prx_pkt->eth803_hdr.src_addr);
+	if (sta_ptr) {
+		pmadapter->callbacks.moal_get_system_time(pmadapter->
+							  pmoal_handle,
+							  &last_rx_sec,
+							  &last_rx_usec);
+		sta_ptr->stats.last_rx_in_msec =
+			(t_u64)last_rx_sec *1000 + (t_u64)last_rx_usec / 1000;
 	}
 
 	pmbuf->priority = prx_pd->priority;

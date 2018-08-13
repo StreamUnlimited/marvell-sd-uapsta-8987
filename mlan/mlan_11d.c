@@ -1525,8 +1525,10 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 	}
 	pmadapter->cfp_code_bg = cfp_bg;
 	pmadapter->cfp_code_a = cfp_a;
-	if (cfp_bg && cfp_a && (cfp_bg == cfp_a))
+	if (cfp_a)
 		pmadapter->region_code = cfp_a;
+	else if (cfp_bg)
+		pmadapter->region_code = cfp_bg;
 	else
 		pmadapter->region_code = 0;
 	if (wlan_set_regiontable(pmpriv, pmadapter->region_code,
@@ -1573,8 +1575,10 @@ wlan_11d_handle_uap_domain_info(mlan_private *pmpriv,
 					       &cfp_a) == MLAN_STATUS_SUCCESS) {
 		pmadapter->cfp_code_bg = cfp_bg;
 		pmadapter->cfp_code_a = cfp_a;
-		if (cfp_bg && cfp_a && (cfp_bg == cfp_a))
+		if (cfp_a)
 			pmadapter->region_code = cfp_a;
+		else if (cfp_bg)
+			pmadapter->region_code = cfp_bg;
 		else
 			pmadapter->region_code = 0;
 		if (wlan_set_regiontable(pmpriv, pmadapter->region_code,

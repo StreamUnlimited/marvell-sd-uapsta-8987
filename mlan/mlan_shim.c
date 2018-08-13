@@ -155,7 +155,8 @@ wlan_process_pending_ioctl(mlan_adapter *pmadapter)
 		case MLAN_IOCTL_BSS:
 			bss = (mlan_ds_bss *)pioctl_buf->pbuf;
 			if (bss->sub_command == MLAN_OID_BSS_ROLE) {
-				PRINTM(MCMND, "Role switch ioctl\n");
+				PRINTM(MCMND, "Role switch ioctl: %d\n",
+				       bss->param.bss_role);
 				status = wlan_bss_ioctl_bss_role(pmadapter,
 								 pioctl_buf);
 			}
@@ -235,10 +236,12 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	ENTER();
 
 	MASSERT(pmdevice->callbacks.moal_malloc);
+	MASSERT(pmdevice->callbacks.moal_mfree);
 	MASSERT(pmdevice->callbacks.moal_memset);
 	MASSERT(pmdevice->callbacks.moal_memmove);
 
 	if (!pmdevice->callbacks.moal_malloc ||
+	    !pmdevice->callbacks.moal_mfree ||
 	    !pmdevice->callbacks.moal_memset ||
 	    !pmdevice->callbacks.moal_memmove) {
 		LEAVE();
@@ -291,6 +294,7 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	MASSERT(pcb->moal_get_system_time);
 	MASSERT(pcb->moal_init_timer);
 	MASSERT(pcb->moal_free_timer);
+	MASSERT(pcb->moal_get_boot_ktime);
 	MASSERT(pcb->moal_start_timer);
 	MASSERT(pcb->moal_stop_timer);
 	MASSERT(pcb->moal_init_lock);
@@ -649,7 +653,7 @@ mlan_set_init_param(IN t_void *pmlan_adapter, IN pmlan_init_param pparam)
 	MASSERT(pmlan_adapter);
 
     /** Save DPD data in MLAN */
-	if ((pparam->pdpd_data_buf) && (pparam->dpd_data_len > 0)) {
+	if (pparam->pdpd_data_buf || pparam->dpd_data_len) {
 		pmadapter->pdpd_data = pparam->pdpd_data_buf;
 		pmadapter->dpd_data_len = pparam->dpd_data_len;
 	}
@@ -942,6 +946,7 @@ mlan_rx_process(IN t_void *pmlan_adapter, IN t_u8 *rx_pkts)
 		pcb->moal_spin_unlock(pmadapter->pmoal_handle,
 				      pmadapter->prx_proc_lock);
 	}
+
 	if (rx_pkts)
 		limit = *rx_pkts;
 
@@ -1068,7 +1073,7 @@ process_start:
 		     || !wlan_bypass_tx_list_empty(pmadapter)
 		     || !wlan_wmm_lists_empty(pmadapter)
 		    )) {
-			wlan_pm_wakeup_card(pmadapter);
+			wlan_pm_wakeup_card(pmadapter, MTRUE);
 			pmadapter->pm_wakeup_fw_try = MTRUE;
 			continue;
 		}
@@ -1084,6 +1089,12 @@ process_start:
 			pmadapter->pm_wakeup_fw_try = MFALSE;
 			if (pmadapter->ps_state == PS_STATE_SLEEP)
 				pmadapter->ps_state = PS_STATE_AWAKE;
+			if (pmadapter->wakeup_fw_timer_is_set) {
+				pcb->moal_stop_timer(pmadapter->pmoal_handle,
+						     pmadapter->
+						     pwakeup_fw_timer);
+				pmadapter->wakeup_fw_timer_is_set = MFALSE;
+			}
 		} else {
 			/* We have tried to wakeup the card already */
 			if (pmadapter->pm_wakeup_fw_try)
@@ -1396,7 +1407,7 @@ mlan_pm_wakeup_card(IN t_void *adapter)
 {
 	mlan_adapter *pmadapter = (mlan_adapter *)adapter;
 	ENTER();
-	wlan_pm_wakeup_card(pmadapter);
+	wlan_pm_wakeup_card(pmadapter, MFALSE);
 	LEAVE();
 }
 

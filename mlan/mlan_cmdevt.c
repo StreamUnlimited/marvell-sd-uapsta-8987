@@ -485,10 +485,19 @@ wlan_process_hostcmd_cfg(IN pmlan_private pmpriv, IN t_u16 cfg_type,
 	mlan_ds_misc_cmd *hostcmd;
 	HostCmd_DS_GEN *pcmd = MNULL;
 	HostCmd_DS_802_11_CFG_DATA *pcfg_cmd = MNULL;
-	mlan_adapter *pmadapter = pmpriv->adapter;
-	mlan_callbacks *pcb = (mlan_callbacks *)&pmadapter->callbacks;
+	mlan_adapter *pmadapter = MNULL;
+	mlan_callbacks *pcb = MNULL;
+	t_u8 hostcmd_flag = MFALSE;
 
 	ENTER();
+	if (!pmpriv) {
+		PRINTM(MERROR, "pmpriv is NULL\n");
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
+	}
+	pmadapter = pmpriv->adapter;
+	pcb = (mlan_callbacks *)&pmadapter->callbacks;
+
 	ret = pcb->moal_malloc(pmadapter->pmoal_handle,
 			       sizeof(mlan_ds_misc_cmd), MLAN_MEM_DEF,
 			       (t_u8 **)&hostcmd);
@@ -541,7 +550,7 @@ wlan_process_hostcmd_cfg(IN pmlan_private pmpriv, IN t_u16 cfg_type,
 			}
 			ret = wlan_prepare_cmd(pmpriv, 0, 0, 0, MNULL,
 					       (t_void *)hostcmd);
-			memset(pmadapter, buf, 0, MLAN_SIZE_OF_CMD_BUFFER);
+			memset(pmadapter, buf, 0, MRVDRV_SIZE_OF_CMD_BUFFER);
 			ptr = buf;
 			start_raw = MFALSE;
 			pos++;
@@ -550,16 +559,19 @@ wlan_process_hostcmd_cfg(IN pmlan_private pmpriv, IN t_u16 cfg_type,
 
 		if (start_raw == MFALSE) {
 			intf_s = wlan_strchr(pos, '=');
-			if (intf_s)
+			if (intf_s) {
+				if (*(intf_s + 1) == '=')
+					hostcmd_flag = MTRUE;
 				intf_e = wlan_strchr(intf_s, '{');
-			else
+			} else
 				intf_e = MNULL;
 
 			if (intf_s && intf_e) {
 				start_raw = MTRUE;
 				pos = intf_e + 1;
 				/* Reserve command head for DPD RAW data conf */
-				if (cfg_type == CFG_TYPE_DPDFILE) {
+				if (cfg_type == CFG_TYPE_DPDFILE &&
+				    !hostcmd_flag) {
 					pcmd = (HostCmd_DS_GEN *)ptr;
 					ptr += S_DS_GEN +
 						sizeof
@@ -2558,8 +2570,9 @@ wlan_process_hs_config(pmlan_adapter pmadapter)
 {
 	ENTER();
 	PRINTM(MINFO, "Recevie interrupt/data in HS mode\n");
-	if (pmadapter->hs_cfg.gap == HOST_SLEEP_CFG_GAP_FF)
-		wlan_pm_wakeup_card(pmadapter);
+	if (pmadapter->hs_cfg.gap == HOST_SLEEP_CFG_GAP_FF) {
+		wlan_pm_wakeup_card(pmadapter, MTRUE);
+	}
 	LEAVE();
 	return;
 }
@@ -2682,8 +2695,6 @@ wlan_cmd_enh_power_mode(pmlan_private pmpriv,
 			ps_mode->local_listen_interval =
 				wlan_cpu_to_le16(pmadapter->
 						 local_listen_interval);
-			ps_mode->adhoc_wake_period =
-				wlan_cpu_to_le16(pmadapter->adhoc_awake_period);
 			ps_mode->delay_to_ps =
 				wlan_cpu_to_le16(pmadapter->delay_to_ps);
 			ps_mode->mode =
@@ -3615,6 +3626,23 @@ wlan_adapter_get_hw_spec(IN pmlan_adapter pmadapter)
 		pmadapter->pcal_data = MNULL;
 		pmadapter->cal_data_len = 0;
 	}
+	if (!pmadapter->pdpd_data &&
+	    (pmadapter->dpd_data_len == UNKNOW_DPD_LENGTH)) {
+		ret = wlan_prepare_cmd(priv, HostCmd_CMD_CFG_DATA,
+				       HostCmd_ACT_GEN_GET, OID_TYPE_DPD, MNULL,
+				       MNULL);
+		if (ret) {
+			ret = MLAN_STATUS_FAILURE;
+			goto done;
+		}
+		ret = wlan_prepare_cmd(priv, HostCmd_CMD_CFG_DATA,
+				       HostCmd_ACT_GEN_GET, OID_TYPE_DPD_OTHER,
+				       MNULL, MNULL);
+		if (ret) {
+			ret = MLAN_STATUS_FAILURE;
+			goto done;
+		}
+	}
 	/* Get FW region and cfp tables */
 	if (pmadapter->init_para.fw_region) {
 		ret = wlan_prepare_cmd(priv, HostCmd_CMD_CHAN_REGION_CFG,
@@ -4339,7 +4367,7 @@ wlan_cmd_cfg_data(IN pmlan_private pmpriv,
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	HostCmd_DS_802_11_CFG_DATA *pcfg_data = &(pcmd->params.cfg_data);
 	pmlan_adapter pmadapter = pmpriv->adapter;
-	t_u32 len;
+	t_u32 len = 0;
 	t_u32 data_offset;
 	t_u8 *temp_pcmd = (t_u8 *)pcmd;
 
@@ -4352,11 +4380,7 @@ wlan_cmd_cfg_data(IN pmlan_private pmpriv,
 		len = wlan_parse_cal_cfg((t_u8 *)pmadapter->pcal_data,
 					 pmadapter->cal_data_len,
 					 (t_u8 *)(temp_pcmd + data_offset));
-	} else {
-		ret = MLAN_STATUS_FAILURE;
-		goto done;
 	}
-
 	pcfg_data->action = cmd_action;
 	pcfg_data->type = cmd_oid;
 	pcfg_data->data_len = len;
@@ -4371,7 +4395,6 @@ wlan_cmd_cfg_data(IN pmlan_private pmpriv,
 	pcfg_data->type = wlan_cpu_to_le16(pcfg_data->type);
 	pcfg_data->data_len = wlan_cpu_to_le16(pcfg_data->data_len);
 
-done:
 	LEAVE();
 	return ret;
 }
@@ -4390,13 +4413,34 @@ wlan_ret_cfg_data(IN pmlan_private pmpriv,
 		  IN HostCmd_DS_COMMAND *resp, IN t_void *pioctl_buf)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
+	t_u8 event_buf[100];
+	mlan_cmdresp_event *pevent = (mlan_cmdresp_event *) event_buf;
+	mlan_adapter *pmadapter = pmpriv->adapter;
+	HostCmd_DS_802_11_CFG_DATA *pcfg_data = &resp->params.cfg_data;
+	t_u16 action;
+	t_u16 type;
 
 	ENTER();
 
-	if (resp->result != HostCmd_RESULT_OK) {
-		PRINTM(MERROR, "CFG data cmd resp failed\n");
-		ret = MLAN_STATUS_FAILURE;
+	if (!pmadapter->pdpd_data &&
+	    (pmadapter->dpd_data_len == UNKNOW_DPD_LENGTH)
+	    && pmadapter->hw_status == WlanHardwareStatusGetHwSpec) {
+		action = wlan_le16_to_cpu(pcfg_data->action);
+		type = wlan_le16_to_cpu(pcfg_data->type);
+		if (action == HostCmd_ACT_GEN_GET &&
+		    (type == OID_TYPE_DPD || type == OID_TYPE_DPD_OTHER)) {
+			pcfg_data->action =
+				wlan_cpu_to_le16(HostCmd_ACT_GEN_SET);
+			pevent->bss_index = pmpriv->bss_index;
+			pevent->event_id = MLAN_EVENT_ID_STORE_HOST_CMD_RESP;
+			pevent->resp = (t_u8 *)resp;
+			pevent->event_len = wlan_le16_to_cpu(resp->size);
+			wlan_recv_event(pmpriv,
+					MLAN_EVENT_ID_STORE_HOST_CMD_RESP,
+					(mlan_event *)pevent);
+		}
 	}
+
 	LEAVE();
 	return ret;
 }
@@ -4529,18 +4573,8 @@ wlan_ret_get_hw_spec(IN pmlan_private pmpriv,
 						BAND_GAC;
 			}
 		}
-		if ((pmadapter->fw_bands & BAND_AN)
-			) {
-			pmadapter->adhoc_start_band = BAND_A | BAND_AN;
-			pmadapter->adhoc_11n_enabled = MTRUE;
-		} else
-			pmadapter->adhoc_start_band = BAND_A;
+		pmadapter->adhoc_start_band = BAND_A;
 		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL_A;
-	} else if ((pmadapter->fw_bands & BAND_GN)
-		) {
-		pmadapter->adhoc_start_band = BAND_G | BAND_B | BAND_GN;
-		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
-		pmadapter->adhoc_11n_enabled = MTRUE;
 	} else if (pmadapter->fw_bands & BAND_G) {
 		pmadapter->adhoc_start_band = BAND_G | BAND_B;
 		pmpriv->adhoc_channel = DEFAULT_AD_HOC_CHANNEL;
@@ -6179,6 +6213,7 @@ wlan_ret_host_clock_cfg(IN pmlan_private pmpriv,
 	HostCmd_DS_HOST_CLOCK_CFG *host_clock =
 		(HostCmd_DS_HOST_CLOCK_CFG *) & resp->params.host_clock_cfg;
 	mlan_adapter *pmadapter = pmpriv->adapter;
+	pmlan_callbacks pcb = &pmadapter->callbacks;
 	t_u64 cmd_rtt;
 
 	ENTER();
@@ -6190,6 +6225,7 @@ wlan_ret_host_clock_cfg(IN pmlan_private pmpriv,
 		hostclk->time = wlan_le64_to_cpu(host_clock->time);
 		hostclk->fw_time = wlan_le64_to_cpu(host_clock->time);
 		cmd_rtt = (pmadapter->d2 - pmadapter->d1) / 2;
+		cmd_rtt = pcb->moal_do_div(pmadapter->d2 - pmadapter->d1, 2);
 		PRINTM(MINFO, "HW time: %ld, Host Time: %ld, RTT: %ld\n",
 		       host_clock->hw_time, hostclk->time, cmd_rtt);
 		hostclk->fw_time = wlan_le64_to_cpu(host_clock->hw_time) /*- cmd_rtt*/ ;	// Not adjusting cmd_rtt gave better results with 802.1as

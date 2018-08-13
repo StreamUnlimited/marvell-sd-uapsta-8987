@@ -351,11 +351,11 @@ static chan_freq_power_t channel_freq_power_EU_A[] = {
 	{132, 5660, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
 	{136, 5680, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
 	{140, 5700, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{149, 5745, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{153, 5765, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{157, 5785, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{161, 5805, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE},
-	{165, 5825, WLAN_TX_PWR_EMEA_DEFAULT, MTRUE}
+	{149, 5745, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{153, 5765, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{157, 5785, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{161, 5805, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE},
+	{165, 5825, WLAN_TX_PWR_EMEA_DEFAULT, MFALSE}
 };
 
 /** Band: 'A', Region: Japan */
@@ -1698,22 +1698,16 @@ wlan_get_supported_rates(mlan_private *pmpriv, t_u32 bss_mode,
 					    sizeof(AdhocRates_B));
 			break;
 		case (t_u8)BAND_G:
-		case BAND_G | BAND_GN:
-		case BAND_G | BAND_GN | BAND_GAC:
 			PRINTM(MINFO, "Band: Adhoc G only\n");
 			k = wlan_copy_rates(rates, k, AdhocRates_G,
 					    sizeof(AdhocRates_G));
 			break;
 		case BAND_B | BAND_G:
-		case BAND_B | BAND_G | BAND_GN:
-		case BAND_B | BAND_G | BAND_GN | BAND_GAC:
 			PRINTM(MINFO, "Band: Adhoc BG\n");
 			k = wlan_copy_rates(rates, k, AdhocRates_BG,
 					    sizeof(AdhocRates_BG));
 			break;
 		case BAND_A:
-		case BAND_AN:
-		case BAND_A | BAND_AN:
 		case BAND_A | BAND_AN | BAND_AAC:
 			PRINTM(MINFO, "Band: Adhoc A\n");
 			k = wlan_copy_rates(rates, k, AdhocRates_A,

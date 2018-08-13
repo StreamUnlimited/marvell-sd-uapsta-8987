@@ -2565,9 +2565,11 @@ wlan_ops_sta_process_cmdresp(IN t_void *priv,
 		}
 
 		pmadapter->curr_wr_port = 0;
+#ifdef SDIO_MULTI_PORT_TX_AGGR
 		pmadapter->mpa_tx.pkt_aggr_limit =
 			MIN(SDIO_MP_AGGR_DEF_PKT_LIMIT,
 			    (pmadapter->mp_end_port >> 1));
+#endif
 		PRINTM(MCMND, "end port %d, data port mask %x\n",
 		       wlan_le16_to_cpu(resp->params.tx_buf.mp_end_port),
 		       pmadapter->mp_data_port_mask);

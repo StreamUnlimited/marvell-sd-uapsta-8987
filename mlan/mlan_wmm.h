@@ -45,7 +45,10 @@ wlan_get_tid(pmlan_adapter pmadapter, raListTbl *ptr)
 					    &ptr->buf_head, MNULL, MNULL);
 	LEAVE();
 
-	return mbuf->priority;
+	if (!mbuf)
+		return 0;	// The default TID, BE
+	else
+		return mbuf->priority;
 }
 
 /**

@@ -354,6 +354,35 @@ wlan_uap_bss_ioctl_reset(IN pmlan_adapter pmadapter,
 }
 
 /**
+*  @brief This function to process add station.
+*
+*  @param pmadapter       A pointer to pmadapter.
+*
+*  @param pioctl_req      A pointer to pioctl_req
+*
+*  @return            	  MLAN_STATUS_SUCCESS/MLAN_STATUS_FAILURE
+*/
+mlan_status
+wlan_uap_bss_ioctl_add_station(IN pmlan_adapter pmadapter,
+			       IN pmlan_ioctl_req pioctl_req)
+{
+	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+	ret = wlan_prepare_cmd(pmpriv,
+			       HostCmd_CMD_ADD_NEW_STATION,
+			       HostCmd_ACT_ADD_STA,
+			       0, (t_void *)pioctl_req, MNULL);
+
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
+
+	LEAVE();
+	return ret;
+}
+
+/**
  *  @brief Set/Get MAC address
  *
  *  @param pmadapter	A pointer to mlan_adapter structure
@@ -661,10 +690,30 @@ wlan_uap_bss_ioctl_deauth_sta(IN pmlan_adapter pmadapter,
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	pmlan_private pmpriv = pmadapter->priv[pioctl_req->bss_index];
 	mlan_ds_bss *bss = MNULL;
+	const t_u8 bc_mac[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	sta_node *sta_ptr = MNULL;
 
 	ENTER();
 
 	bss = (mlan_ds_bss *)pioctl_req->pbuf;
+	if (pmpriv->uap_host_based & UAP_FLAG_HOST_MLME) {
+		if (memcmp
+		    (pmpriv->adapter, bss->param.deauth_param.mac_addr, bc_mac,
+		     MLAN_MAC_ADDR_LENGTH)) {
+			sta_ptr =
+				wlan_get_station_entry(pmpriv,
+						       bss->param.deauth_param.
+						       mac_addr);
+			if (!sta_ptr) {
+				PRINTM(MCMND,
+				       "Skip deauth to station " MACSTR "\n",
+				       MAC2STR(bss->param.deauth_param.
+					       mac_addr));
+				LEAVE();
+				return ret;
+			}
+		}
+	}
 	ret = wlan_prepare_cmd(pmpriv,
 			       HOST_CMD_APCMD_STA_DEAUTH,
 			       HostCmd_ACT_GEN_SET,
@@ -1717,6 +1766,10 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		else if (bss->sub_command == MLAN_OID_UAP_OPER_CTRL)
 			status = wlan_uap_bss_ioctl_uap_oper_ctrl(pmadapter,
 								  pioctl_req);
+		else if (bss->sub_command == MLAN_OID_UAP_ADD_STATION)
+			status = wlan_uap_bss_ioctl_add_station(pmadapter,
+								pioctl_req);
+
 		break;
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 	case MLAN_IOCTL_SCAN:
@@ -1959,6 +2012,9 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		if (radiocfg->sub_command == MLAN_OID_REMAIN_CHAN_CFG)
 			status = wlan_radio_ioctl_remain_chan_cfg(pmadapter,
 								  pioctl_req);
+		if (radiocfg->sub_command == MLAN_OID_BAND_CFG)
+			status = wlan_radio_ioctl_band_cfg(pmadapter,
+							   pioctl_req);
 		break;
 	case MLAN_IOCTL_RATE:
 		rate = (mlan_ds_rate *)pioctl_req->pbuf;
