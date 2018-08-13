@@ -46,6 +46,11 @@
 #ifndef WLAN_CIPHER_SUITE_AES_CMAC
 #define WLAN_CIPHER_SUITE_AES_CMAC  0x000FAC06
 #endif
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+#ifndef WLAN_CIPHER_SUITE_BIP_GMAC_256
+#define WLAN_CIPHER_SUITE_BIP_GMAC_256 0x000FAC0C
+#endif
+#endif
 
 /* define for custom ie operation */
 #define MLAN_CUSTOM_IE_AUTO_IDX_MASK    0xffff
@@ -75,6 +80,13 @@ void *woal_get_netdev_priv(struct net_device *dev);
 #ifdef STA_SUPPORT
 /** get scan interface */
 moal_private *woal_get_scan_interface(moal_handle *handle);
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+/** AUTH pending flag */
+#define HOST_MLME_AUTH_PENDING			MBIT(0)
+/** AUTH complete flag */
+#define HOST_MLME_AUTH_DONE			MBIT(1)
+void woal_host_mlme_disconnect(moal_private *priv, t_u16 reason_code);
+#endif
 #endif
 
 t_u8 woal_band_cfg_to_ieee_band(t_u32 band);
@@ -409,11 +421,15 @@ int woal_cfg80211_channel_switch(struct wiphy *wiphy,
 void woal_cac_timer_func(void *context);
 void woal_csa_work_queue(struct work_struct *work);
 #endif
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
-void woal_cfg80211_notify_uap_channel(moal_private *priv,
-				      chan_band_info * pchan_info);
-#endif
 #endif /* UAP_CFG80211 */
+#if defined(UAP_SUPPORT) || defined(STA_SUPPORT)
+#if defined(UAP_CFG80211) || defined(STA_CFG80211)
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+void woal_cfg80211_notify_channel(moal_private *priv,
+				  chan_band_info * pchan_info);
+#endif
+#endif
+#endif
 
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 mlan_status woal_chandef_create(moal_private *priv,

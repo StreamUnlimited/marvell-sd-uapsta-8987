@@ -425,7 +425,7 @@ endif
 
 
 
-ifeq ($(CONFIG_MULTI_INTERFACE),y)
+ifeq ($(CONFIG_CONCURRENT_DRIVER),y)
 obj-m := mlan_sdio.o
 mlan_sdio-objs := $(MLANOBJS)
 else
@@ -488,7 +488,7 @@ build:		echo default
 		mkdir $(BINDIR); \
 	fi
 
-ifeq ($(CONFIG_MULTI_INTERFACE),y)
+ifeq ($(CONFIG_CONCURRENT_DRIVER),y)
 	cp -f mlan_sdio.$(MODEXT) $(BINDIR)/mlan_sdio$(DBG).$(MODEXT)
 else
 	cp -f mlan.$(MODEXT) $(BINDIR)/mlan$(DBG).$(MODEXT)

@@ -823,7 +823,6 @@ typedef enum {
 #define INIT_SPECIFIC_SCAN_CHAN_TIME 80
 /** specific scan time after connected */
 #define MIN_SPECIFIC_SCAN_CHAN_TIME   40
-
 /** Default value of re-assoc timer */
 #define REASSOC_TIMER_DEFAULT         500
 
@@ -842,10 +841,10 @@ typedef enum {
 #define LOW_RX_PENDING          80
 
 /** MAX Tx Pending count */
-#define MAX_TX_PENDING      100
+#define MAX_TX_PENDING      400
 
 /** LOW Tx Pending count */
-#define LOW_TX_PENDING      80
+#define LOW_TX_PENDING      380
 
 /** Offset for subcommand */
 #define SUBCMD_OFFSET       4
@@ -1035,6 +1034,8 @@ struct tx_status_info {
 	t_u64 tx_cookie;
     /** seq_num */
 	t_u8 tx_seq_num;
+    /** cancel remain on channel when receive tx status */
+	t_u8 cancel_remain_on_channel;
 	/**          skb */
 	void *tx_skb;
 };
@@ -1235,7 +1236,11 @@ struct _moal_private {
 #ifdef STA_CFG80211
     /** roaming enabled flag */
 	t_u8 roaming_enabled;
-	/** rssi low threshold */
+    /** roaming required flag */
+	t_u8 roaming_required;
+#endif
+#ifdef STA_CFG80211
+    /** rssi low threshold */
 	int rssi_low;
     /** channel for connect */
 	struct ieee80211_channel conn_chan;
@@ -1247,8 +1252,6 @@ struct _moal_private {
 	t_u8 conn_wep_key[MAX_WEP_KEY_SIZE];
     /** connection param */
 	struct cfg80211_connect_params sme_current;
-    /** roaming required flag */
-	t_u8 roaming_required;
 #endif
 	t_u8 wait_target_ap_pmkid;
 	wait_queue_head_t okc_wait_q __ATTRIB_ALIGN__;
@@ -1342,6 +1345,16 @@ struct _moal_private {
 	wait_queue_head_t ft_wait_q __ATTRIB_ALIGN__;
 	/** ft wait condition */
 	t_bool ft_wait_condition;
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+    /** IOCTL wait queue for Host MLME*/
+	wait_queue_head_t host_mlme_wait_q __ATTRIB_ALIGN__;
+	/** Host MLME wait condition */
+	t_bool host_mlme_wait_condition;
+	/** flag for host_mlme */
+	t_u8 host_mlme;
+	/** flag for auth */
+	t_u8 auth_flag;
+#endif
 #endif				/* STA_SUPPORT */
 #endif				/* STA_CFG80211 */
 #ifdef CONFIG_PROC_FS
@@ -1646,7 +1659,7 @@ struct _moal_handle {
 	struct device *hotplug_device;
 	/** STATUS variables */
 	MOAL_HARDWARE_STATUS hardware_status;
-	BOOLEAN fw_reload;
+	int fw_reload;
 	/** POWER MANAGEMENT AND PnP SUPPORT */
 	BOOLEAN surprise_removed;
 	/** Firmware release number */
@@ -1665,6 +1678,8 @@ struct _moal_handle {
 #ifdef SDIO_SUSPEND_RESUME
 	/** suspend notify flag */
 	BOOLEAN suspend_notify_req;
+	/** hs_shutdown in process flag  */
+	BOOLEAN shutdown_hs_in_process;
 #endif
 	/** Host Sleep activated flag */
 	t_u8 hs_activated;
@@ -1730,10 +1745,12 @@ struct _moal_handle {
     /** scan channel gap */
 	t_u16 scan_chan_gap;
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
+#if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 14, 6)
     /** recieve bgscan stop */
 	t_u8 rx_bgscan_stop;
     /** bg scan Private pointer */
 	moal_private *bg_scan_priv;
+#endif
 #endif
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)
     /** remain on channel flag */
@@ -2448,10 +2465,22 @@ mlan_status woal_save_dump_info_to_file(char *dir_name, char *file_name,
 					t_u8 *buf, t_u32 buf_len);
 void woal_dump_drv_info(moal_handle *phandle, t_u8 *dir_name);
 
+#define FW_DUMP_TYPE_ENDED                    0x002
+#define FW_DUMP_TYPE_MEM_ITCM                 0x004
+#define FW_DUMP_TYPE_MEM_DTCM                 0x005
+#define FW_DUMP_TYPE_MEM_SQRAM                0x006
+#define FW_DUMP_TYPE_MEM_IRAM                 0x007
+#define FW_DUMP_TYPE_REG_MAC                  0x009
+#define FW_DUMP_TYPE_REG_CIU                  0x00E
+#define FW_DUMP_TYPE_REG_APU                  0x00F
+#define FW_DUMP_TYPE_REG_ICU                  0x014
 void woal_dump_firmware_info_v3(moal_handle *phandle);
 /* Store the FW dumps received from events in a file */
 void woal_store_firmware_dump(moal_handle *phandle, mlan_event *pmevent);
 
+/** save hostcmd response to file */
+t_void woal_save_host_cmdresp(moal_handle *phandle,
+			      mlan_cmdresp_event * pevent);
 /** get deep sleep */
 int woal_get_deep_sleep(moal_private *priv, t_u32 *data);
 /** set deep sleep */
@@ -2715,13 +2744,13 @@ void woal_reconfig_bgscan(moal_handle *handle);
 void woal_config_bgscan_and_rssi(moal_private *priv, t_u8 set_rssi);
 void woal_start_roaming(moal_private *priv);
 #endif
+mlan_status woal_request_bgscan(moal_private *priv, t_u8 wait_option,
+				wlan_bgscan_cfg *scan_cfg);
+#endif
 #ifdef STA_CFG80211
 void woal_save_conn_params(moal_private *priv,
 			   struct cfg80211_connect_params *sme);
 void woal_clear_conn_params(moal_private *priv);
-#endif
-mlan_status woal_request_bgscan(moal_private *priv, t_u8 wait_option,
-				wlan_bgscan_cfg *scan_cfg);
 #endif
 
 void woal_flush_tcp_sess_queue(moal_private *priv);

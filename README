@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.15.
+	The driver code supports Linux kernel up to 4.19.
 
 2) FOR DRIVER INSTALL
 
@@ -28,6 +28,7 @@
 		sta_name: Name of the STA interface (default: "mlan")
 		max_uap_bss: Maximum number of uAP BSS (default 1, max 2)
 		uap_name: Name of the uAP interface (default: "uap")
+		uap_max_sta: Maximum number of STA for UAP/GO (default 0, max 10)
 		max_wfd_bss: Maximum number of WIFIDIRECT BSS (default 1, max 1)
 		wfd_name: Name of the WIFIDIRECT interface (default: "wfd")
 		max_vir_bss: Number of Virtual interfaces (default 0)
@@ -270,15 +271,13 @@ SYNOPSIS
 	iwpriv mlanX httxbfcap [cap]
 	iwpriv mlanX httxbfcfg "<action>[;GlobalData/tsData/interval/txPeerData/snrData]"
 	iwpriv mlanX mpactrl [tx_ena] [rx_ena] [tx_size] [rx_size] [tx_ports] [rx_ports]
-	iwpriv mlanX atimwindow [n]
 	iwpriv mlanX deepsleep [n] [m]
 	iwpriv mlanX hscfg [condition [[GPIO# [gap]]]]
 	iwpriv mlanX hssetpara condition [GPIO# [gap]]
 	iwpriv mlanX deauth [n]
 	iwpriv mlanX radioctrl
 	iwpriv mlanX reassoctrl [n]
-	iwpriv mlanX adhocaes
-	iwpriv mlanX bandcfg [l] [m] [n] [o]
+	iwpriv mlanX bandcfg [l] [m] [n]
 	iwpriv mlanX getlog
 	iwpriv mlanX 11dcfg
 	iwpriv mlanX 11dclrtbl
@@ -925,17 +924,6 @@ mpactrl
 		                           : Set Tx, Rx buffer size to 8192 bytes
 		                           : Set maximum Tx, Rx ports to 8
 
-atimwindow
-	This command is used to set/get the ATIM window value in the station.
-	The range of ATIM window is 0 - 50.
-	Value of atim window should be less than the beacon interval.
-	Note: This command should be issued before ad-hoc start/join and ad-hoc
-	power save on.
-
-	Examples:
-		iwpriv mlan0 atimwindow 20      : Set atimwindow to 20
-		iwpriv mlan0 atimwindow         : Get atimwindow
-
 deepsleep
 	This command is used to set/get auto deep sleep mode.
 
@@ -1052,24 +1040,12 @@ reassoctrl
 		iwpriv mlan0 reassoctrl         : Get re-association status
 		iwpriv mlan0 reassoctrl 1       : Turn re-association on
 
-adhocaes
-	This command is used to set/get the AES key, when the station is in ad-hoc mode.
-	Note: This command is only available in disconnected state.
-
-	where value can be any 16 byte value.
-
-	Examples:
-		iwpriv mlan0 adhocaes           : Get ad-hoc aes key
-		iwpriv mlan0 adhocaes "1;12345678901234567890123456789012"
-		                                : Set ad-hoc aes key
-		iwpriv mlan0 adhocaes 2         : Clear ad-hoc aes key
-
 bandcfg
 	This command is used to set/get infra/ad-hoc band.
 	Note: This command is only available in disconnected state.
 
 	Usage:
-		iwpriv mlanX bandcfg [l] [m] [n] [o]
+		iwpriv mlanX bandcfg [l] [m] [n]
 
 	where the parameters:
 		[l]: Infrastructure band
@@ -1085,24 +1061,13 @@ bandcfg
 		     bit 0: B
 		     bit 1: G
 		     bit 2: A
-		     bit 3: GN
-		     bit 4: AN
-			 bit 5: AC 2.4G
-			 bit 6: AC 5G
 		[n]: Ad-hoc start channel
-		[o]: 0 - Bandwidth 20Mhz
-		     1 - HT Bandwidth 40Mhz above
-		     3 - HT Bandwidth 40Mhz below
-			 4 - VHT Bandwidth 80Mhz
 	Examples:
 		iwpriv mlan0 bandcfg            : Get infra/ad-hoc band and ad-hoc
 		                                  start channel configurations
 		iwpriv mlan0 bandcfg 1          : Set infra band to B only
 		iwpriv mlan0 bandcfg 3 2 6      : Set infra band to B/G, ad-hoc start band
 		                                  to G and ad-hoc start channel to 6
-		iwpriv mlan0 bandcfg 7 11 6 1   : Set infra band to B/G/A, ad-hoc start band
-		                                  to B/G/GN, ad-hoc start channel to 6 and
-		                                  secondary channel to above
 
 getlog
 	This command is used to get the statistics available in the station.
@@ -1448,8 +1413,6 @@ pscfg
 		                                -1: Disable,
 		                              1-49: Value in beacon intervals,
 		                             >= 50: Value in TUs )
-		[a]: Ad-hoc awake period (0: Unchanged, 1-31: Beacon interval, 255: Firmware
-		                          will go to sleep after beacon send out)
 		[b]: Beacon miss timeout (0: Unchanged, 1-50: Value in milliseconds, 65535: Disable)
 		[p]: Delay to PS (0-65535: Value in milliseconds, default 1000ms)
 		[m]: PS mode (0: Unchanged, 1: Auto mode, 2: PS-Poll mode, 3: PS Null mode)
@@ -1460,11 +1423,8 @@ pscfg
 		iwpriv mlan0 pscfg 3 4          : Set PS keep alive null packet interval to 3 seconds
 		                                  and DTIM interval to 4, all the other configurations
 		                                  are unchanged
-		iwpriv mlan0 pscfg 0 0xfffe 10 0 20
-		                                : Disable DTIM interval, set local listen interval to
-		                                  10 beacon intervals and beacon miss interval to 20,
-		                                  all the other configurations are unchanged
-		iwpriv mlan0 pscfg 0 0 0 0 0 50 : Set delay to PS to 50 ms, keep the others unchanged
+		iwpriv mlan0 pscfg 0 0 0 0 50 2 : Set delay to PS to 50 ms and PS mode to PS-Poll mode,
+		                                  keep the others unchanged
 
 fwwakeupmethod
 	This command is used to set/get the firmware wakeup method.

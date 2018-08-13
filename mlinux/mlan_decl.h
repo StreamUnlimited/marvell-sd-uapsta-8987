@@ -27,7 +27,7 @@ Change log:
 #define _MLAN_DECL_H_
 
 /** MLAN release version */
-#define MLAN_RELEASE_VERSION		 "C540"
+#define MLAN_RELEASE_VERSION		 "C623"
 
 /** Re-define generic data types for MLAN/MOAL */
 /** Signed char (1-byte) */
@@ -229,10 +229,14 @@ typedef t_s32 t_sval;
 /** MU beamformer */
 #define DEFALUT_11AC_CAP_BEAMFORMING_RESET_MASK   (MBIT(19))
 
-/** Size of rx data buffer */
-#define MLAN_RX_DATA_BUF_SIZE     (4 * 1024)
+/** Size of command buffer */
+#define MRVDRV_SIZE_OF_CMD_BUFFER       (4 * 1024)
+/** Upload size */
+#define WLAN_UPLD_SIZE            MRVDRV_SIZE_OF_CMD_BUFFER
+/** Size of rx data buffer 4096+256 */
+#define MLAN_RX_DATA_BUF_SIZE     4352
 /** Size of rx command buffer */
-#define MLAN_RX_CMD_BUF_SIZE      (2 * 1024)
+#define MLAN_RX_CMD_BUF_SIZE      MRVDRV_SIZE_OF_CMD_BUFFER
 
 #define MLAN_USB_RX_DATA_BUF_SIZE       MLAN_RX_DATA_BUF_SIZE
 
@@ -270,7 +274,7 @@ typedef t_u8 mlan_802_11_mac_addr[MLAN_MAC_ADDR_LENGTH];
 #define MLAN_SDIO_BLOCK_SIZE_FW_DNLD	MLAN_SDIO_BLOCK_SIZE
 
 /** define allocated buffer size */
-#define ALLOC_BUF_SIZE           (4 * 1024)
+#define ALLOC_BUF_SIZE              MLAN_RX_DATA_BUF_SIZE
 /** SDIO MP aggr pkt limit */
 #define SDIO_MP_AGGR_DEF_PKT_LIMIT       (16)
 
@@ -492,6 +496,7 @@ typedef enum _mlan_event_id {
 	MLAN_EVENT_ID_DRV_UAP_CHAN_INFO = 0x80000020,
 #endif
 	MLAN_EVENT_ID_NAN_STARTED = 0x80000024,
+	MLAN_EVENT_ID_STORE_HOST_CMD_RESP = 0x80000029,
 } mlan_event_id;
 
 /** Data Structures */
@@ -509,8 +514,29 @@ typedef struct _mlan_fw_image {
 	t_u8 fw_reload;
 } mlan_fw_image, *pmlan_fw_image;
 
+/** MrvlIEtypesHeader_t */
+typedef MLAN_PACK_START struct _MrvlIEtypesHeader {
+    /** Header type */
+	t_u16 type;
+    /** Header length */
+	t_u16 len;
+} MLAN_PACK_END MrvlIEtypesHeader_t;
+
+/** MrvlIEtypes_Data_t */
+typedef MLAN_PACK_START struct _MrvlIEtypes_Data_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** Data */
+	t_u8 data[1];
+} MLAN_PACK_END MrvlIEtypes_Data_t;
+
 #define OID_TYPE_CAL    0x2
-#define OID_TYPE_DPD    0xa
+/** DPD PM-PM data type*/
+#define OID_TYPE_DPD              0xa
+/** DPD AM-AM AM-PM and APPD data */
+#define OID_TYPE_DPD_OTHER        0xb
+/** Unknow DPD length, Flag to trigger FW DPD training */
+#define UNKNOW_DPD_LENGTH   0xffffffff
 
 /** Custom data structure */
 typedef struct _mlan_init_param {
@@ -608,6 +634,17 @@ typedef struct _mlan_event {
 	t_u8 event_buf[0];
 } mlan_event, *pmlan_event;
 
+/** mlan_cmdresp_event data structure */
+typedef struct _mlan_cmdresp_event {
+    /** BSS index number for multiple BSS support */
+	t_u32 bss_index;
+    /** Event ID */
+	mlan_event_id event_id;
+    /** Event length */
+	t_u32 event_len;
+    /** resp buffer pointer */
+	t_u8 *resp;
+} mlan_cmdresp_event, *pmlan_cmdresp_event;
 /** mlan_ioctl_req data structure */
 typedef struct _mlan_ioctl_req {
     /** Pointer to previous mlan_ioctl_req */
@@ -1158,6 +1195,11 @@ typedef struct _tdls_tear_down_event {
 	t_u16 reason_code;
 } tdls_tear_down_event;
 
+/** station stats */
+typedef struct _sta_stats {
+	t_u64 last_rx_in_msec;
+} sta_stats;
+
 #ifdef PRAGMA_PACK
 #pragma pack(pop)
 #endif
@@ -1249,9 +1291,16 @@ typedef struct _mlan_callbacks {
 			      IN const t_void *pmem2, IN t_u32 num);
     /** moal_udelay */
 	t_void (*moal_udelay) (IN t_void *pmoal_handle, IN t_u32 udelay);
+    /** moal_get_boot_ktime */
+	mlan_status (*moal_get_boot_ktime) (IN t_void *pmoal_handle,
+					    OUT t_u64 *pnsec);
     /** moal_get_system_time */
 	mlan_status (*moal_get_system_time) (IN t_void *pmoal_handle,
 					     OUT t_u32 *psec, OUT t_u32 *pusec);
+    /** moal_usleep */
+	mlan_status (*moal_usleep) (IN t_void *pmoal_handle,
+				    IN t_u64 min, IN t_u64 max);
+
     /** moal_init_timer*/
 	mlan_status (*moal_init_timer) (IN t_void *pmoal_handle,
 					OUT t_void **pptimer,

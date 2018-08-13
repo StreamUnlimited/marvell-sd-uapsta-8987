@@ -922,6 +922,7 @@ done:
 
 #endif
 
+#ifdef UAP_SUPPORT
 /**
  *  @brief Check current uap/go connection status
  *         Need handle channel switch if current channel is DFS channel
@@ -1074,6 +1075,7 @@ done:
 #endif
 	return;
 }
+#endif
 
 /**
  *  @brief Check current multi-channel connections
@@ -1087,8 +1089,8 @@ done:
 void
 woal_check_mc_connection(moal_private *priv, t_u8 wait_option, t_u8 new_channel)
 {
-	moal_handle *handle = priv->phandle;
 #ifdef UAP_SUPPORT
+	moal_handle *handle = priv->phandle;
 	int i;
 #endif
 	t_u16 enable = 0;
@@ -1134,6 +1136,10 @@ woal_bss_start(moal_private *priv, t_u8 wait_option,
 	if (priv->media_connected == MFALSE) {
 		if (netif_carrier_ok(priv->netdev))
 			netif_carrier_off(priv->netdev);
+	}
+	if (!ssid_bssid) {
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
 	}
 	memcpy(&temp_ssid_bssid, ssid_bssid, sizeof(mlan_ssid_bssid));
 	if (MLAN_STATUS_SUCCESS ==
@@ -1961,7 +1967,7 @@ woal_host_command(moal_private *priv, struct iwreq *wrq)
 	PRINTM(MINFO, "Host command len = %u\n", misc->param.hostcmd.len);
 
 	if (!misc->param.hostcmd.len ||
-	    misc->param.hostcmd.len > MLAN_SIZE_OF_CMD_BUFFER) {
+	    misc->param.hostcmd.len > MRVDRV_SIZE_OF_CMD_BUFFER) {
 		PRINTM(MERROR, "Invalid data buffer length\n");
 		ret = -EINVAL;
 		goto done;
@@ -2054,7 +2060,7 @@ woal_hostcmd_ioctl(struct net_device *dev, struct ifreq *req)
 	PRINTM(MINFO, "Host command len = %d\n",
 	       woal_le16_to_cpu(cmd_header.size));
 
-	if (woal_le16_to_cpu(cmd_header.size) > MLAN_SIZE_OF_CMD_BUFFER) {
+	if (woal_le16_to_cpu(cmd_header.size) > MRVDRV_SIZE_OF_CMD_BUFFER) {
 		ret = -EINVAL;
 		goto done;
 	}
@@ -2871,7 +2877,7 @@ woal_get_wakeup_reason(moal_private *priv,
 	req->action = MLAN_ACT_GET;
 
 	/* Send IOCTL request to MLAN */
-	ret = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	ret = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT_TIMEOUT);
 	if (ret == MLAN_STATUS_SUCCESS) {
 		wakeup_reason->hs_wakeup_reason =
 			pmcfg->param.wakeup_reason.hs_wakeup_reason;
@@ -3064,10 +3070,9 @@ woal_enable_hs(moal_private *priv)
 		PRINTM(MIOCTL, "IOCTL request HS enable failed\n");
 		goto done;
 	}
-	timeout = wait_event_interruptible_timeout(handle->hs_activate_wait_q,
-						   handle->
-						   hs_activate_wait_q_woken,
-						   HS_ACTIVE_TIMEOUT);
+	timeout = wait_event_timeout(handle->hs_activate_wait_q,
+				     handle->hs_activate_wait_q_woken,
+				     HS_ACTIVE_TIMEOUT);
 	sdio_claim_host(((struct sdio_mmc_card *)handle->card)->func);
 	if ((handle->hs_activated == MTRUE) || (handle->is_suspended == MTRUE)) {
 		PRINTM(MCMND, "suspend success! force=%u skip=%u\n",
@@ -3778,8 +3783,10 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_11h_cfg *ds_11hcfg = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+#ifdef UAP_SUPPORT
 	chan_band_info chan;
 	chan_band_info uapchan;
+#endif
 	ENTER();
 
 	if (woal_is_any_interface_active(priv->phandle)) {
@@ -3791,7 +3798,9 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 		if (!enable) {
 			LEAVE();
 			return ret;
-		} else {
+		}
+#ifdef UAP_SUPPORT
+		else {
 			woal_get_active_intf_channel(priv, &chan);
 			woal_set_get_ap_channel(priv, MLAN_ACT_GET,
 						MOAL_IOCTL_WAIT, &uapchan);
@@ -3812,6 +3821,7 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 				}
 			}
 		}
+#endif
 	}
 
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_11h_cfg));
@@ -4814,6 +4824,10 @@ woal_request_userscan(moal_private *priv,
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(ioctl_req);
+	else if (wait_option != MOAL_NO_WAIT) {
+		PRINTM(MMSG, "scan interrupted by Signal, Cancel it...");
+		woal_cancel_scan(priv, MOAL_IOCTL_WAIT_TIMEOUT);
+	}
 
 	if (ret == MLAN_STATUS_FAILURE) {
 		handle->scan_pending_on_block = MFALSE;

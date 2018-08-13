@@ -222,18 +222,6 @@ typedef MLAN_PACK_START struct _IEEEtypes_FastBssTransElement_t {
 	t_u8 sub_element[1];
 } MLAN_PACK_END IEEEtypes_FastBssTransElement_t;
 
-/** auth frame body*/
-typedef MLAN_PACK_START struct {
-    /** auth alg */
-	t_u16 auth_alg;
-    /** auth transaction */
-	t_u16 auth_transaction;
-    /** status code */
-	t_u16 status_code;
-    /** variable */
-	t_u8 variable[0];
-} MLAN_PACK_END IEEEtypes_Auth_framebody;
-
 /*Category for FT*/
 #define FT_CATEGORY 6
 /** FT ACTION request */
@@ -270,6 +258,18 @@ typedef MLAN_PACK_START struct {
     /** varible */
 	t_u8 variable[0];
 } MLAN_PACK_END IEEEtypes_Ft_action_request;
+
+/** auth frame body*/
+typedef MLAN_PACK_START struct {
+    /** auth alg */
+	t_u16 auth_alg;
+    /** auth transaction */
+	t_u16 auth_transaction;
+    /** status code */
+	t_u16 status_code;
+    /** variable */
+	t_u8 variable[0];
+} MLAN_PACK_END IEEEtypes_Auth_framebody;
 
 /*Mgmt frame*/
 typedef MLAN_PACK_START struct {
@@ -447,6 +447,30 @@ typedef t_u16 IEEEtypes_StatusCode_t;
 /** Fixed size in assoc_resp */
 #define ASSOC_RESP_FIXED_SIZE      6
 
+/** IEEEtypes_SeqCtl_t */
+typedef MLAN_PACK_START struct _IEEEtypes_SeqCtl_t {
+/** Fragment Number */
+	t_u16 FragNum:4;
+/** Sequence Number */
+	t_u16 SeqNum:12;
+} MLAN_PACK_END IEEEtypes_SeqCtl_t;
+
+/** IEEEtypes_MgmtHdr_t */
+typedef MLAN_PACK_START struct _IEEEtypes_MgmtHdr_t {
+/** FrmCtl*/
+	t_u16 FrmCtl;
+/** Duration*/
+	t_u16 Duration;
+/** Destination Addr*/
+	t_u8 DestAddr[6];
+/** Source Addr*/
+	t_u8 SrcAddr[6];
+/** BSSID */
+	t_u8 BssId[6];
+/** IEEEtypes_SeqCtl_t */
+	IEEEtypes_SeqCtl_t SeqCtl;
+} MLAN_PACK_END IEEEtypes_MgmtHdr_t;
+
 /** IEEEtypes_AssocRsp_t */
 typedef MLAN_PACK_START struct _IEEEtypes_AssocRsp_t {
     /** Capability information */
@@ -472,6 +496,12 @@ typedef t_u8 WLAN_802_11_RATES[WLAN_SUPPORTED_RATES];
 #define RSN_AKM_PSK         2
 /** AKM: PSK SHA256 */
 #define RSN_AKM_PSK_SHA256	6
+
+/** AKM: PSK SHA256 */
+#define RSN_AKM_SAE	8
+/** AKM: PSK SHA256 */
+#define RSN_AKM_OWE	18
+
 #if defined(STA_SUPPORT)
 /** Pairwise Cipher Suite length */
 #define PAIRWISE_CIPHER_SUITE_LEN    4

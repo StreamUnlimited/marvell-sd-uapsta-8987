@@ -152,6 +152,7 @@ enum vendor_sub_command {
 	sub_cmd_set_drvdbg = 0,
 	sub_cmd_dfs_capability = 0x0005,
 	sub_cmd_get_correlated_time = 0x0006,
+	sub_cmd_nd_offload = 0x0100,
 	sub_cmd_get_valid_channels = 0x1009,
 	sub_cmd_get_wifi_supp_feature_set = 0x100a,
 	sub_cmd_set_country_code = 0x100d,
@@ -173,6 +174,12 @@ enum mrvl_wlan_vendor_attr {
 
 	MRVL_WLAN_VENDOR_ATTR_MAX = MRVL_WLAN_VENDOR_ATTR_AFTER_LAST - 1,
 };
+
+typedef enum {
+	ATTR_ND_OFFLOAD_INVALID = 0,
+	ATTR_ND_OFFLOAD_CONTROL,
+	ATTR_ND_OFFLOAD_MAX,
+} ND_OFFLOAD_ATTR;
 
 #endif
 #endif /* _MOAL_CFGVENDOR_H_ */

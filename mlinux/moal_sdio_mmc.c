@@ -324,6 +324,7 @@ woal_sdio_shutdown(struct device *dev)
 		netif_device_detach(handle->priv[i]->netdev);
 
 	if (shutdown_hs) {
+		handle->shutdown_hs_in_process = MTRUE;
 		memset(&pm_info, 0, sizeof(pm_info));
 		for (i = 0; i < retry_num; i++) {
 			if (MLAN_STATUS_SUCCESS ==

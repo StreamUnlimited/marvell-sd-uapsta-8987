@@ -61,6 +61,7 @@ static t_u8 SupportedInfraBand[] = {
 		BAND_A | BAND_G | BAND_AN | BAND_GN, BAND_A | BAND_AN,
 	BAND_GN | BAND_GAC, BAND_B | BAND_G | BAND_GN | BAND_GAC,
 		BAND_G | BAND_GN | BAND_GAC,
+	BAND_A | BAND_B | BAND_G | BAND_AN | BAND_GN | BAND_AAC,
 	BAND_A | BAND_B | BAND_G | BAND_AN | BAND_GN | BAND_AAC | BAND_GAC,
 		BAND_A | BAND_G | BAND_AN | BAND_GN | BAND_AAC,
 	BAND_A | BAND_AN | BAND_AAC,
@@ -69,12 +70,7 @@ static t_u8 SupportedInfraBand[] = {
 /** Bands supported in Ad-Hoc mode */
 static t_u8 SupportedAdhocBand[] = {
 	BAND_B, BAND_B | BAND_G, BAND_G,
-	BAND_GN, BAND_B | BAND_G | BAND_GN, BAND_G | BAND_GN,
-	BAND_GN | BAND_GAC, BAND_B | BAND_G | BAND_GN | BAND_GAC,
-		BAND_G | BAND_GN | BAND_GAC,
 	BAND_A,
-	BAND_AN, BAND_A | BAND_AN,
-	BAND_AN | BAND_AAC, BAND_A | BAND_AN | BAND_AAC,
 };
 
 /********************************************************
@@ -147,6 +143,10 @@ parse_arguments(t_u8 *pos, int *data, int datalen, int *user_data_len)
 			if (pos[i] == '\0')
 				break;
 		} else {
+			if (k >= sizeof(cdata)) {
+				PRINTM(MERROR, "Invalid numerical arguments\n");
+				break;
+			}
 			cdata[k] = pos[i];
 			k++;
 		}
@@ -163,26 +163,28 @@ parse_arguments(t_u8 *pos, int *data, int datalen, int *user_data_len)
  *
  * @param str      A pointer to the string
  * @param raw      A pointer to the raw data buffer
+ * @param raw_size      raw data buffer size
  * @return         Number of bytes read
  **/
 int
-string2raw(char *str, unsigned char *raw)
+string2raw(char *str, unsigned char *raw, int raw_size)
 {
 	int len = (strlen(str) + 1) / 2;
+	int i = 0;
 
 	do {
-		if (!isxdigit(*str)) {
+		if (strlen(str) < 2)
 			return -1;
-		}
+		if (!isxdigit(*str) || !isxdigit(*(str + 1)))
+			return -1;
 		*str = toupper(*str);
 		*raw = CHAR2INT(*str) << 4;
 		++str;
 		*str = toupper(*str);
-		if (*str == '\0')
-			break;
 		*raw |= CHAR2INT(*str);
 		++raw;
-	} while (*++str != '\0');
+		i++;
+	} while (*++str != '\0' && i < raw_size);
 	return len;
 }
 
@@ -201,7 +203,7 @@ woal_set_ap_wps_p2p_ie(moal_private *priv, t_u8 *ie, size_t len)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	t_u8 *pos = ie;
-	t_u32 ie_len;
+	int ie_len;
 
 	ENTER();
 
@@ -279,7 +281,7 @@ woal_set_miracast_mode(moal_private *priv, t_u8 *pdata, size_t len)
 	t_u8 *pos = pdata;
 
 	ENTER();
-	if (!pos) {
+	if (!pos || (len == 0)) {
 		PRINTM(MERROR, "%s: Null buf!\n", __func__);
 		ret = MLAN_STATUS_FAILURE;
 		goto done;
@@ -385,7 +387,7 @@ woal_priv_hostcmd(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen,
 
 	PRINTM(MINFO, "Host command len = %d\n",
 	       woal_le16_to_cpu(cmd_header.size));
-	if (woal_le16_to_cpu(cmd_header.size) > MLAN_SIZE_OF_CMD_BUFFER) {
+	if (woal_le16_to_cpu(cmd_header.size) > MRVDRV_SIZE_OF_CMD_BUFFER) {
 		LEAVE();
 		return -EINVAL;
 	}
@@ -409,10 +411,14 @@ woal_priv_hostcmd(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen,
 		ret = -EFAULT;
 		goto error;
 	}
-	memcpy(data_ptr + sizeof(buf_len), misc_cfg->param.hostcmd.cmd,
-	       misc_cfg->param.hostcmd.len);
 	ret = misc_cfg->param.hostcmd.len + sizeof(buf_len) +
 		strlen(CMD_MARVELL) + strlen(PRIV_CMD_HOSTCMD);
+	if (ret > respbuflen) {
+		ret = -EFAULT;
+		goto error;
+	}
+	memcpy(data_ptr + sizeof(buf_len), misc_cfg->param.hostcmd.cmd,
+	       misc_cfg->param.hostcmd.len);
 	memcpy(data_ptr, (t_u8 *)&misc_cfg->param.hostcmd.len, sizeof(t_u32));
 
 error:
@@ -497,12 +503,11 @@ woal_setget_priv_bandcfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 {
 	int ret = 0;
 	unsigned int i;
-	int data[4];
+	int data[3];
 	int user_data_len = 0;
 	t_u32 infra_band = 0;
 	t_u32 adhoc_band = 0;
 	t_u32 adhoc_channel = 0;
-	t_u32 adhoc_chan_bandwidth = 0;
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_radio_cfg *radio_cfg = NULL;
 	mlan_ds_band_cfg *band_cfg = NULL;
@@ -580,43 +585,11 @@ woal_setget_priv_bandcfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 				goto error;
 			}
 		}
-		if (user_data_len == 4) {
-			if (!(adhoc_band & (BAND_GN
-					    | BAND_GAC | BAND_AN | BAND_AAC))) {
-				PRINTM(MERROR,
-				       "11n is not enabled for adhoc, can not set HT/VHT channel bandwidth\n");
-				ret = -EINVAL;
-				goto error;
-			}
-			adhoc_chan_bandwidth = data[3];
-			/* sanity test */
-			if ((adhoc_chan_bandwidth != CHANNEL_BW_20MHZ) &&
-			    (adhoc_chan_bandwidth != CHANNEL_BW_40MHZ_ABOVE) &&
-			    (adhoc_chan_bandwidth != CHANNEL_BW_40MHZ_BELOW)
-			    && (adhoc_chan_bandwidth != CHANNEL_BW_80MHZ)
-				) {
-				PRINTM(MERROR,
-				       "Invalid secondary channel bandwidth, only allowed 0, 1, 3 or 4\n");
-				ret = -EINVAL;
-				goto error;
-			}
-
-			/* VHT 80 MHz is valid only for 5G band */
-			if ((adhoc_chan_bandwidth == CHANNEL_BW_80MHZ) &&
-			    ((adhoc_band & BAND_AAC) == 0)) {
-				PRINTM(MERROR,
-				       "Invalid adhoc band for 11ac 80 Mhz, only 5G is allowed.\n");
-				ret = -EINVAL;
-				goto error;
-			}
-		}
 		/* Set config_bands and adhoc_start_band values to MLAN */
 		req->action = MLAN_ACT_SET;
 		radio_cfg->param.band_cfg.config_bands = infra_band;
 		radio_cfg->param.band_cfg.adhoc_start_band = adhoc_band;
 		radio_cfg->param.band_cfg.adhoc_channel = adhoc_channel;
-		radio_cfg->param.band_cfg.adhoc_chan_bandwidth =
-			adhoc_chan_bandwidth;
 	}
 
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
@@ -3067,9 +3040,10 @@ woal_priv_setgetipaddr(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 		/* Only one IP is supported in current firmware */
 		memset(misc->param.ipaddr_cfg.ip_addr[0], 0, IPADDR_LEN);
-		in4_pton(&respbuf[header + 2],
-			 MIN((IPADDR_MAX_BUF - 3), (data_length - 2)),
-			 misc->param.ipaddr_cfg.ip_addr[0], ' ', NULL);
+		if (data_length > 2)
+			in4_pton(&respbuf[header + 2],
+				 MIN((IPADDR_MAX_BUF - 3), (data_length - 2)),
+				 misc->param.ipaddr_cfg.ip_addr[0], ' ', NULL);
 		misc->param.ipaddr_cfg.ip_addr_num = 1;
 		misc->param.ipaddr_cfg.ip_addr_type = IPADDR_TYPE_IPV4;
 
@@ -4164,7 +4138,7 @@ woal_priv_set_get_scancfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 {
 	int ret = 0;
 	int user_data_len = 0;
-	int arg_len = 7;
+	int arg_len = 8;
 	int data[arg_len];
 	mlan_ds_scan *scan = NULL;
 	mlan_ioctl_req *req = NULL;
@@ -4225,7 +4199,13 @@ woal_priv_set_get_scancfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 			ret = -EINVAL;
 			goto done;
 		}
-		if ((data[6] < 0) || (data[6] > 2)) {
+		if ((data[6] < 0) || (data[6] > MLAN_PASS_TO_ACT_SCAN_DIS)) {
+			PRINTM(MERROR,
+			       "Invalid argument for Passive to Active Scan\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		if ((data[7] < 0) || (data[7] > 3)) {
 			PRINTM(MERROR, "Invalid argument for extended scan\n");
 			ret = -EINVAL;
 			goto done;
@@ -4240,10 +4220,8 @@ woal_priv_set_get_scancfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		ret = -EFAULT;
 		goto done;
 	}
-	if (!user_data_len) {
-		memcpy(respbuf, &scan->param.scan_cfg, sizeof(mlan_scan_cfg));
-		ret = sizeof(mlan_scan_cfg);
-	}
+	memcpy(respbuf, &scan->param.scan_cfg, sizeof(mlan_scan_cfg));
+	ret = sizeof(mlan_scan_cfg);
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
@@ -4502,7 +4480,7 @@ woal_priv_set_essid(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 #endif /* REASSOCIATION */
 
 	/* Check the size of the string */
-	if (mwr->u.essid.length > MW_ESSID_MAX_SIZE + 1) {
+	if (mwr->u.essid.length > MW_ESSID_MAX_SIZE - 1) {
 		ret = -E2BIG;
 		goto setessid_ret;
 	}
@@ -5116,11 +5094,11 @@ woal_priv_txpowercfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		/* GET operation */
 		memcpy(respbuf, (t_u8 *)&pcfg->param.power_ext,
 		       sizeof(pcfg->param.power_ext.num_pwr_grp) +
-		       (pcfg->param.power_ext.num_pwr_grp *
-			sizeof(mlan_power_group)));
+		       (MIN(pcfg->param.power_ext.num_pwr_grp, MAX_POWER_GROUP)
+			* sizeof(mlan_power_group)));
 		ret = sizeof(pcfg->param.power_ext.num_pwr_grp) +
-			(pcfg->param.power_ext.num_pwr_grp *
-			 sizeof(mlan_power_group));
+			(MIN(pcfg->param.power_ext.num_pwr_grp, MAX_POWER_GROUP)
+			 * sizeof(mlan_power_group));
 	}
 done:
 	if (status != MLAN_STATUS_PENDING)
@@ -5151,7 +5129,6 @@ woal_priv_pscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 	ENTER();
 
-	allowed++;		/* For ad-hoc awake period parameter */
 	allowed++;		/* For beacon missing timeout parameter */
 	allowed += 2;		/* For delay to PS and PS mode parameters */
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_pm_cfg));
@@ -5204,15 +5181,6 @@ woal_priv_pscfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 			goto done;
 		}
 
-		if ((data[i] != SPECIAL_ADHOC_AWAKE_PD) &&
-		    ((data[i] < MIN_ADHOC_AWAKE_PD) ||
-		     (data[i] > MAX_ADHOC_AWAKE_PD))) {
-			PRINTM(MERROR,
-			       "Invalid argument for adhoc awake period\n");
-			ret = -EINVAL;
-			goto done;
-		}
-		i++;
 		if ((data[i] != DISABLE_BCN_MISS_TO) &&
 		    ((data[i] < MIN_BCN_MISS_TO) ||
 		     (data[i] > MAX_BCN_MISS_TO))) {
@@ -6111,7 +6079,8 @@ woal_priv_per_pkt_cfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 			pos += perpkt->len + MRVL_TLV_HEADER_SIZE;
 			left_len -= (perpkt->len + MRVL_TLV_HEADER_SIZE);
 		}
-	}
+	} else
+		goto done;
 	misc->param.txrx_pkt_ctrl = perpkt->tx_rx_control;
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
 	if (status != MLAN_STATUS_SUCCESS) {
@@ -7827,7 +7796,7 @@ woal_priv_auth_type(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		if (user_data_len == 1) {
 			PRINTM(MINFO, "SET: auth_type %d\n", auth_type);
 			if (((auth_type < MLAN_AUTH_MODE_OPEN) ||
-			     (auth_type > MLAN_AUTH_MODE_SHARED))
+			     (auth_type > MLAN_AUTH_MODE_SAE))
 			    && (auth_type != MLAN_AUTH_MODE_AUTO)) {
 				ret = -EINVAL;
 				goto done;
@@ -8395,69 +8364,6 @@ woal_priv_inactivity_timeout_ext(moal_private *priv, t_u8 *respbuf,
 		memcpy(respbuf, (t_u8 *)data, sizeof(data));
 		ret = sizeof(data);
 	}
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/**
- * @brief               Set/Get ATIM window
- * @param priv          Pointer to moal_private structure
- * @param respbuf       Pointer to response buffer
- * @param resplen       Response buffer length
- *
- * @return             Number of bytes written, negative for failure.
- */
-static int
-woal_priv_atim_window(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
-{
-	mlan_ioctl_req *req = NULL;
-	mlan_ds_bss *bss = NULL;
-	int ret = 0, atim = 0;
-	int user_data_len = 0, header_len = 0;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_ATIM_WINDOW);
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_bss));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-
-	bss = (mlan_ds_bss *)req->pbuf;
-	bss->sub_command = MLAN_OID_IBSS_ATIM_WINDOW;
-	req->req_id = MLAN_IOCTL_BSS;
-
-	if (strlen(respbuf) == header_len) {
-		/* GET operation */
-		user_data_len = 0;
-		req->action = MLAN_ACT_GET;
-	} else {
-		/* SET operation */
-		parse_arguments(respbuf + header_len, &atim, 1, &user_data_len);
-
-		if (user_data_len != 1) {
-			PRINTM(MERROR, "Invalid number of parameters\n");
-			ret = -EINVAL;
-			goto done;
-		}
-		req->action = MLAN_ACT_SET;
-		bss->param.atim_window = atim;
-	}
-
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	memcpy(respbuf, (t_u8 *)&bss->param.atim_window, sizeof(int));
-	ret = sizeof(int);
 
 done:
 	if (status != MLAN_STATUS_PENDING)
@@ -9616,154 +9522,6 @@ done:
 	return ret;
 }
 
-/** AES key length */
-#define AES_KEY_LEN 16
-/**
- * @brief               Adhoc AES control
- * @param priv          Pointer to moal_private structure
- * @param respbuf       Pointer to response buffer
- * @param resplen       Response buffer length
- *
- *  @return             Number of bytes written, negative for failure.
- */
-static int
-woal_priv_adhoc_aes(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
-{
-	static char buf[256];
-	int ret = 0, action = -1;
-	unsigned int i;
-	t_u8 key_ascii[32];
-	t_u8 key_hex[16];
-	t_u8 *tmp;
-	mlan_bss_info bss_info;
-	mlan_ds_sec_cfg *sec = NULL;
-	mlan_ioctl_req *req = NULL;
-	t_u8 bcast_addr[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-	int header_len = 0;
-	int copy_len = 0;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_ADHOC_AES);
-	memset(key_ascii, 0x00, sizeof(key_ascii));
-	memset(key_hex, 0x00, sizeof(key_hex));
-	memset(buf, 0x00, sizeof(buf));
-
-	/* Get current BSS information */
-	memset(&bss_info, 0, sizeof(bss_info));
-	woal_get_bss_info(priv, MOAL_IOCTL_WAIT, &bss_info);
-	if (bss_info.bss_mode != MLAN_BSS_MODE_IBSS ||
-	    bss_info.media_connected == MTRUE) {
-		PRINTM(MERROR, "STA is connected or not in IBSS mode.\n");
-		ret = -EOPNOTSUPP;
-		goto done;
-	}
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_sec_cfg));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	if (strlen(respbuf) == header_len) {
-		/* Get Adhoc AES Key */
-		req->req_id = MLAN_IOCTL_SEC_CFG;
-		req->action = MLAN_ACT_GET;
-		sec = (mlan_ds_sec_cfg *)req->pbuf;
-		sec->sub_command = MLAN_OID_SEC_CFG_ENCRYPT_KEY;
-		sec->param.encrypt_key.key_len = AES_KEY_LEN;
-		sec->param.encrypt_key.key_index = MLAN_KEY_INDEX_UNICAST;
-		status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-		if (status != MLAN_STATUS_SUCCESS) {
-			ret = -EFAULT;
-			goto done;
-		}
-
-		memcpy(key_hex, sec->param.encrypt_key.key_material,
-		       sizeof(key_hex));
-		HEXDUMP("Adhoc AES Key (HEX)", key_hex, sizeof(key_hex));
-
-		tmp = key_ascii;
-		for (i = 0; i < sizeof(key_hex); i++)
-			tmp += sprintf((char *)tmp, "%02x", key_hex[i]);
-	} else {
-		/* SET operation */
-		copy_len = (strlen(respbuf) - header_len);
-		if (copy_len >= sizeof(buf)) {
-			PRINTM(MERROR, "Too many arguments\n");
-			ret = -EINVAL;
-			goto done;
-		}
-		memcpy(buf, respbuf + header_len, copy_len);
-
-		/* Parse the buf to get the cmd_action */
-		action = woal_atox(&buf[0]);
-		if (action < 1 || action > 2) {
-			PRINTM(MERROR, "Invalid action argument %d\n", action);
-			ret = -EINVAL;
-			goto done;
-		}
-
-		req->req_id = MLAN_IOCTL_SEC_CFG;
-		req->action = MLAN_ACT_SET;
-		sec = (mlan_ds_sec_cfg *)req->pbuf;
-		sec->sub_command = MLAN_OID_SEC_CFG_ENCRYPT_KEY;
-
-		if (action == 1) {
-			/* Set Adhoc AES Key  */
-			memcpy(key_ascii, &buf[2], sizeof(key_ascii));
-			woal_ascii2hex(key_hex, (char *)key_ascii,
-				       sizeof(key_hex));
-			HEXDUMP("Adhoc AES Key (HEX)", key_hex,
-				sizeof(key_hex));
-
-			sec->param.encrypt_key.key_len = AES_KEY_LEN;
-			sec->param.encrypt_key.key_index =
-				MLAN_KEY_INDEX_UNICAST;
-			sec->param.encrypt_key.key_flags =
-				KEY_FLAG_SET_TX_KEY | KEY_FLAG_GROUP_KEY;
-			memcpy(sec->param.encrypt_key.mac_addr,
-			       (u8 *)bcast_addr, ETH_ALEN);
-			memcpy(sec->param.encrypt_key.key_material, key_hex,
-			       sec->param.encrypt_key.key_len);
-
-			status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-			if (status != MLAN_STATUS_SUCCESS) {
-				ret = -EFAULT;
-				goto done;
-			}
-		} else {
-			/* Clear Adhoc AES Key */
-			sec->param.encrypt_key.key_len = AES_KEY_LEN;
-			sec->param.encrypt_key.key_index =
-				MLAN_KEY_INDEX_UNICAST;
-			sec->param.encrypt_key.key_flags = KEY_FLAG_REMOVE_KEY;
-			memcpy(sec->param.encrypt_key.mac_addr,
-			       (u8 *)bcast_addr, ETH_ALEN);
-			memset(sec->param.encrypt_key.key_material, 0,
-			       sizeof(sec->param.encrypt_key.key_material));
-
-			status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-			if (status != MLAN_STATUS_SUCCESS) {
-				ret = -EFAULT;
-				goto done;
-			}
-		}
-	}
-
-	HEXDUMP("Adhoc AES Key (ASCII)", key_ascii, sizeof(key_ascii));
-	copy_len = sizeof(key_ascii);
-	memcpy(respbuf, &key_ascii, copy_len);
-	ret = copy_len;
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-
-	LEAVE();
-	return ret;
-}
-
 /**
  * @brief               Associate to a specific indexed entry in the ScanTable
  * @param priv          Pointer to moal_private structure
@@ -10352,76 +10110,6 @@ woal_priv_bypassed_packet(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 	woal_hard_start_xmit(skb, priv->netdev);
 
-	LEAVE();
-	return ret;
-}
-
-/**
- * @brief               Control Coalescing status Enable/Disable
- * @param priv          Pointer to moal_private structure
- * @param respbuf       Pointer to response buffer
- * @param resplen       Response buffer length
- *
- *  @return             Number of bytes written, negative for failure.
- */
-static int
-woal_priv_coalescing_status(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
-{
-	int header_len = 0, user_data_len = 0;
-	int ret = 0, data = 0;
-	mlan_ds_misc_cfg *pcoal = NULL;
-	mlan_ioctl_req *req = NULL;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	pcoal = (mlan_ds_misc_cfg *)req->pbuf;
-
-	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_COALESCE_STATUS);
-	if (strlen(respbuf) == header_len) {
-		/* GET operation */
-		user_data_len = 0;
-		req->action = MLAN_ACT_GET;
-	} else {
-		/* SET operation */
-		parse_arguments(respbuf + header_len, &data,
-				sizeof(data) / sizeof(int), &user_data_len);
-		if (user_data_len == 1) {
-			if (data == 1)
-				pcoal->param.coalescing_status =
-					MLAN_MISC_COALESCING_ENABLE;
-			else
-				pcoal->param.coalescing_status =
-					MLAN_MISC_COALESCING_DISABLE;
-			req->action = MLAN_ACT_SET;
-		} else {
-			PRINTM(MERROR, "Invalid number of parameters\n");
-			ret = -EINVAL;
-			goto done;
-		}
-	}
-
-	req->req_id = MLAN_IOCTL_MISC_CFG;
-	pcoal->sub_command = MLAN_OID_MISC_COALESCING_STATUS;
-
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-	data = (int)(((mlan_ds_misc_cfg *)req->pbuf)->param.coalescing_status);
-
-	memcpy(respbuf, &data, sizeof(int));
-	ret = sizeof(int);
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
 	LEAVE();
 	return ret;
 }
@@ -12872,13 +12560,6 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 							       total_len);
 			goto handled;
 		} else if (strnicmp
-			   (buf + strlen(CMD_MARVELL), PRIV_CMD_ATIM_WINDOW,
-			    strlen(PRIV_CMD_ATIM_WINDOW)) == 0) {
-			/* Set/Get ATIM window */
-			len = woal_priv_atim_window(priv, buf,
-						    priv_cmd.total_len);
-			goto handled;
-		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_AMSDU_AGGR_CTRL,
 			    strlen(PRIV_CMD_AMSDU_AGGR_CTRL)) == 0) {
 			/* Enable/Disable amsdu_aggr_ctrl */
@@ -12959,13 +12640,6 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			len = woal_priv_sysclock(priv, buf, priv_cmd.total_len);
 			goto handled;
 		} else if (strnicmp
-			   (buf + strlen(CMD_MARVELL), PRIV_CMD_ADHOC_AES,
-			    strlen(PRIV_CMD_ADHOC_AES)) == 0) {
-			/* Adhoc AES control */
-			len = woal_priv_adhoc_aes(priv, buf,
-						  priv_cmd.total_len);
-			goto handled;
-		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_ASSOCIATE,
 			    strlen(PRIV_CMD_ASSOCIATE)) == 0) {
 			/* Associate to a specific indexed entry in the ScanTable */
@@ -13016,13 +12690,6 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			/* Private IOCTL entry to get the By-passed TX packet from upper layer */
 			len = woal_priv_bypassed_packet(priv, buf,
 							priv_cmd.total_len);
-			goto handled;
-		} else if (strnicmp
-			   (buf + strlen(CMD_MARVELL), PRIV_CMD_COALESCE_STATUS,
-			    strlen(PRIV_CMD_COALESCE_STATUS)) == 0) {
-			/* Control Coalescing status Enable/Disable */
-			len = woal_priv_coalescing_status(priv, buf,
-							  priv_cmd.total_len);
 			goto handled;
 		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL),

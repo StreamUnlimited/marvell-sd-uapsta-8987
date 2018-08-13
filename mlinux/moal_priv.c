@@ -50,12 +50,7 @@ static t_u8 SupportedInfraBand[] = {
 /** Bands supported in Ad-Hoc mode */
 static t_u8 SupportedAdhocBand[] = {
 	BAND_B, BAND_B | BAND_G, BAND_G,
-	BAND_GN, BAND_B | BAND_G | BAND_GN, BAND_G | BAND_GN,
-	BAND_GN | BAND_GAC, BAND_B | BAND_G | BAND_GN | BAND_GAC,
-		BAND_G | BAND_GN | BAND_GAC,
 	BAND_A,
-	BAND_AN, BAND_A | BAND_AN,
-	BAND_AN | BAND_AAC, BAND_A | BAND_AN | BAND_AAC,
 };
 
 /********************************************************
@@ -1511,12 +1506,11 @@ woal_band_cfg(moal_private *priv, struct iwreq *wrq)
 {
 	int ret = 0;
 	unsigned int i;
-	int data[4];
+	int data[3];
 	int user_data_len = wrq->u.data.length, copy_len;
 	t_u32 infra_band = 0;
 	t_u32 adhoc_band = 0;
 	t_u32 adhoc_channel = 0;
-	t_u32 adhoc_chan_bandwidth = 0;
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_radio_cfg *radio_cfg = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
@@ -1561,15 +1555,6 @@ woal_band_cfg(moal_private *priv, struct iwreq *wrq)
 		/* Adhoc Channel */
 		data[2] = radio_cfg->param.band_cfg.adhoc_channel;
 		wrq->u.data.length = 3;
-		if (radio_cfg->param.band_cfg.adhoc_start_band & BAND_GN
-		    || radio_cfg->param.band_cfg.adhoc_start_band & BAND_AN
-		    || radio_cfg->param.band_cfg.adhoc_start_band & BAND_GAC
-		    || radio_cfg->param.band_cfg.adhoc_start_band & BAND_AAC) {
-			/* secondary bandwidth */
-			data[3] =
-				radio_cfg->param.band_cfg.adhoc_chan_bandwidth;
-			wrq->u.data.length = 4;
-		}
 
 		if (copy_to_user
 		    (wrq->u.data.pointer, data,
@@ -1615,33 +1600,11 @@ woal_band_cfg(moal_private *priv, struct iwreq *wrq)
 				goto error;
 			}
 		}
-		if (user_data_len == 4) {
-			if (!(adhoc_band & (BAND_GN
-					    | BAND_GAC | BAND_AN | BAND_AAC))) {
-				PRINTM(MERROR,
-				       "11n is not enabled for adhoc, can not set HT/VHT channel bandwidth\n");
-				ret = -EINVAL;
-				goto error;
-			}
-			adhoc_chan_bandwidth = data[3];
-			if ((adhoc_chan_bandwidth != CHANNEL_BW_20MHZ) &&
-			    (adhoc_chan_bandwidth != CHANNEL_BW_40MHZ_ABOVE) &&
-			    (adhoc_chan_bandwidth != CHANNEL_BW_40MHZ_BELOW)
-			    && (adhoc_chan_bandwidth != CHANNEL_BW_80MHZ)
-				) {
-				PRINTM(MERROR,
-				       "Invalid secondary channel bandwidth, only allowed 0, 1, 3 or 4\n");
-				ret = -EINVAL;
-				goto error;
-			}
-		}
 		/* Set config_bands and adhoc_start_band values to MLAN */
 		req->action = MLAN_ACT_SET;
 		radio_cfg->param.band_cfg.config_bands = infra_band;
 		radio_cfg->param.band_cfg.adhoc_start_band = adhoc_band;
 		radio_cfg->param.band_cfg.adhoc_channel = adhoc_channel;
-		radio_cfg->param.band_cfg.adhoc_chan_bandwidth =
-			adhoc_chan_bandwidth;
 		status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
 		if (status != MLAN_STATUS_SUCCESS) {
 			ret = -EFAULT;
@@ -2678,72 +2641,6 @@ done:
 }
 
 /**
- *  @brief Set/Get ATIM window
- *
- *  @param priv     A pointer to moal_private structure
- *  @param wrq      A pointer to iwreq structure
- *
- *  @return         0 --success, otherwise fail
- */
-static int
-woal_atim_window(moal_private *priv, struct iwreq *wrq)
-{
-	int ret = 0;
-	mlan_ds_bss *bss = NULL;
-	mlan_ioctl_req *req = NULL;
-	int atim = 0;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	if (wrq->u.data.length) {
-		if (copy_from_user(&atim, wrq->u.data.pointer, sizeof(int))) {
-			PRINTM(MERROR, "Copy from user failed\n");
-			ret = -EFAULT;
-			goto done;
-		}
-		if ((atim < 0) || (atim > MLAN_MAX_ATIM_WINDOW)) {
-			ret = -EINVAL;
-			goto done;
-		}
-	}
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_bss));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	bss = (mlan_ds_bss *)req->pbuf;
-	bss->sub_command = MLAN_OID_IBSS_ATIM_WINDOW;
-	req->req_id = MLAN_IOCTL_BSS;
-	if (!wrq->u.data.length)
-		req->action = MLAN_ACT_GET;
-	else {
-		req->action = MLAN_ACT_SET;
-		bss->param.atim_window = atim;
-	}
-
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	if (copy_to_user
-	    (wrq->u.data.pointer, (t_u8 *)&bss->param.atim_window,
-	     sizeof(int))) {
-		ret = -EFAULT;
-		goto done;
-	}
-	wrq->u.data.length = 1;
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/**
  * @brief Set/Get TX data rate
  *
  * @param priv      A pointer to moal_private structure
@@ -3389,74 +3286,6 @@ woal_sleep_params_ioctl(moal_private *priv, struct iwreq *wrq)
 	if (copy_to_user(wrq->u.data.pointer, data, sizeof(int) *
 			 wrq->u.data.length)) {
 		PRINTM(MERROR, "QCONFIG: copy to user failed\n");
-		ret = -EFAULT;
-		goto done;
-	}
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/**
- *  @brief Control Coalescing status Enable/Disable
- *
- *  @param priv     Pointer to the moal_private driver data struct
- *  @param wrq      Pointer to user data
- *
- *  @return         0 --success, otherwise fail
- */
-static int
-woal_coalescing_status_ioctl(moal_private *priv, struct iwreq *wrq)
-{
-	int ret = 0;
-	mlan_ds_misc_cfg *pcoal = NULL;
-	mlan_ioctl_req *req = NULL;
-	char buf[8];
-	struct iwreq *wreq = (struct iwreq *)wrq;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	pcoal = (mlan_ds_misc_cfg *)req->pbuf;
-
-	memset(buf, 0, sizeof(buf));
-	if (!wrq->u.data.length) {
-		req->action = MLAN_ACT_GET;
-	} else {
-		req->action = MLAN_ACT_SET;
-		if (copy_from_user(buf, wrq->u.data.pointer,
-				   MIN(sizeof(buf) - 1, wreq->u.data.length))) {
-			PRINTM(MINFO, "Copy from user failed\n");
-			ret = -EFAULT;
-			goto done;
-		}
-		if (buf[0] == 1)
-			pcoal->param.coalescing_status =
-				MLAN_MISC_COALESCING_ENABLE;
-		else
-			pcoal->param.coalescing_status =
-				MLAN_MISC_COALESCING_DISABLE;
-	}
-
-	req->req_id = MLAN_IOCTL_MISC_CFG;
-	pcoal->sub_command = MLAN_OID_MISC_COALESCING_STATUS;
-
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-	buf[0] = ((mlan_ds_misc_cfg *)req->pbuf)->param.coalescing_status;
-
-	if (copy_to_user(wrq->u.data.pointer, buf, wrq->u.data.length)) {
 		ret = -EFAULT;
 		goto done;
 	}
@@ -4167,172 +3996,6 @@ woal_get_esupp_mode(moal_private *priv, struct iwreq *wrq)
 		goto done;
 	}
 	wrq->u.data.length = 3;
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/** AES key length */
-#define AES_KEY_LEN 16
-/**
- *  @brief Adhoc AES control
- *
- *  @param priv     A pointer to moal_private structure
- *  @param wrq      A pointer to the iwreq structure
- *
- *  @return         0 --success, otherwise fail
- */
-static int
-woal_adhoc_aes_ioctl(moal_private *priv, struct iwreq *wrq)
-{
-	static char buf[256];
-	int ret = 0, action = -1;
-	unsigned int i;
-	t_u8 key_ascii[32];
-	t_u8 key_hex[16];
-	t_u8 *tmp = NULL;
-	mlan_bss_info bss_info;
-	mlan_ds_sec_cfg *sec = NULL;
-	mlan_ioctl_req *req = NULL;
-	t_u8 bcast_addr[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-	int data_length = wrq->u.data.length, copy_len;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-	ENTER();
-
-	memset(key_ascii, 0x00, sizeof(key_ascii));
-	memset(key_hex, 0x00, sizeof(key_hex));
-	memset(buf, 0x00, sizeof(buf));
-
-	/* Get current BSS information */
-	memset(&bss_info, 0, sizeof(bss_info));
-	woal_get_bss_info(priv, MOAL_IOCTL_WAIT, &bss_info);
-	if (bss_info.bss_mode != MLAN_BSS_MODE_IBSS ||
-	    bss_info.media_connected == MTRUE) {
-		PRINTM(MERROR, "STA is connected or not in IBSS mode.\n");
-		ret = -EOPNOTSUPP;
-		goto done;
-	}
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_sec_cfg));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	copy_len = data_length;
-
-	if (data_length > 0) {
-		if (data_length >= sizeof(buf)) {
-			PRINTM(MERROR, "Too many arguments\n");
-			ret = -EINVAL;
-			goto done;
-		}
-		if (copy_from_user(buf, wrq->u.data.pointer, copy_len)) {
-			PRINTM(MERROR, "Copy from user failed\n");
-			ret = -EFAULT;
-			goto done;
-		}
-
-		if (data_length == 1) {
-			/* Get Adhoc AES Key */
-			req->req_id = MLAN_IOCTL_SEC_CFG;
-			req->action = MLAN_ACT_GET;
-			sec = (mlan_ds_sec_cfg *)req->pbuf;
-			sec->sub_command = MLAN_OID_SEC_CFG_ENCRYPT_KEY;
-			sec->param.encrypt_key.key_len = AES_KEY_LEN;
-			sec->param.encrypt_key.key_index =
-				MLAN_KEY_INDEX_UNICAST;
-			status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-			if (status != MLAN_STATUS_SUCCESS) {
-				ret = -EFAULT;
-				goto done;
-			}
-
-			memcpy(key_hex, sec->param.encrypt_key.key_material,
-			       sizeof(key_hex));
-			HEXDUMP("Adhoc AES Key (HEX)", key_hex,
-				sizeof(key_hex));
-
-			wrq->u.data.length = sizeof(key_ascii) + 1;
-
-			tmp = key_ascii;
-			for (i = 0; i < sizeof(key_hex); i++)
-				tmp += sprintf((char *)tmp, "%02x", key_hex[i]);
-		} else if (data_length >= 2) {
-			/* Parse the buf to get the cmd_action */
-			action = woal_atox(buf);
-			if (action < 1 || action > 2) {
-				PRINTM(MERROR, "Invalid action argument %d\n",
-				       action);
-				ret = -EINVAL;
-				goto done;
-			}
-
-			req->req_id = MLAN_IOCTL_SEC_CFG;
-			req->action = MLAN_ACT_SET;
-			sec = (mlan_ds_sec_cfg *)req->pbuf;
-			sec->sub_command = MLAN_OID_SEC_CFG_ENCRYPT_KEY;
-
-			if (action == 1) {
-				/* Set Adhoc AES Key  */
-				memcpy(key_ascii, &buf[2], sizeof(key_ascii));
-				woal_ascii2hex(key_hex, (char *)key_ascii,
-					       sizeof(key_hex));
-				HEXDUMP("Adhoc AES Key (HEX)", key_hex,
-					sizeof(key_hex));
-
-				sec->param.encrypt_key.key_len = AES_KEY_LEN;
-				sec->param.encrypt_key.key_index =
-					MLAN_KEY_INDEX_UNICAST;
-				sec->param.encrypt_key.key_flags =
-					KEY_FLAG_SET_TX_KEY |
-					KEY_FLAG_GROUP_KEY;
-				memcpy(sec->param.encrypt_key.mac_addr,
-				       (u8 *)bcast_addr, ETH_ALEN);
-				memcpy(sec->param.encrypt_key.key_material,
-				       key_hex, sec->param.encrypt_key.key_len);
-
-				status = woal_request_ioctl(priv, req,
-							    MOAL_IOCTL_WAIT);
-				if (status != MLAN_STATUS_SUCCESS) {
-					ret = -EFAULT;
-					goto done;
-				}
-			} else {
-				/* Clear Adhoc AES Key */
-				sec->param.encrypt_key.key_len = AES_KEY_LEN;
-				sec->param.encrypt_key.key_index =
-					MLAN_KEY_INDEX_UNICAST;
-				sec->param.encrypt_key.key_flags =
-					KEY_FLAG_REMOVE_KEY;
-				memcpy(sec->param.encrypt_key.mac_addr,
-				       (u8 *)bcast_addr, ETH_ALEN);
-				memset(sec->param.encrypt_key.key_material, 0,
-				       sizeof(sec->param.encrypt_key.
-					      key_material));
-
-				status = woal_request_ioctl(priv, req,
-							    MOAL_IOCTL_WAIT);
-				if (status != MLAN_STATUS_SUCCESS) {
-					ret = -EFAULT;
-					goto done;
-				}
-			}
-		}
-
-		HEXDUMP("Adhoc AES Key (ASCII)", key_ascii, sizeof(key_ascii));
-		wrq->u.data.length = sizeof(key_ascii);
-		if (wrq->u.data.pointer) {
-			if (copy_to_user(wrq->u.data.pointer, &key_ascii,
-					 sizeof(key_ascii))) {
-				PRINTM(MERROR, "copy_to_user failed\n");
-				ret = -EFAULT;
-				goto done;
-			}
-		}
-	}
-
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
@@ -5571,7 +5234,6 @@ woal_set_get_ps_cfg(moal_private *priv, struct iwreq *wrq)
 
 	ENTER();
 
-	allowed++;		/* For ad-hoc awake period parameter */
 	allowed++;		/* For beacon missing timeout parameter */
 	allowed += 2;		/* For delay to PS and PS mode parameters */
 	copy_len = MIN(sizeof(data), sizeof(int) * data_length);
@@ -5619,15 +5281,6 @@ woal_set_get_ps_cfg(moal_private *priv, struct iwreq *wrq)
 			goto done;
 		}
 
-		if ((data[i] != SPECIAL_ADHOC_AWAKE_PD) &&
-		    ((data[i] < MIN_ADHOC_AWAKE_PD) ||
-		     (data[i] > MAX_ADHOC_AWAKE_PD))) {
-			PRINTM(MERROR,
-			       "Invalid argument for adhoc awake period\n");
-			ret = -EINVAL;
-			goto done;
-		}
-		i++;
 		if ((data[i] != DISABLE_BCN_MISS_TO) &&
 		    ((data[i] < MIN_BCN_MISS_TO) ||
 		     (data[i] > MAX_BCN_MISS_TO))) {
@@ -6879,9 +6532,6 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		case WOAL_PORT_CTRL:
 			ret = woal_port_ctrl(priv, wrq);
 			break;
-		case WOAL_COALESCING_STATUS:
-			ret = woal_coalescing_status_ioctl(priv, wrq);
-			break;
 #if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 		case WOAL_SET_GET_BSS_ROLE:
@@ -6916,9 +6566,6 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 #endif
 		case WOAL_BEACON_INTERVAL:
 			ret = woal_beacon_interval(priv, wrq);
-			break;
-		case WOAL_ATIM_WINDOW:
-			ret = woal_atim_window(priv, wrq);
 			break;
 		case WOAL_SIGNAL:
 			ret = woal_get_signal(priv, wrq);
@@ -7019,9 +6666,6 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		switch (wrq->u.data.flags) {
 		case WOAL_PASSPHRASE:
 			ret = woal_passphrase(priv, wrq);
-			break;
-		case WOAL_ADHOC_AES:
-			ret = woal_adhoc_aes_ioctl(priv, wrq);
 			break;
 		case WOAL_ASSOCIATE:
 			ret = woal_associate_ssid_bssid(priv, wrq);

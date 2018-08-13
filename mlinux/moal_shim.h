@@ -78,8 +78,13 @@ t_s32 moal_memcmp(IN t_void *pmoal_handle,
 		  IN const t_void *pmem1, IN const t_void *pmem2, IN t_u32 num);
 /** moal_udelay */
 t_void moal_udelay(IN t_void *pmoal_handle, IN t_u32 udelay);
+mlan_status moal_get_boot_ktime(IN t_void *pmoal_handle, OUT t_u64 *pnsec);
 mlan_status moal_get_system_time(IN t_void *pmoal_handle, OUT t_u32 *psec,
 				 OUT t_u32 *pusec);
+
+/** moal_usleep */
+mlan_status moal_usleep(IN t_void *pmoal_handle, IN t_u64 min, IN t_u64 max);
+
 mlan_status moal_init_lock(IN t_void *pmoal_handle, OUT t_void **pplock);
 mlan_status moal_free_lock(IN t_void *pmoal_handle, IN t_void *plock);
 mlan_status moal_spin_lock(IN t_void *pmoal_handle, IN t_void *plock);

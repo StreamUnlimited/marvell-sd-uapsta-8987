@@ -897,11 +897,11 @@ woal_debug_read(struct seq_file *sfp, void *data)
 	for (i = 0; i < mp_aggr_pkt_limit; i++)
 		seq_printf(sfp, "%d ", info.mpa_rx_count[i]);
 	seq_printf(sfp, "\n");
-#endif
 	seq_printf(sfp, "SDIO MP Update: ");
 	for (i = 0; i < (mp_aggr_pkt_limit * 2); i++)
 		seq_printf(sfp, "%d ", info.mp_update[i]);
 	seq_printf(sfp, "\n");
+#endif
 	seq_printf(sfp, "tcp_ack_drop_cnt=%d\n", priv->tcp_ack_drop_cnt);
 	seq_printf(sfp, "tcp_ack_cnt=%d\n", priv->tcp_ack_cnt);
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 29)

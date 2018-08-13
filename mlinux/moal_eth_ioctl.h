@@ -176,7 +176,6 @@ Change log:
 #define PRIV_CMD_PMFCFG         "pmfcfg"
 #endif
 #define PRIV_CMD_INACTIVITYTO   "inactivityto"
-#define PRIV_CMD_ATIM_WINDOW    "atimwindow"
 #define PRIV_CMD_AMSDU_AGGR_CTRL    "amsduaggrctrl"
 #define PRIV_CMD_TX_BF_CAP          "httxbfcap"
 #define PRIV_CMD_SDIO_CLOCK         "sdioclock"
@@ -192,12 +191,10 @@ Change log:
 #define PRIV_CMD_CWMODE             "cwmode"
 #define PRIV_CMD_ANT_CFG            "antcfg"
 #define PRIV_CMD_SYSCLOCK       "sysclock"
-#define PRIV_CMD_ADHOC_AES      "adhocaes"
 #define PRIV_CMD_ASSOCIATE      "associate"
 #define PRIV_CMD_TX_BF_CFG      "httxbfcfg"
 #define PRIV_CMD_PORT_CTRL      "port_ctrl"
 #define PRIV_CMD_PB_BYPASS      "pb_bypass"
-#define PRIV_CMD_COALESCE_STATUS    "coalesce_status"
 #define PRIV_CMD_FW_WAKEUP_METHOD   "fwwakeupmethod"
 #define PRIV_CMD_SD_CMD53_RW        "sdcmd53rw"
 #ifdef RX_PACKET_COALESCE

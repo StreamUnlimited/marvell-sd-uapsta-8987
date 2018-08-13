@@ -634,13 +634,13 @@ woal_proc_exit(moal_handle *handle)
 	PRINTM(MINFO, "Remove Proc Interface\n");
 	if (handle->proc_mwlan) {
 		char config_proc_dir[20];
+
 		if (handle->handle_idx)
 			sprintf(config_proc_dir, "config%d",
 				handle->handle_idx);
 		else
 			strcpy(config_proc_dir, "config");
 		remove_proc_entry(config_proc_dir, handle->proc_mwlan);
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
 		/* Remove only if we are the only instance using this */
 		if (atomic_read(&(handle->proc_mwlan->count)) > 1) {
@@ -662,7 +662,6 @@ woal_proc_exit(moal_handle *handle)
 		}
 #endif
 	}
-
 	LEAVE();
 }
 

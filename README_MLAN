@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.15.
+	The driver code supports Linux kernel up to 4.19.
 
 2) FOR DRIVER INSTALL
 
@@ -294,7 +294,6 @@ SYNOPSIS
 	mlanutl mlanX addbareject [<m0> <m1> ... <m7>]
 	mlanutl uapX addbareject [<m0> <m1> ... <m7>]
 	mlanutl mlanX addts <filename.conf> <section# of tspec> <timeout in ms>
-	mlanutl mlanX adhocaes
 	mlanutl mlanX aggrpriotbl [<m0> <n0> <m1> <n1> ... <m7> <n7>]
 	mlanutl uapX aggrpriotbl [<m0> <n0> <m1> <n1> ... <m7> <n7>]
 	mlanutl mlanX amsduaggrctrl <n>
@@ -303,12 +302,11 @@ SYNOPSIS
 	mlanutl mlanX assocessid <"[essid]">
 	mlanutl mlanX assocessid_bssid <"[bssid] [essid]">
 	mlanutl mlanX associate "<bssid> <ssid>"
-	mlanutl mlanX atimwindow [n]
 	mlanutl mlanX authtype [n]
 	mlanutl mlanX autotdls [n]
         mlanutl mlanX tdls_idle_time [n]
         mlanutl uapX dfs_offload [n]
-	mlanutl mlanX bandcfg [l] [m] [n] [o]
+	mlanutl mlanX bandcfg [l] [m] [n]
 	mlanutl mlanX bcninterval [n]
 	mlanutl wfdX bssrole [l]
 	mlanutl mlanX cfgdata <register type> [<conf file>]
@@ -425,7 +423,7 @@ SYNOPSIS
 	mlanutl mlanX regrdwr <type> <offset> [value]
 	mlanutl mlanX rejectaddbareq [conditions]
 	mlanutl uapX rejectaddbareq [conditions]
-	mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [ext]
+	mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext]
 	mlanutl mlanX sdcmd52rw <FN no.> <address> [data]
 	mlanutl mlanX sdcmd53rw <FN no.> <address> <mode> <blksize> <blknum> [data1] ... [dataN]
 	mlanutl mlanX sdioclock <n>
@@ -593,18 +591,6 @@ addts
 
 	Usage:
 		mlanutl mlanX addts <filename.conf> <section# of tspec> <timeout(ms)>
-
-adhocaes
-	This command is used to set/get the AES key, when the station is in ad-hoc mode.
-	Note: This command is only available in disconnected state.
-
-	where value can be any 16 byte value.
-
-	Examples:
-		mlanutl mlan0 adhocaes           : Get ad-hoc aes key
-		mlanutl mlan0 adhocaes "1;12345678901234567890123456789012"
-		                                : Set ad-hoc aes key
-		mlanutl mlan0 adhocaes 2         : Clear ad-hoc aes key
 
 aggrpriotbl
 	This command is used set/get the priority table for AMPDU/AMSDU traffic per tid.
@@ -777,17 +763,6 @@ associate
 
 	mlanutl mlanX associate "xx:xx:xx:xx:xx:xx SSID"
 
-atimwindow
-	This command is used to set/get the ATIM window value in the station.
-	The range of ATIM window is 0 - 50.
-	Value of atim window should be less than the beacon interval.
-	Note: This command should be issued before ad-hoc start/join and ad-hoc
-	power save on.
-
-	Examples:
-		mlanutl mlan0 atimwindow 20      : Set atimwindow to 20
-		mlanutl mlan0 atimwindow         : Get atimwindow
-
 authtype
 	This command is used to set/get authentication type.
 
@@ -797,6 +772,7 @@ authtype
 	where <n>
 		0: 802.11 open system authentication
 		1: 802.11 shared key authentication
+		3: 802.11 WPA3 SAE authentication
 		255: allow open system or shared key authentication (default)
 
 	Examples:
@@ -880,7 +856,7 @@ bandcfg
 	Note: This command is only available in disconnected state.
 
 	Usage:
-		mlanutl mlanX bandcfg [l] [m] [n] [o]
+		mlanutl mlanX bandcfg [l] [m] [n]
 
 	where the parameters:
 		[l]: Infrastructure band
@@ -896,24 +872,13 @@ bandcfg
 		     bit 0: B
 		     bit 1: G
 		     bit 2: A
-		     bit 3: GN
-		     bit 4: AN
-		     bit 5: AC 2.4G
-		     bit 6: AC 5G
 		[n]: Ad-hoc start channel
-		[o]: 0 - Bandwidth 20Mhz
-		     1 - HT Bandwidth 40Mhz above
-		     3 - HT Bandwidth 40Mhz below
-			 4 - VHT Bandwidth 80Mhz
 	Examples:
 		mlanutl mlan0 bandcfg            : Get infra/ad-hoc band and ad-hoc
 		                                  start channel configurations
 		mlanutl mlan0 bandcfg 1          : Set infra band to B only
 		mlanutl mlan0 bandcfg 3 2 6      : Set infra band to B/G, ad-hoc start band
 		                                  to G and ad-hoc start channel to 6
-		mlanutl mlan0 bandcfg 7 11 6 1   : Set infra band to B/G/A, ad-hoc start band
-		                                  to B/G/GN, ad-hoc start channel to 6 and
-		                                  secondary channel to above
 
 bcninterval
 	This command is used to set/get the beacon interval in ad-hoc mode.
@@ -2456,8 +2421,6 @@ pscfg
 		                                -1: Disable,
 		                              1-49: Value in beacon intervals,
 		                             >= 50: Value in TUs )
-		[a]: Ad-hoc awake period (0: Unchanged, 1-31: Beacon interval, 255: Firmware
-		                          will go to sleep after beacon send out)
 		[b]: Beacon miss timeout (0: Unchanged, 1-50: Value in milliseconds, 65535: Disable)
 		[p]: Delay to PS (0-65535: Value in milliseconds, default 1000ms)
 		[m]: PS mode (0: Unchanged, 1: Auto mode, 2: PS-Poll mode, 3: PS Null mode)
@@ -2468,11 +2431,8 @@ pscfg
 		mlanutl mlan0 pscfg 3 4          : Set PS keep alive null packet interval to 3 seconds
 		                                   and DTIM interval to 4, all the other configurations
 		                                   are unchanged
-		mlanutl mlan0 pscfg 0 0xfffe 10 0 20
-		                                : Disable DTIM interval, set local listen interval to
-		                                  10 beacon intervals and beacon miss interval to 20,
-		                                  all the other configurations are unchanged
-		mlanutl mlan0 pscfg 0 0 0 0 0 50 : Set delay to PS to 50 ms, keep the others unchanged
+		mlanutl mlan0 pscfg 0 0 0 0 50 2 : Set delay to PS to 50 ms and PS mode to PS-Poll mode,
+		                                   keep the others unchanged
 
 bcntimeoutcfg
 	This command is used to set Beacon timeout parameters.
@@ -2638,7 +2598,7 @@ scancfg
 	This command is used to set/get scan configuration parameters.
 
 	Usage:
-		mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [ext]
+		mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext]
 
 	where the parameters:
 		[t]: Scan Type (0: Unchanged, 1: Active, 2: Passive, default Active)
@@ -2647,7 +2607,8 @@ scancfg
 		[s]: Specific Scan Time (0: Unchanged, n: Value in ms, default 110 ms, max 500 ms)
 		[a]: Active Scan Time (0: Unchanged, n: Value in ms, default 200 ms, max 500 ms)
 		[b]: Passive Scan Time (0: Unchanged, n: Value in ms, default 200 ms, max 2000 ms)
-		[ext]: Extended scan (0: Legacy scan, 1: Extended scan, 2: Extended scan enhance)
+		[c]: Passive to Active Scan (0: Unchanged, 1: Enable, 2: Disable, default Enable)
+		[ext]: Extended scan (0: Unchanged, 1: Legacy scan, 2: Extended scan, 3: Extended scan enhance)
 	No change if the parameter is 0 or the parameter is not provided.
 
 	Examples:
@@ -2657,6 +2618,11 @@ scancfg
 		mlanutl mlan0 scancfg 0 1 2 200  : Set scan mode to BSS, number of probes to 2 and
 		                                   specific scan time to 200 ms, all the other scan
 		                                   configurations are unchanged
+		mlanutl mlan0 scancfg 0 0 0 0 0 0 1  : Set Passive to Active Scan to enable, all the
+ 		                                       other scan configurations are unchanged
+		mlanutl mlan0 scancfg 2 0 0 0 0 0 2  : Set scan type to passive, Passive to Active
+  		                                       Scan to disable, all the other scan configurations
+  		                                       are unchanged
 
 sdcmd52rw
 	This command is used to read/write a controller register in
