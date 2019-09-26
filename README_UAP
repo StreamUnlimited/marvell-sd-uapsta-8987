@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2009-2018, Marvell International Ltd.
+ Copyright (C) 2009-2019, Marvell International Ltd.
  All Rights Reserved
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src.
 		make [clean] build
 	The driver binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.19.
+	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
 
 2) FOR DRIVER INSTALL
 
@@ -1055,7 +1055,6 @@ sys_cfg_auth
     The supported options are:
         AUTHMODE :     0 - Open authentication
                        1 - Shared key authentication
-                       3 - WPA3 SAE
                        255 - Auto (Open and Shared key) authentication
     empty - Get current authentication mode
 
@@ -1079,7 +1078,6 @@ sys_cfg_protocol
 			8		  WPA
 			32		  WPA2
 			40		 WPA, WPA2 Mixed Mode
-			64		 WPA3 SAE
     empty - Get current encryption protocol
 
     AKM_SUITE:

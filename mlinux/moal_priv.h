@@ -3,7 +3,7 @@
  *
  * @brief This file contains definition for extended private IOCTL call.
  *
- * Copyright (C) 2008-2018, Marvell International Ltd.
+ * Copyright (C) 2008-2019, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -204,7 +204,7 @@ Change log:
 #define WOAL_TX_BF_CFG              8
 
 /** Get log buffer size */
-#define GETLOG_BUFSIZE              512
+#define GETLOG_BUFSIZE              1500
 
 /** Private command ID to set none/get twelve chars*/
 #define WOAL_SETNONE_GETTWELVE_CHAR (WOAL_IOCTL + 11)

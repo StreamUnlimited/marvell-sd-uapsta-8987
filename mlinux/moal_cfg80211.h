@@ -2,7 +2,7 @@
   *
   * @brief This file contains the CFG80211 specific defines.
   *
-  * Copyright (C) 2011-2018, Marvell International Ltd.
+  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -60,6 +60,7 @@
 #define IE_MASK_P2P						0x0002
 #define IE_MASK_WFD						0x0004
 #define IE_MASK_VENDOR					0x0008
+#define IE_MASK_EXTCAP                  0x0010
 
 #define MRVL_PKT_TYPE_MGMT_FRAME 0xE5
 
@@ -340,7 +341,7 @@ int woal_cfg80211_remain_on_channel_cfg(moal_private *priv,
 					t_u8 wait_option, t_u8 remove,
 					t_u8 *status,
 					struct ieee80211_channel *chan,
-					enum nl80211_channel_type channel_type,
+					enum mlan_channel_type channel_type,
 					t_u32 duration);
 
 #ifdef UAP_CFG80211

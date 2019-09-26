@@ -2,7 +2,7 @@
   *
   * @brief This file contains the functions for CFG80211.
   *
-  * Copyright (C) 2011-2018, Marvell International Ltd.
+  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -331,6 +331,9 @@ woal_cfg80211_set_key(moal_private *priv, t_u8 is_enable_wep,
 		    cipher != WLAN_CIPHER_SUITE_TKIP &&
 		    cipher != WLAN_CIPHER_SUITE_SMS4 &&
 		    cipher != WLAN_CIPHER_SUITE_AES_CMAC &&
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+		    cipher != WLAN_CIPHER_SUITE_CCMP_256 &&
+#endif
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 		    cipher != WLAN_CIPHER_SUITE_GCMP &&
 #endif
@@ -386,6 +389,10 @@ woal_cfg80211_set_key(moal_private *priv, t_u8 is_enable_wep,
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
 		else if (cipher == WLAN_CIPHER_SUITE_GCMP_256)
 			sec->param.encrypt_key.key_flags |= KEY_FLAG_GCMP_256;
+#endif
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+		else if (cipher == WLAN_CIPHER_SUITE_CCMP_256)
+			sec->param.encrypt_key.key_flags |= KEY_FLAG_CCMP_256;
 #endif
 
 		if (cipher == WLAN_CIPHER_SUITE_AES_CMAC
@@ -543,7 +550,7 @@ woal_cfg80211_bss_role_cfg(moal_private *priv, t_u16 action, t_u8 *bss_role)
 
 	if (action == MLAN_ACT_SET) {
 		/* set back the mac address */
-		woal_request_set_mac_address(priv);
+		woal_request_set_mac_address(priv, MOAL_IOCTL_WAIT);
 		/* clear the mgmt ies */
 		woal_clear_all_mgmt_ies(priv, MOAL_IOCTL_WAIT);
 		/* Initialize private structures */
@@ -1331,8 +1338,7 @@ woal_cfg80211_del_key(struct wiphy *wiphy, struct net_device *netdev,
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(netdev);
 
 	ENTER();
-	priv->phandle->driver_state = woal_check_driver_status(priv->phandle);
-	if (priv->phandle->driver_state) {
+	if (priv->phandle->driver_status) {
 		PRINTM(MERROR,
 		       "Block woal_cfg80211_del_key in abnormal driver state\n");
 		LEAVE();
@@ -2259,6 +2265,29 @@ woal_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 		return;
 	}
 #endif
+	if (frame_type == IEEE80211_STYPE_PROBE_REQ
+#ifdef WIFI_DIRECT_SUPPORT
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
+	    /* FW will handle the probereq, no need forward to host */
+	    && (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT)
+#endif
+#endif
+		) {
+		LEAVE();
+		return;
+	}
+
+	if (frame_type == IEEE80211_STYPE_AUTH
+#ifdef UAP_CFG80211
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+	    /** FW will handle auth when host_mlme=0 */
+	    && !host_mlme
+#endif
+#endif
+		) {
+		LEAVE();
+		return;
+	}
 	if (reg == MTRUE) {
 		/* set mgmt_subtype_mask based on origin value */
 		mgmt_subtype_mask =
@@ -2269,8 +2298,9 @@ woal_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 			last_mgmt_subtype_mask & ~BIT(frame_type >> 4);
 	}
 	PRINTM(MIOCTL,
-	       "%s: mgmt_subtype_mask=0x%x last_mgmt_subtype_mask=0x%x\n",
-	       dev->name, mgmt_subtype_mask, last_mgmt_subtype_mask);
+	       "%s: frame_type=0x%x mgmt_subtype_mask=0x%x last_mgmt_subtype_mask=0x%x\n",
+	       dev->name, frame_type, mgmt_subtype_mask,
+	       last_mgmt_subtype_mask);
 	if (mgmt_subtype_mask != last_mgmt_subtype_mask) {
 
 		last_mgmt_subtype_mask = mgmt_subtype_mask;
@@ -2738,9 +2768,9 @@ done:
  * @param probereq_index        The index for probe req when auto index
  * @param wait_option           wait option
  *
- * @return              0 -- success, otherwise fail
+ * @return              MLAN_STATUS_SUCCESS-- success, otherwise fail
  */
-static int
+static mlan_status
 woal_cfg80211_custom_ie(moal_private *priv,
 			custom_ie *beacon_ies_data, t_u16 *beacon_index,
 			custom_ie *proberesp_ies_data, t_u16 *proberesp_index,
@@ -2753,14 +2783,14 @@ woal_cfg80211_custom_ie(moal_private *priv,
 	mlan_ds_misc_custom_ie *custom_ie = NULL;
 	t_u8 *pos = NULL;
 	t_u16 len = 0;
-	int ret = 0;
 	mlan_status status = MLAN_STATUS_SUCCESS;
 
 	ENTER();
 
 	custom_ie = kzalloc(sizeof(mlan_ds_misc_custom_ie), GFP_KERNEL);
 	if (!custom_ie) {
-		ret = -ENOMEM;
+		PRINTM(MERROR, "Fail to allocate custome_ie\n");
+		status = MLAN_STATUS_FAILURE;
 		goto done;
 	}
 
@@ -2800,7 +2830,8 @@ woal_cfg80211_custom_ie(moal_private *priv,
 	}
 	ioctl_req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
 	if (ioctl_req == NULL) {
-		ret = -ENOMEM;
+		PRINTM(MERROR, "Fail to allocate ioctl_req\n");
+		status = MLAN_STATUS_FAILURE;
 		goto done;
 	}
 
@@ -2813,7 +2844,6 @@ woal_cfg80211_custom_ie(moal_private *priv,
 
 	status = woal_request_ioctl(priv, ioctl_req, wait_option);
 	if (MLAN_STATUS_SUCCESS != status) {
-		ret = -EFAULT;
 		goto done;
 	}
 
@@ -2853,16 +2883,16 @@ woal_cfg80211_custom_ie(moal_private *priv,
 			+ probereq_ies_data->ie_length;
 		pos += len;
 	}
-
+	//TODO why we check status_code at end
 	if (ioctl_req->status_code == MLAN_ERROR_IOCTL_FAIL)
-		ret = -EFAULT;
+		status = MLAN_STATUS_FAILURE;
 
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(ioctl_req);
 	kfree(custom_ie);
 	LEAVE();
-	return ret;
+	return status;
 }
 
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3,14,0)
@@ -2919,15 +2949,22 @@ woal_cfg80211_set_qos_map(struct wiphy *wiphy,
 		IEEEtypes_Generic_t qos_map_ie;
 		t_u16 qos_map_ies_len;
 
-		memcpy(qos_map_ie.data, (t_u8 *)qos_map->dscp_exception,
-		       2 * qos_map->num_des);
-		memcpy(&qos_map_ie.data[2 * qos_map->num_des],
-		       (t_u8 *)qos_map->up, sizeof(qos_map->up));
 		qos_map_ie.ieee_hdr.element_id = QOS_MAPPING;
 		qos_map_ie.ieee_hdr.len =
 			2 * qos_map->num_des + sizeof(qos_map->up);
 		qos_map_ies_len =
 			qos_map_ie.ieee_hdr.len + sizeof(qos_map_ie.ieee_hdr);
+
+		if (qos_map_ies_len > sizeof(qos_map_ie.data)) {
+			PRINTM(MERROR,
+			       "QoS MAP IE size exceeds the buffer len\n");
+			goto done;
+		}
+
+		memcpy(qos_map_ie.data, (t_u8 *)qos_map->dscp_exception,
+		       2 * qos_map->num_des);
+		memcpy(&qos_map_ie.data[2 * qos_map->num_des],
+		       (t_u8 *)qos_map->up, sizeof(qos_map->up));
 
 		/* set the assoc response ies */
 		ret = woal_cfg80211_mgmt_frame_ie(priv,
@@ -3004,9 +3041,16 @@ woal_get_specific_ie(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 mask)
 				   pvendor_ie->vend_hdr.oui_type ==
 				   wps_oui[3]) {
 				if (mask & IE_MASK_WPS) {
-					memcpy(ie_out + out_len, pos,
-					       length + 2);
-					out_len += length + 2;
+					if ((out_len + length + 2) <
+					    MAX_IE_SIZE) {
+						memcpy(ie_out + out_len, pos,
+						       length + 2);
+						out_len += length + 2;
+					} else {
+						PRINTM(MERROR,
+						       "get_specific_ie: IE too big, fail copy WPS IE\n");
+						break;
+					}
 				}
 			} else if (!memcmp
 				   (pvendor_ie->vend_hdr.oui, wfd_oui,
@@ -3014,13 +3058,27 @@ woal_get_specific_ie(const t_u8 *ie, int len, t_u8 *ie_out, t_u16 mask)
 				   pvendor_ie->vend_hdr.oui_type ==
 				   wfd_oui[3]) {
 				if (mask & IE_MASK_WFD) {
+					if ((out_len + length + 2) <
+					    MAX_IE_SIZE) {
+						memcpy(ie_out + out_len, pos,
+						       length + 2);
+						out_len += length + 2;
+					} else {
+						PRINTM(MERROR,
+						       "get_specific_ie: IE too big, fail copy WFD IE\n");
+						break;
+					}
+				}
+			} else if (mask & IE_MASK_VENDOR) {
+				if ((out_len + length + 2) < MAX_IE_SIZE) {
 					memcpy(ie_out + out_len, pos,
 					       length + 2);
 					out_len += length + 2;
+				} else {
+					PRINTM(MERROR,
+					       "get_specific_ie:IE too big, fail copy VENDOR IE\n");
+					break;
 				}
-			} else if (mask & IE_MASK_VENDOR) {
-				memcpy(ie_out + out_len, pos, length + 2);
-				out_len += length + 2;
 			}
 		}
 		pos += (length + 2);
@@ -3094,6 +3152,7 @@ woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
 	const t_u8 wmm_oui[4] = { 0x00, 0x50, 0xf2, 0x02 };
 	t_u8 find_p2p_ie = MFALSE;
 	t_u8 enable_11d = MFALSE;
+	int ie_len;
 
 	/* ERP_INFO/EXTENDED_SUPPORT_RATES/HT_CAPABILITY/HT_OPERATION/WMM
 	 * and WPS/P2P/WFD IE will be fileter out */
@@ -3112,8 +3171,13 @@ woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
 		switch (id) {
 		case COUNTRY_INFO:
 			enable_11d = MTRUE;
-			memcpy(ie_out + out_len, pos, length + 2);
-			out_len += length + 2;
+			if ((out_len + length + 2) < MAX_IE_SIZE) {
+				memcpy(ie_out + out_len, pos, length + 2);
+				out_len += length + 2;
+			} else {
+				PRINTM(MERROR,
+				       "IE too big, fail copy COUNTRY INFO IE\n");
+			}
 			break;
 		case EXTENDED_SUPPORTED_RATES:
 		case WLAN_EID_ERP_INFO:
@@ -3124,6 +3188,23 @@ woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
 		case REGULATORY_CLASS:
 		case OVERLAPBSSSCANPARAM:
 		case WAPI_IE:
+			break;
+		case EXT_CAPABILITY:
+			/* filter out EXTCAP */
+			if (wps_flag & IE_MASK_EXTCAP) {
+				ie_len = length + 2;
+				woal_set_get_gen_ie(priv, MLAN_ACT_SET,
+						    (t_u8 *)pos, &ie_len,
+						    MOAL_IOCTL_WAIT);
+				break;
+			}
+			if ((out_len + length + 2) < MAX_IE_SIZE) {
+				memcpy(ie_out + out_len, pos, length + 2);
+				out_len += length + 2;
+			} else {
+				PRINTM(MERROR,
+				       "IE too big, fail copy EXTCAP IE\n");
+			}
 			break;
 		case VENDOR_SPECIFIC_221:
 			/* filter out wmm ie */
@@ -3163,12 +3244,22 @@ woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
 				//filter out vendor IE
 				break;
 			}
-			memcpy(ie_out + out_len, pos, length + 2);
-			out_len += length + 2;
+			if ((out_len + length + 2) < MAX_IE_SIZE) {
+				memcpy(ie_out + out_len, pos, length + 2);
+				out_len += length + 2;
+			} else {
+				PRINTM(MERROR,
+				       "IE too big, fail copy VENDOR_SPECIFIC_221 IE\n");
+			}
 			break;
 		default:
-			memcpy(ie_out + out_len, pos, length + 2);
-			out_len += length + 2;
+			if ((out_len + length + 2) < MAX_IE_SIZE) {
+				memcpy(ie_out + out_len, pos, length + 2);
+				out_len += length + 2;
+			} else {
+				PRINTM(MERROR, "IE too big, fail copy %d IE\n",
+				       id);
+			}
 			break;
 		}
 		pos += (length + 2);
@@ -3352,7 +3443,7 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 		if ((beacon_ies && beacon_ies_len && beacon_ies_data->ie_length)
 		    || (beacon_ies_data->mgmt_subtype_mask ==
 			MLAN_CUSTOM_IE_DELETE_MASK)) {
-			if (MLAN_STATUS_SUCCESS !=
+			if (MLAN_STATUS_FAILURE ==
 			    woal_cfg80211_custom_ie(priv, beacon_ies_data,
 						    &beacon_wps_index,
 						    proberesp_ies_data,
@@ -3370,6 +3461,8 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			       beacon_wps_index, beacon_ies_data->ie_length);
 			goto done;
 		}
+		kfree(beacon_ies_data);	// Further allocation of beacon_ies_data is happening, so need to free here.
+		beacon_ies_data = NULL;
 	}
 	if (mask & MGMT_MASK_ASSOC_RESP_QOS_MAP) {
 		assocresp_ies_data = kzalloc(sizeof(custom_ie), GFP_KERNEL);
@@ -3386,6 +3479,12 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			    assocrep_qos_map_index)
 				assocresp_ies_data->mgmt_subtype_mask |=
 					MLAN_CUSTOM_IE_NEW_MASK;
+			if (assocresp_ies_len > MAX_IE_SIZE) {
+				PRINTM(MERROR,
+				       "IE too big: assocresp_ies_len=%d\n",
+				       (int)assocresp_ies_len);
+				goto done;
+			}
 			assocresp_ies_data->ie_length = assocresp_ies_len;
 			pos = assocresp_ies_data->ie_buffer;
 			memcpy(pos, assocresp_ies, assocresp_ies_len);
@@ -3406,7 +3505,7 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			assocresp_ies_data->ie_length = 0;
 			assocrep_qos_map_index = MLAN_CUSTOM_IE_AUTO_IDX_MASK;
 		}
-		if (MLAN_STATUS_SUCCESS !=
+		if (MLAN_STATUS_FAILURE ==
 		    woal_cfg80211_custom_ie(priv, NULL, &beacon_wps_index,
 					    NULL, &proberesp_index,
 					    assocresp_ies_data,
@@ -3494,7 +3593,7 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 		if ((beacon_ies && beacon_ies_len && beacon_ies_data->ie_length)
 		    || (beacon_ies_data->mgmt_subtype_mask ==
 			MLAN_CUSTOM_IE_DELETE_MASK)) {
-			if (MLAN_STATUS_SUCCESS !=
+			if (MLAN_STATUS_FAILURE ==
 			    woal_cfg80211_custom_ie(priv, beacon_ies_data,
 						    &beacon_vendor_index, NULL,
 						    &proberesp_index, NULL,
@@ -3582,7 +3681,7 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 		     proberesp_ies_data->ie_length) ||
 		    (proberesp_ies_data->mgmt_subtype_mask ==
 		     MLAN_CUSTOM_IE_DELETE_MASK)) {
-			if (MLAN_STATUS_SUCCESS !=
+			if (MLAN_STATUS_FAILURE ==
 			    woal_cfg80211_custom_ie(priv, NULL, &beacon_index,
 						    proberesp_ies_data,
 						    &proberesp_p2p_index, NULL,
@@ -3646,6 +3745,12 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			if (MLAN_CUSTOM_IE_AUTO_IDX_MASK == assocresp_index)
 				assocresp_ies_data->mgmt_subtype_mask |=
 					MLAN_CUSTOM_IE_NEW_MASK;
+			if (assocresp_ies_len > MAX_IE_SIZE) {
+				PRINTM(MERROR,
+				       "IE too big, assocresp_ies_len=%d\n",
+				       (int)assocresp_ies_len);
+				goto done;
+			}
 			assocresp_ies_data->ie_length = assocresp_ies_len;
 			pos = assocresp_ies_data->ie_buffer;
 			memcpy(pos, assocresp_ies, assocresp_ies_len);
@@ -3677,7 +3782,7 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 #if defined(WIFI_DIRECT_SUPPORT)
 #if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
 			if (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT) {
-				/* filter out P2P/WFD ie */
+				/* filter out P2P/WFD ie/EXT_CAP ie */
 				probereq_ies_data->ie_length =
 					woal_filter_beacon_ies(priv,
 							       probereq_ies,
@@ -3685,11 +3790,18 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 							       probereq_ies_data->
 							       ie_buffer,
 							       IE_MASK_P2P |
-							       IE_MASK_WFD,
+							       IE_MASK_WFD |
+							       IE_MASK_EXTCAP,
 							       NULL, 0);
 			} else {
 #endif /* KERNEL_VERSION */
 #endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
+				if (probereq_ies_len > MAX_IE_SIZE) {
+					PRINTM(MERROR,
+					       "IE too big, probereq_ies_len=%d\n",
+					       (int)probereq_ies_len);
+					goto done;
+				}
 				probereq_ies_data->ie_length = probereq_ies_len;
 				pos = probereq_ies_data->ie_buffer;
 				memcpy(pos, probereq_ies, probereq_ies_len);
@@ -3723,7 +3835,7 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 
 	if (beacon_ies_data || proberesp_ies_data || assocresp_ies_data ||
 	    probereq_ies_data) {
-		if (MLAN_STATUS_SUCCESS !=
+		if (MLAN_STATUS_FAILURE ==
 		    woal_cfg80211_custom_ie(priv, beacon_ies_data,
 					    &beacon_index, proberesp_ies_data,
 					    &proberesp_index,

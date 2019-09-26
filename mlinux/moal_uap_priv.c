@@ -2,7 +2,7 @@
   *
   * @brief This file contains standard ioctl functions
   *
-  * Copyright (C) 2010-2018, Marvell International Ltd.
+  * Copyright (C) 2010-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -120,20 +120,20 @@ woal_uap_do_priv_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 			break;
 		}
 		break;
-#if defined(WIFI_DIRECT_SUPPORT)
-#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 	case WOAL_UAP_SETONEINT_GETONEINT:
 		switch (wrq->u.data.flags) {
+#if defined(WIFI_DIRECT_SUPPORT)
+#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 		case WOAL_UAP_SET_GET_BSS_ROLE:
 			ret = woal_set_get_bss_role(priv, wrq);
 			break;
+#endif
+#endif
 		default:
 			ret = -EINVAL;
 			break;
 		}
 		break;
-#endif
-#endif
 	case WOAL_UAP_HOST_CMD:
 		ret = woal_host_command(priv, wrq);
 		break;

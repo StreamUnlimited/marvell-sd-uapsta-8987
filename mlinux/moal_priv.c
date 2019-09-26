@@ -2,7 +2,7 @@
   *
   * @brief This file contains standard ioctl functions
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -2205,7 +2205,7 @@ woal_get_log(moal_private *priv, struct iwreq *wrq)
 				stats.ampdu_delimiter_crc_error_cnt);
 
 		}
-		wrq->u.data.length = strlen(buf) + 1;
+		wrq->u.data.length = MIN(GETLOG_BUFSIZE - 1, strlen(buf) + 1);
 		if (copy_to_user(wrq->u.data.pointer, buf, wrq->u.data.length)) {
 			PRINTM(MERROR, "Copy to user failed\n");
 			ret = -EFAULT;
@@ -2427,7 +2427,7 @@ woal_tx_power_cfg(moal_private *priv, struct iwreq *wrq)
 		power_ext_len = 0;
 		ptr = power_data;
 		while ((i < pcfg->param.power_ext.num_pwr_grp) &&
-		       (power_ext_len < MAX_POWER_TABLE_SIZE)) {
+		       ((power_ext_len + 5) < MAX_POWER_TABLE_SIZE)) {
 			pwr_grp = &pcfg->param.power_ext.power_group[i];
 			if (pwr_grp->rate_format == MLAN_RATE_FORMAT_HT) {
 				if (pwr_grp->bandwidth == MLAN_HT_BW20) {
@@ -3200,9 +3200,11 @@ woal_sleep_params_ioctl(moal_private *priv, struct iwreq *wrq)
 	int data[6] = { 0 }, i, copy_len;
 	int data_length = wrq->u.data.length;
 #ifdef DEBUG_LEVEL1
-	char err_str[][35] = { {"sleep clock error in ppm"},
+	char err_str[][36] = { {"sleep clock error in ppm"},
 	{"wakeup offset in usec"},
 	{"clock stabilization time in usec"},
+	{"control periodic calibration(0-2)"},
+	{"control of external sleepClock(0-2)"},
 	{"value of reserved for debug"}
 	};
 #endif
@@ -3228,8 +3230,8 @@ woal_sleep_params_ioctl(moal_private *priv, struct iwreq *wrq)
 		if (copy_from_user(data, wrq->u.data.pointer, copy_len)) {
 			/* copy_from_user failed  */
 			PRINTM(MERROR, "S_PARAMS: copy from user failed\n");
-			LEAVE();
-			return -EINVAL;
+			ret = -EINVAL;
+			goto done;
 		}
 #define MIN_VAL 0x0000
 #define MAX_VAL 0xFFFF
@@ -4774,8 +4776,8 @@ woal_set_user_scan_ioctl(moal_private *priv, struct iwreq *wrq)
 	if (copy_from_user(scan->param.user_scan.scan_cfg_buf,
 			   wrq->u.data.pointer, wrq->u.data.length)) {
 		PRINTM(MINFO, "Copy from user failed\n");
-		LEAVE();
-		return -EFAULT;
+		ret = -EFAULT;
+		goto done;
 	}
 
 	/* Send IOCTL request to MLAN */
@@ -4784,11 +4786,11 @@ woal_set_user_scan_ioctl(moal_private *priv, struct iwreq *wrq)
 		memset(&wrqu, 0, sizeof(union iwreq_data));
 		wireless_send_event(priv->netdev, SIOCGIWSCAN, &wrqu, NULL);
 	}
+
+done:
 	handle->scan_pending_on_block = MFALSE;
 	handle->scan_priv = NULL;
 	MOAL_REL_SEMAPHORE(&handle->async_sem);
-
-done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
 	LEAVE();
@@ -5130,14 +5132,15 @@ static int
 woal_set_get_scan_cfg(moal_private *priv, struct iwreq *wrq)
 {
 	int ret = 0;
-	int arg_len = 7;
-	int data[arg_len], copy_len;
+	int data[7], copy_len;
 	mlan_ds_scan *scan = NULL;
 	mlan_ioctl_req *req = NULL;
 	int data_length = wrq->u.data.length;
 	mlan_status status = MLAN_STATUS_SUCCESS;
+	int arg_len = 0;
 
 	ENTER();
+	arg_len = 7;
 	copy_len = MIN(sizeof(data), sizeof(int) * data_length);
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_scan));
 	if (req == NULL) {
@@ -5204,7 +5207,7 @@ woal_set_get_scan_cfg(moal_private *priv, struct iwreq *wrq)
 			ret = -EFAULT;
 			goto done;
 		}
-		wrq->u.data.length = ARRAY_SIZE(data);
+		wrq->u.data.length = arg_len;
 	}
 done:
 	if (status != MLAN_STATUS_PENDING)

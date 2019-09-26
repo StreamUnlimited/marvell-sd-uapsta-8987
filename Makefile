@@ -1,6 +1,6 @@
 # File: Makefile
 #
-# Copyright (C) 2008-2018, Marvell International Ltd.
+# Copyright (C) 2008-2019, Marvell International Ltd.
 #
 # This software file (the "File") is distributed by Marvell International
 # Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -84,6 +84,8 @@ ifeq ($(CONFIG_DRV_EMBEDDED_AUTHENTICATOR), y)
 CONFIG_EMBEDDED_SUPP_AUTH=y
 endif
 endif
+
+CONFIG_SDIO_OOB_IRQ=n
 
 # Enable SDIO multi-port Tx aggregation
 CONFIG_SDIO_MULTI_PORT_TX_AGGR=y
@@ -355,6 +357,9 @@ endif
 
 
 
+ifeq ($(CONFIG_SDIO_OOB_IRQ), y)
+    ccflags-y += -DSDIO_OOB_IRQ
+endif
 
 MOALOBJS =	mlinux/moal_main.o \
 		mlinux/moal_ioctl.o \

@@ -3,7 +3,7 @@
  *  @brief This file contains SDIO MMC IF (interface) module
  *  related functions.
  *
- * Copyright (C) 2008-2018, Marvell International Ltd.
+ * Copyright (C) 2008-2019, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -111,6 +111,14 @@ static struct sdio_driver REFDATA wlan_sdio = {
 #endif
 #endif
 };
+
+#ifdef SDIO_OOB_IRQ
+extern int mrvl_sdio_claim_irq(struct sdio_func *func,
+			       sdio_irq_handler_t * handler);
+extern int mrvl_sdio_release_irq(struct sdio_func *func);
+extern int mrvl_sdio_suspend(struct sdio_func *func);
+extern int mrvl_sdio_resume(struct sdio_func *func);
+#endif
 
 /********************************************************
 		Local Functions
@@ -402,7 +410,7 @@ woal_sdio_suspend(struct device *dev)
 	pm_flags = sdio_get_host_pm_caps(func);
 	PRINTM(MCMND, "%s: suspend: PM flags = 0x%x\n", sdio_func_id(func),
 	       pm_flags);
-	if (!(pm_flags & MMC_PM_KEEP_POWER)) {
+	if (pm_keep_power && !(pm_flags & MMC_PM_KEEP_POWER)) {
 		PRINTM(MERROR,
 		       "%s: cannot remain alive while host is suspended\n",
 		       sdio_func_id(func));
@@ -490,6 +498,11 @@ woal_sdio_suspend(struct device *dev)
 
 	/* Indicate device suspended */
 	handle->is_suspended = MTRUE;
+
+#ifdef SDIO_OOB_IRQ
+	mrvl_sdio_suspend(func);
+#endif
+
 done:
 	PRINTM(MCMND, "<--- Leave woal_sdio_suspend --->\n");
 	LEAVE();
@@ -529,6 +542,9 @@ woal_sdio_resume(struct device *dev)
 		return MLAN_STATUS_SUCCESS;
 	}
 	handle->is_suspended = MFALSE;
+#ifdef SDIO_OOB_IRQ
+	mrvl_sdio_resume(func);
+#endif
 	if (woal_check_driver_status(handle)) {
 		PRINTM(MERROR, "Resuem, device is in hang state\n");
 		LEAVE();
@@ -589,6 +605,84 @@ woal_read_reg(moal_handle *handle, t_u32 reg, t_u32 *data)
 #endif
 	val = sdio_readb(((struct sdio_mmc_card *)handle->card)->func, reg,
 			 (int *)&ret);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+	sdio_release_host(((struct sdio_mmc_card *)handle->card)->func);
+#endif
+	*data = val;
+
+	return ret;
+}
+
+/**
+ *  @brief This function writes data into card register
+ *
+ *  @param handle   A Pointer to the moal_handle structure
+ *  @param reg      Register offset
+ *  @param data     Value
+ *
+ *  @return         MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+woal_sdio_writeb(moal_handle *handle, t_u32 reg, t_u8 data)
+{
+	mlan_status ret = MLAN_STATUS_FAILURE;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+	sdio_claim_host(((struct sdio_mmc_card *)handle->card)->func);
+#endif
+	sdio_writeb(((struct sdio_mmc_card *)handle->card)->func, (t_u8)data,
+		    reg, (int *)&ret);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+	sdio_release_host(((struct sdio_mmc_card *)handle->card)->func);
+#endif
+	return ret;
+}
+
+/**
+ *  @brief This function reads data from card register
+ *
+ *  @param handle   A Pointer to the moal_handle structure
+ *  @param reg      Register offset
+ *  @param data     Value
+ *
+ *  @return         MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+woal_sdio_readb(moal_handle *handle, t_u32 reg, t_u8 *data)
+{
+	mlan_status ret = MLAN_STATUS_FAILURE;
+	t_u8 val;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+	sdio_claim_host(((struct sdio_mmc_card *)handle->card)->func);
+#endif
+	val = sdio_readb(((struct sdio_mmc_card *)handle->card)->func, reg,
+			 (int *)&ret);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+	sdio_release_host(((struct sdio_mmc_card *)handle->card)->func);
+#endif
+	*data = val;
+
+	return ret;
+}
+
+/**
+ *  @brief This function reads data from card register FN0
+ *
+ *  @param handle   A Pointer to the moal_handle structure
+ *  @param reg      Register offset
+ *  @param data     Value
+ *
+ *  @return         MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+woal_sdio_f0_readb(moal_handle *handle, t_u32 reg, t_u8 *data)
+{
+	mlan_status ret = MLAN_STATUS_FAILURE;
+	t_u8 val;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+	sdio_claim_host(((struct sdio_mmc_card *)handle->card)->func);
+#endif
+	val = sdio_f0_readb(((struct sdio_mmc_card *)handle->card)->func, reg,
+			    (int *)&ret);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
 	sdio_release_host(((struct sdio_mmc_card *)handle->card)->func);
 #endif
@@ -852,8 +946,14 @@ woal_unregister_dev(moal_handle *handle)
 	ENTER();
 	if (handle->card) {
 		/* Release the SDIO IRQ */
+
 		sdio_claim_host(((struct sdio_mmc_card *)handle->card)->func);
+#ifdef SDIO_OOB_IRQ
+		mrvl_sdio_release_irq(((struct sdio_mmc_card *)handle->card)->
+				      func);
+#else
 		sdio_release_irq(((struct sdio_mmc_card *)handle->card)->func);
+#endif
 		sdio_disable_func(((struct sdio_mmc_card *)handle->card)->func);
 		sdio_release_host(((struct sdio_mmc_card *)handle->card)->func);
 
@@ -888,7 +988,11 @@ woal_register_dev(moal_handle *handle)
 	func = card->func;
 	sdio_claim_host(func);
 	/* Request the SDIO IRQ */
+#ifdef SDIO_OOB_IRQ
+	ret = mrvl_sdio_claim_irq(func, woal_sdio_interrupt);
+#else
 	ret = sdio_claim_irq(func, woal_sdio_interrupt);
+#endif
 	if (ret) {
 		PRINTM(MFATAL, "sdio_claim_irq failed: ret=%d\n", ret);
 		goto release_host;
@@ -912,7 +1016,11 @@ woal_register_dev(moal_handle *handle)
 	return MLAN_STATUS_SUCCESS;
 
 release_irq:
+#ifdef SDIO_OOB_IRQ
+	mrvl_sdio_release_irq(func);
+#else
 	sdio_release_irq(func);
+#endif
 release_host:
 	sdio_release_host(func);
 	handle->card = NULL;

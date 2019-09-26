@@ -2,7 +2,7 @@
   *
   * @brief This file contains uap driver specific defines etc.
   *
-  * Copyright (C) 2009-2018, Marvell International Ltd.
+  * Copyright (C) 2009-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991

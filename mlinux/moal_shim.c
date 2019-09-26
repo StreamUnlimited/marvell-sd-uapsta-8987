@@ -2,7 +2,7 @@
   *
   * @brief This file contains the callback functions registered to MLAN
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -296,7 +296,7 @@ moal_get_system_time(IN t_void *pmoal_handle, OUT t_u32 *psec, OUT t_u32 *pusec)
 {
 	struct timeval t;
 
-	do_gettimeofday(&t);
+	woal_get_monotonic_time(&t);
 	*psec = (t_u32)t.tv_sec;
 	*pusec = (t_u32)t.tv_usec;
 
@@ -907,7 +907,7 @@ moal_recv_packet_to_mon_if(IN moal_handle *handle, IN pmlan_buffer pmbuf)
 	mlan_status status = MLAN_STATUS_SUCCESS;
 	struct sk_buff *skb = NULL;
 	struct radiotap_header *rth = NULL;
-	radiotap_info rt_info;
+	radiotap_info rt_info = { };
 	t_u8 format = 0;
 	t_u8 bw = 0;
 	t_u8 gi = 0;
@@ -1181,6 +1181,15 @@ moal_recv_packet(IN t_void *pmoal_handle, IN pmlan_buffer pmbuf)
 		if (priv) {
 			if (skb) {
 				skb_reserve(skb, pmbuf->data_offset);
+				if (skb_tailroom(skb) < pmbuf->data_len) {
+					PRINTM(MERROR,
+					       "skb overflow: tail room=%d, data_len=%d\n",
+					       skb_tailroom(skb),
+					       pmbuf->data_len);
+					status = MLAN_STATUS_FAILURE;
+					priv->stats.rx_dropped++;
+					goto done;
+				}
 				skb_put(skb, pmbuf->data_len);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 				if (pmbuf->flags & MLAN_BUF_FLAG_NET_MONITOR) {
@@ -1320,7 +1329,7 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 	t_u8 category = 0;
 	t_u8 action_code = 0;
 	char *buf;
-	t_u8 peer_addr[ETH_ALEN];
+	t_u8 peer_addr[ETH_ALEN] = { 0 };
 	moal_wnm_tm_msmt *tm_ind;
 	moal_wlan_802_11_header *header;
 	moal_timestamps *tsstamp;
@@ -1771,8 +1780,14 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 		if (IS_STA_WEXT(cfg80211_wext))
 			woal_send_iwevcustom_event(priv, pmevent->event_buf);
 #endif
+		memmove((pmevent->event_buf + strlen(FW_DEBUG_INFO) + 1),
+			pmevent->event_buf, pmevent->event_len);
+		memcpy(pmevent->event_buf, (t_u8 *)FW_DEBUG_INFO,
+		       strlen(FW_DEBUG_INFO));
+		pmevent->event_buf[strlen(FW_DEBUG_INFO)] = 0;
 		woal_broadcast_event(priv, pmevent->event_buf,
-				     pmevent->event_len);
+				     pmevent->event_len +
+				     strlen(FW_DEBUG_INFO) + 1);
 		break;
 	case MLAN_EVENT_ID_FW_WMM_CONFIG_CHANGE:
 #ifdef STA_WEXT
@@ -1826,7 +1841,7 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 			   &priv->phandle->rx_work);
 		break;
 	case MLAN_EVENT_ID_DRV_DBG_DUMP:
-		priv->phandle->driver_state = MTRUE;
+		priv->phandle->driver_status = MTRUE;
 		woal_moal_debug_info(priv, NULL, MFALSE);
 		woal_broadcast_event(priv, CUS_EVT_DRIVER_HANG,
 				     strlen(CUS_EVT_DRIVER_HANG));
@@ -2319,7 +2334,7 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 	case MLAN_EVENT_ID_UAP_FW_STA_CONNECT:
 #if defined(STA_CFG80211) || defined(UAP_CFG80211)
 		if (IS_STA_OR_UAP_CFG80211(cfg80211_wext)) {
-			struct station_info sinfo;
+			struct station_info sinfo = { 0 };
 			t_u8 addr[ETH_ALEN];
 
 			sinfo.filled = 0;
@@ -2337,6 +2352,9 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 #if CFG80211_VERSION_CODE < KERNEL_VERSION(4, 0, 0)
 				/* set station info filled flag */
 				sinfo.filled |= STATION_INFO_ASSOC_REQ_IES;
+#endif
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+				sinfo.pertid = NULL;
 #endif
 				/* get the assoc request ies and length */
 				sinfo.assoc_req_ies =
@@ -2761,7 +2779,7 @@ moal_recv_event(IN t_void *pmoal_handle, IN pmlan_event pmevent)
 				(tx_status_event *)(pmevent->event_buf + 4);
 			struct tx_status_info *tx_info = NULL;
 			t_u8 catagory = 0, action = 0, dialog_token = 0;
-			t_u8 peer_addr[6];
+			t_u8 peer_addr[6] = { 0 };
 			confirm_timestamps tsbuff = { 0 };
 
 			PRINTM(MINFO,

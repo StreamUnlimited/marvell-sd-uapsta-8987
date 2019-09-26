@@ -2,7 +2,7 @@
   *
   * @brief This file contains private ioctl functions
   *
-  * Copyright (C) 2014-2018, Marvell International Ltd.
+  * Copyright (C) 2014-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -4138,8 +4138,7 @@ woal_priv_set_get_scancfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 {
 	int ret = 0;
 	int user_data_len = 0;
-	int arg_len = 8;
-	int data[arg_len];
+	int data[8];
 	mlan_ds_scan *scan = NULL;
 	mlan_ioctl_req *req = NULL;
 	mlan_status status = MLAN_STATUS_SUCCESS;
@@ -5348,8 +5347,8 @@ woal_priv_sleeppd(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 	if (sizeof(int) * user_data_len > sizeof(data)) {
 		PRINTM(MERROR, "Too many arguments\n");
-		LEAVE();
-		return -EINVAL;
+		ret = -EINVAL;
+		goto done;
 	}
 
 	if (user_data_len) {
@@ -5427,8 +5426,8 @@ woal_priv_txcontrol(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 
 	if (sizeof(int) * user_data_len > sizeof(data)) {
 		PRINTM(MERROR, "Too many arguments\n");
-		LEAVE();
-		return -EINVAL;
+		ret = -EINVAL;
+		goto done;
 	}
 
 	if (user_data_len) {
@@ -6088,6 +6087,62 @@ woal_priv_per_pkt_cfg(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		goto done;
 	}
 
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+	LEAVE();
+	return ret;
+}
+
+/**
+ *  @brief              Get TX/RX histogram statistic
+ *
+ *  @param priv         A pointer to moal_private structure
+ *  @param respbuf      A pointer to response buffer
+ *  @param respbuflen   Available length of response buffer
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+static int
+woal_priv_get_txpwrlimit(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
+{
+	int ret = 0;
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_misc_cfg *misc = NULL;
+	mlan_ds_misc_chan_trpc_cfg *trpc_cfg = NULL;
+	int header_len = 0;
+	t_u8 *pos = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+	header_len = strlen(PRIV_CMD_GET_TXPWR_LIMIT);
+	trpc_cfg = (mlan_ds_misc_chan_trpc_cfg *) (respbuf + header_len);
+	if ((trpc_cfg->sub_band != 0) && (trpc_cfg->sub_band != 0x10)
+	    && (trpc_cfg->sub_band != 0x11) && (trpc_cfg->sub_band != 0x12)) {
+		PRINTM(MERROR, "Invalid subband=0x%x\n", trpc_cfg->sub_band);
+		ret = -EINVAL;
+		goto done;
+	}
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	misc = (mlan_ds_misc_cfg *)req->pbuf;
+	misc->sub_command = MLAN_OID_MISC_GET_CHAN_TRPC_CFG;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+	req->action = MLAN_ACT_GET;
+	misc->param.trpc_cfg.sub_band = trpc_cfg->sub_band;
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+	ret = header_len + sizeof(t_u16) + sizeof(t_u16) +
+		misc->param.trpc_cfg.length;
+	pos = respbuf + header_len;
+	memcpy(pos, &misc->param.trpc_cfg,
+	       sizeof(t_u16) + sizeof(t_u16) + misc->param.trpc_cfg.length);
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
@@ -7075,9 +7130,10 @@ done:
 int
 woal_priv_offchannel(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 {
-	int data[3];
+	int data[4];
 	int ret = 0;
 	t_u8 status = 1;
+	t_u8 chan_type = CHAN_NO_HT;
 	int user_data_len = 0, header_len = 0;
 
 	ENTER();
@@ -7126,7 +7182,7 @@ woal_priv_offchannel(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 			       "extra arguments are ignored since action is 'cancel'\n");
 		}
 	}
-	if (user_data_len == 3) {
+	if (user_data_len >= 3) {
 		if (data[0] == 1) {
 			if (data[1] < 0) {
 				PRINTM(MERROR, "channel cannot be negative\n");
@@ -7137,6 +7193,30 @@ woal_priv_offchannel(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 				PRINTM(MERROR, "duration cannot be negative\n");
 				ret = -EINVAL;
 				goto done;
+			}
+			if (user_data_len == 4) {
+				if (data[3] &&
+				    (data[3] != CHANNEL_BW_40MHZ_ABOVE) &&
+				    (data[3] != CHANNEL_BW_40MHZ_BELOW)
+				    && (data[3] != CHANNEL_BW_80MHZ)
+					) {
+					PRINTM(MERROR, "invalid bandwidth");
+					ret = -EINVAL;
+					goto done;
+				}
+				switch (data[3]) {
+				case CHANNEL_BW_40MHZ_ABOVE:
+					chan_type = CHAN_HT40PLUS;
+					break;
+				case CHANNEL_BW_40MHZ_BELOW:
+					chan_type = CHAN_HT40MINUS;
+					break;
+				case CHANNEL_BW_80MHZ:
+					chan_type = CHAN_VHT80;
+					break;
+				default:
+					break;
+				}
 			}
 		}
 	}
@@ -7172,7 +7252,7 @@ woal_priv_offchannel(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 									   :
 									   IEEE80211_BAND_5GHZ)
 #endif
-					   )), 0, (t_u32)data[2])) {
+					   )), chan_type, (t_u32)data[2])) {
 			PRINTM(MERROR, "remain_on_channel: Failed to start\n");
 			ret = -EFAULT;
 			goto done;
@@ -7796,7 +7876,7 @@ woal_priv_auth_type(moal_private *priv, t_u8 *respbuf, t_u32 respbuflen)
 		if (user_data_len == 1) {
 			PRINTM(MINFO, "SET: auth_type %d\n", auth_type);
 			if (((auth_type < MLAN_AUTH_MODE_OPEN) ||
-			     (auth_type > MLAN_AUTH_MODE_SAE))
+			     (auth_type > MLAN_AUTH_MODE_FT))
 			    && (auth_type != MLAN_AUTH_MODE_AUTO)) {
 				ret = -EINVAL;
 				goto done;
@@ -8697,9 +8777,11 @@ woal_priv_sleep_params_ioctl(moal_private *priv, t_u8 *respbuf,
 	int data[6] = { 0 }, i;
 	int user_data_len = 0, header_len = 0;
 #ifdef DEBUG_LEVEL1
-	char err_str[][35] = { {"sleep clock error in ppm"},
+	char err_str[][36] = { {"sleep clock error in ppm"},
 	{"wakeup offset in usec"},
 	{"clock stabilization time in usec"},
+	{"control periodic calibration(0-2)"},
+	{"control of external sleepClock(0-2)"},
 	{"value of reserved for debug"}
 	};
 #endif
@@ -11621,6 +11703,86 @@ done:
 #endif
 
 /**
+ *  @brief Set/Get Tx  AMPDU protection mode
+ *
+ *  @param priv         A pointer to moal_private structure
+ *  @param respbuf      A pointer to response buffer
+ *  @param respbuflen   Available length of response buffer
+ *
+ *  @return             Number of bytes written, negative for failure.
+ */
+int
+woal_priv_tx_ampdu_prot_mode(moal_private *priv, t_u8 *respbuf,
+			     t_u32 respbuflen)
+{
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_misc_cfg *misc = NULL;
+	int ret = 0;
+	int data[1];
+	int header_len = 0, user_data_len = 0;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	if (!respbuf) {
+		PRINTM(MERROR, "response buffer is not available!\n");
+		ret = -EINVAL;
+		goto done;
+	}
+	header_len = strlen(CMD_MARVELL) + strlen(PRIV_CMD_TX_AMPDU_PROT_MODE);
+	user_data_len = strlen(respbuf) - header_len;
+
+	/* Allocate an IOCTL request buffer */
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	/* Fill request buffer */
+	misc = (mlan_ds_misc_cfg *)req->pbuf;
+	misc->sub_command = MLAN_OID_MISC_TX_AMPDU_PROT_MODE;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+	if (strlen(respbuf) == header_len) {
+		/* GET operation */
+		user_data_len = 0;
+		req->action = MLAN_ACT_GET;
+	} else {
+		/* SET operation */
+		parse_arguments(respbuf + header_len, data, ARRAY_SIZE(data),
+				&user_data_len);
+		if (user_data_len > 1) {
+			PRINTM(MERROR, "Invalid number of args!\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		if (data[0] > TX_AMPDU_DISABLE_PROTECTION) {
+			PRINTM(MERROR, "Invalid protection mode\n");
+			ret = -EINVAL;
+			goto done;
+		}
+		misc->param.tx_ampdu_prot_mode.mode = (t_u16)data[0];
+		req->action = MLAN_ACT_SET;
+	}
+	/* Send IOCTL request to MLAN */
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+
+	data[0] = misc->param.tx_ampdu_prot_mode.mode;
+	memcpy(respbuf, (t_u8 *)data, sizeof(data));
+	ret = sizeof(data);
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+
+	LEAVE();
+	return ret;
+}
+
+/**
  * @brief               Issue ACS command to FW to get best channel and channel stats
  *
  * @param priv          Pointer to moal_private structure
@@ -11804,7 +11966,7 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 		ret = -EFAULT;
 		goto done;
 	}
-#define CMD_BUF_LEN   2048
+#define CMD_BUF_LEN   4096
 	if (priv_cmd.used_len < 0 || priv_cmd.total_len <= 0 ||
 	    priv_cmd.used_len > priv_cmd.total_len) {
 		PRINTM(MERROR,
@@ -12229,6 +12391,14 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			len = woal_priv_txpowercfg(priv, buf,
 						   priv_cmd.total_len);
 			goto handled;
+		} else if (strnicmp(buf + strlen(CMD_MARVELL),
+				    PRIV_CMD_TX_AMPDU_PROT_MODE,
+				    strlen(PRIV_CMD_TX_AMPDU_PROT_MODE)) == 0) {
+			/* tx ampdu protection mode setting */
+			len = woal_priv_tx_ampdu_prot_mode(priv, buf,
+							   priv_cmd.total_len);
+			goto handled;
+
 		} else if (strnicmp
 			   (buf + strlen(CMD_MARVELL), PRIV_CMD_PSCFG,
 			    strlen(PRIV_CMD_PSCFG)) == 0) {
@@ -13241,7 +13411,13 @@ woal_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 		len = woal_priv_p2p_ecsa(priv, buf, priv_cmd.total_len);
 	}
 #endif
-	else {
+	else if (strnicmp
+		 (buf, PRIV_CMD_GET_TXPWR_LIMIT,
+		  strlen(PRIV_CMD_GET_TXPWR_LIMIT)) == 0) {
+		/* Get txpwrlimit */
+		len = woal_priv_get_txpwrlimit(priv, buf, priv_cmd.total_len);
+		goto handled;
+	} else {
 		PRINTM(MIOCTL, "Unknown PRIVATE command: %s, ignored\n", buf);
 		ret = -EFAULT;
 		goto done;

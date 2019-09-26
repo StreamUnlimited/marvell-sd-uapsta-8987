@@ -2,7 +2,7 @@
   *
   * @brief This file contains wlan driver specific defines etc.
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -799,6 +799,7 @@ typedef enum {
 /** Custom event : STA disconnected */
 #define CUS_EVT_STA_DISCONNECTED        "EVENT=STA_DISCONNECTED"
 #endif
+#define FW_DEBUG_INFO                   "EVENT=FW_DEBUG_INFO"
 
 /** 10 seconds */
 #define MOAL_TIMER_10S                10000
@@ -1852,6 +1853,8 @@ struct _moal_handle {
 	t_u8 main_state;
     /** driver state */
 	t_u8 driver_state;
+    /** driver status */
+	t_u8 driver_status;
     /** ioctl timeout */
 	t_u8 ioctl_timeout;
     /** FW dump state */
@@ -2235,6 +2238,18 @@ woal_get_priv_bss_type(moal_handle *handle, mlan_bss_type bss_type)
 	return NULL;
 }
 
+static inline void
+woal_get_monotonic_time(struct timeval *tv)
+{
+	struct timespec ts;
+
+	getrawmonotonic(&ts);
+	if (tv) {
+		tv->tv_sec = ts.tv_sec;
+		tv->tv_usec = ts.tv_nsec / 1000;
+	}
+}
+
 /* CAC Measure report default time 60 seconds */
 #define MEAS_REPORT_TIME (60 * HZ)
 
@@ -2398,7 +2413,7 @@ mlan_status woal_set_get_tx_bf_cap(moal_private *priv, t_u16 action,
 mlan_status woal_set_get_tx_bf_cfg(moal_private *priv, t_u16 action,
 				   mlan_ds_11n_tx_bf_cfg *bf_cfg);
 /** Request MAC address setting */
-mlan_status woal_request_set_mac_address(moal_private *priv);
+mlan_status woal_request_set_mac_address(moal_private *priv, t_u8 wait_option);
 /** Request multicast list setting */
 void woal_request_set_multicast_list(moal_private *priv,
 				     struct net_device *dev);

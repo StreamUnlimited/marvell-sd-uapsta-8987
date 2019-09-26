@@ -3,7 +3,7 @@
  *
  * @brief This file contains definition for private IOCTL call.
  *
- * Copyright (C) 2014-2018, Marvell International Ltd.
+ * Copyright (C) 2014-2019, Marvell International Ltd.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -73,6 +73,7 @@ Change log:
 #define PRIV_CMD_DATARATE   "getdatarate"
 #define PRIV_CMD_TXRATECFG  "txratecfg"
 #define PRIV_CMD_GETLOG     "getlog"
+
 #define PRIV_CMD_ESUPPMODE  "esuppmode"
 #define PRIV_CMD_PASSPHRASE "passphrase"
 #define PRIV_CMD_DEAUTH     "deauth"
@@ -216,6 +217,8 @@ Change log:
 
 #define PRIV_CMD_GET_SENSOR_TEMP        "get_sensor_temp"
 
+#define PRIV_CMD_GET_TXPWR_LIMIT        "get_txpwrlimit"
+
 #if defined(UAP_SUPPORT)
 #define PRIV_CMD_EXTEND_CHAN_SWITCH        "channel_switch"
 #endif
@@ -238,6 +241,12 @@ Change log:
 
 /**Private command ID to set/get independent reset*/
 #define PRIV_CMD_IND_RST_CFG            "indrstcfg"
+
+#define TX_AMPDU_RTS_CTS              0
+#define TX_AMPDU_CTS_2_SELF           1
+#define TX_AMPDU_DISABLE_PROTECTION   2
+/**Private command to set tx ampdu protection mode */
+#define PRIV_CMD_TX_AMPDU_PROT_MODE   "tx_ampdu_prot_mode"
 
 /** Private command ID for Android default commands */
 #define WOAL_ANDROID_DEF_CMD        (SIOCDEVPRIVATE + 1)

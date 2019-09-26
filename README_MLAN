@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2008-2018, Marvell International Ltd.
+ Copyright (C) 2008-2019, Marvell International Ltd.
  All Rights Reserved
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.19.
+	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
 
 2) FOR DRIVER INSTALL
 
@@ -85,7 +85,7 @@
 		Bit 1: uAP WEXT
 		Bit 2: STA CFG80211
 		Bit 3: uAP CFG80211
-	  cfg80211_drcs=1|0 <Enable DRCS support (default) | Disable DRCS support>
+	  cfg80211_drcs=1|0 <Enable DRCS support | Disable DRCS support (default)>
 	  reg_alpha2=<Regulatory alpha2 (default NULL)>
 	  wq_sched_prio: Priority for work queue
 	  wq_sched_policy: Scheduling policy for work queue
@@ -302,6 +302,7 @@ SYNOPSIS
 	mlanutl mlanX assocessid <"[essid]">
 	mlanutl mlanX assocessid_bssid <"[bssid] [essid]">
 	mlanutl mlanX associate "<bssid> <ssid>"
+    mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
 	mlanutl mlanX authtype [n]
 	mlanutl mlanX autotdls [n]
         mlanutl mlanX tdls_idle_time [n]
@@ -400,7 +401,7 @@ SYNOPSIS
 	mlanutl mlanX mgmtframetx <mgmt_frame.conf>
 	mlanutl mlanX mpactrl [tx_ena] [rx_ena] [tx_size] [rx_size] [tx_ports] [rx_ports]
 	mlanutl mlanX netmon [<act> [<filter> <band> <chan> [offset]]]
-	mlanutl mlanX offchannel [<l> <m> <n>]
+	mlanutl mlanX offchannel [<l> <m> <n> <bandwidth>]
 	mlanutl mlanX otpuserdata <l>
 	mlanutl mlanX passphrase [l]
 	mlanutl mlanX pb_bypass [data_1, data_2, ... data_n]
@@ -453,7 +454,6 @@ SYNOPSIS
 	mlanutl mlanX tdls_setup <tdls.conf>
 	mlanutl mlanX tdls_stop_channel_switch <tdls.conf>
 	mlanutl mlanX tdls_teardown <tdls.conf>
-	mlanutl mlanX thermal
 	mlanutl mlanX ts_status
 	mlanutl mlanX tsf
 	mlanutl mlanX txaggrctrl [m]
@@ -483,6 +483,7 @@ SYNOPSIS
         mlanutl <inteface> indrstcfg <ir_mode> [gpio_pin]
 
         mlanutl <interface> fwwakeupmethod <method> <GPIO_pin>
+        mlanutl <interface> tx_ampdu_prot_mode [mode]
 
         mlanutl uapX ctrldeauth <n>
 
@@ -763,6 +764,25 @@ associate
 
 	mlanutl mlanX associate "xx:xx:xx:xx:xx:xx SSID"
 
+get_txpwrlimit
+	This command is used to get the txpwrlimit table in FW
+Usage:
+ 	mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
+	where <n>
+		0:      Get 2.4G txpwrlimit table
+		0x10:   Get 5G sub0 txpwrlimit table
+		0x11:   Get 5G sub1 txpwrlimit table
+		0x12    Get 5G sub2 txpwrlimit table
+		0x1f    Get all 5G txpwrlimit table
+		0xff    Get both 2G and 5G txpwrlimit table
+	<raw_data_file> driver will save fw raw data to this file.
+
+    Examples:
+		mlanutl mlan0 get_txpwrlimit 0                      : Get 2G txpwrlimit table.
+		mlanutl mlan0 get_txpwrlimit 0x10                   : Get 5G sub band0 txpwrlimit table
+		mlanutl mlan0 get_txpwrlimit 0xff txpwrlimit.bin    : Get both 2G/5G txpwrlimit table and save to txpwrlimit.bin
+
+
 authtype
 	This command is used to set/get authentication type.
 
@@ -772,7 +792,6 @@ authtype
 	where <n>
 		0: 802.11 open system authentication
 		1: 802.11 shared key authentication
-		3: 802.11 WPA3 SAE authentication
 		255: allow open system or shared key authentication (default)
 
 	Examples:
@@ -2289,7 +2308,7 @@ offchannel
 	Note: This command only can be used when cfg80211 is enabled during load time.
 
 	Usage:
-		mlanutl mlanX offchannel [<l> <m> <n>]
+		mlanutl mlanX offchannel [<l> <m> <n> <bandwidth>]
 
 	where
 		<l>
@@ -2299,12 +2318,19 @@ offchannel
 			The channel to configure
 		<n>
 			The duration for which to configure
+        <bandwidth> : channel bandwidth
+            0 - Bandwidth 20Mhz
+            1 - HT Bandwidth 40Mhz sec channel above
+            3 - HT Bandwidth 40Mhz sec channel below
+            4 - VHT Bandwidth 80Mhz
 
 	Examples:
 		mlanutl mlan0 offchannel           : Get current offchannel status.
 		mlanutl mlan0 offchannel 0         : Cancel the offchannel configuration.
 		mlanutl mlan0 offchannel 1 3 5     : Configure channel 3 for 5 milliseconds.
 		mlanutl mlan0 offchannel 1 36 5000 : Configure channel 36 for 5000 milliseconds.
+		mlanutl mlan0 offchannel 1 64 500 4 : Configure channel 64 in 80MHz for 500
+                                              milliseconds.
 
 otpuserdata
 	This command is used to get the OTP user data.
@@ -2607,7 +2633,10 @@ scancfg
 		[s]: Specific Scan Time (0: Unchanged, n: Value in ms, default 110 ms, max 500 ms)
 		[a]: Active Scan Time (0: Unchanged, n: Value in ms, default 200 ms, max 500 ms)
 		[b]: Passive Scan Time (0: Unchanged, n: Value in ms, default 200 ms, max 2000 ms)
+
 		[c]: Passive to Active Scan (0: Unchanged, 1: Enable, 2: Disable, default Enable)
+		[c]: Passive to Active Scan (0: Unchanged, 1: Enable, 2: Disable, default Disable)
+
 		[ext]: Extended scan (0: Unchanged, 1: Legacy scan, 2: Extended scan, 3: Extended scan enhance)
 	No change if the parameter is 0 or the parameter is not provided.
 
@@ -2958,12 +2987,6 @@ tdls_teardown
 	Examples:
 		mlanutl mlan0 tdls_teardown config/tdls.conf
 			: Request teardown of TDLS link, based on the configuration file.
-
-thermal
-	This command is used to get the current thermal reading.
-
-	Examples:
-		mlanutl mlan0 thermal            : Get thermal reading
 
 ts_status
 	This command queries the FW for the status of TSIDs 0 through 7
@@ -3451,6 +3474,26 @@ indrstcfg
             mlanutl mlan0 fwwakeupmethod     : Get current wakeup method
             mlanutl mlan0 fwwakeupmethod 1   : Set wakeup method is interface method
             mlanutl mlan0 fwwakeupmethod 2 5 : Set wakeup method is GPIO method and GPIO pin is 5.
+
+tx_ampdu_prot_mode
+    This command is used to set either RTS/CTS or CTS2SELF protection mechanism
+    in MAC, for aggregated Tx QoS data frames. RTS/CTS is enabled by default.
+
+    Usage:
+        mlanutl <interface> tx_ampdu_prot_mode [mode]
+
+    Where the parameters are:
+        <interface>       : mlanX,
+                            uapX
+        [mode]            : 0 - Set RTS/CTS mode
+                            1 - Set CTS2SELF mode
+                            2 - Disable Protection mode
+
+    Examples:
+        mlanutl mlan0 tx_ampdu_prot_mode
+            - Get currently set protection mode for Tx AMPDU
+        mlanutl mlan0 tx_ampdu_prot_mode 1
+            - Set protection mode for Tx AMPDU to CTS2SELF
 
 robustcoex
     This command is used to set robust coex.

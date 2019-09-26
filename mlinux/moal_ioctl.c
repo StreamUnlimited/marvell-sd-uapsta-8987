@@ -2,7 +2,7 @@
   *
   * @brief This file contains ioctl function to MLAN
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -70,14 +70,18 @@ typedef struct _region_code_mapping_t {
 
 /** Region code mapping table */
 static region_code_mapping_t region_code_mapping[] = {
-	{"US ", 0x10},		/* US FCC            */
-	{"CA ", 0x20},		/* IC Canada         */
-	{"SG ", 0x10},		/* Singapore         */
-	{"EU ", 0x30},		/* ETSI              */
-	{"AU ", 0x30},		/* Australia         */
-	{"KR ", 0x30},		/* Republic Of Korea */
-	{"CN ", 0x50},		/* China             */
-	{"JP ", 0xFF},		/* Japan special     */
+	{"US", 0x10},		/* US FCC      */
+	{"CA", 0x20},		/* IC Canada   */
+	{"SG", 0x10},		/* Singapore   */
+	{"EU", 0x30},		/* ETSI        */
+	{"AU", 0x30},		/* Australia   */
+	{"KR", 0x30},		/* Republic Of Korea */
+	{"JP", 0x40},		/* Japan       */
+	{"CN", 0x50},		/* China       */
+	{"BR", 0x09},		/* Brazil      */
+	{"RU", 0x0f},		/* Russia      */
+	{"IN", 0x06},		/* India       */
+	{"MY", 0x06},		/* Malaysia    */
 };
 
 /** EEPROM Region code mapping table */
@@ -127,9 +131,41 @@ extern int dfs_offload;
 /** gtk rekey offload mode */
 extern int gtk_rekey_offload;
 
+#ifdef MFG_CMD_SUPPORT
+/** Mfg mode */
+extern int mfg_mode;
+#endif
 /********************************************************
 			Local Functions
 ********************************************************/
+/**
+ *  @brief This function converts region string to region code
+ *
+ *  @param country_code     Region string
+ *
+ *  @return                 Region code
+ */
+t_bool
+woal_is_country_code_supported(t_u8 *country_code)
+{
+
+	t_u8 i;
+	ENTER();
+
+	for (i = 0; i < ARRAY_SIZE(region_code_mapping); i++) {
+		if (!memcmp(country_code, region_code_mapping[i].region,
+			    COUNTRY_CODE_LEN - 1)) {
+			PRINTM(MIOCTL,
+			       "found country code in region_code table\n");
+			LEAVE();
+			return MTRUE;
+		}
+	}
+
+	LEAVE();
+	return MFALSE;
+}
+
 /**
  *  @brief This function converts region string to region code
  *
@@ -553,18 +589,25 @@ woal_request_ioctl(moal_private *priv, mlan_ioctl_req *req, t_u8 wait_option)
 	}
 	if (sub_command != MLAN_OID_GET_DEBUG_INFO) {
 		if (priv->phandle->surprise_removed == MTRUE ||
-		    priv->phandle->driver_state) {
-			PRINTM(MERROR,
+		    priv->phandle->driver_status) {
+			PRINTM(MCMND,
 			       "IOCTL is not allowed while the device is not present or hang\n");
 			LEAVE();
 			return MLAN_STATUS_FAILURE;
 		}
 #if defined(SDIO_SUSPEND_RESUME)
 		if (priv->phandle->is_suspended == MTRUE) {
-			PRINTM(MERROR,
-			       "IOCTL is not allowed while suspended\n");
+			PRINTM(MCMND, "IOCTL is not allowed while suspended\n");
 			LEAVE();
 			return MLAN_STATUS_FAILURE;
+		}
+#endif
+#ifdef MFG_CMD_SUPPORT
+		if (mfg_mode && sub_command != MLAN_OID_MISC_HOST_CMD) {
+			PRINTM(MCMND,
+			       "Only MLAN_OID_MISC_HOST_CMD is allowed in MFG mode\n");
+			LEAVE();
+			return MLAN_STATUS_SUCCESS;
 		}
 #endif
 	}
@@ -722,12 +765,13 @@ done:
  *  @brief Send set MAC address request to MLAN
  *
  *  @param priv   A pointer to moal_private structure
+ *  @param wait_option wait option
  *
  *  @return       MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING
  *                  -- success, otherwise fail
  */
 mlan_status
-woal_request_set_mac_address(moal_private *priv)
+woal_request_set_mac_address(moal_private *priv, t_u8 wait_option)
 {
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_bss *bss = NULL;
@@ -751,14 +795,15 @@ woal_request_set_mac_address(moal_private *priv)
 
 	/* Send IOCTL request to MLAN */
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status == MLAN_STATUS_SUCCESS) {
-		memcpy(priv->netdev->dev_addr, priv->current_addr, ETH_ALEN);
-		HEXDUMP("priv->MacAddr:", priv->current_addr, ETH_ALEN);
-	} else {
+	if (status == MLAN_STATUS_FAILURE) {
 		PRINTM(MERROR,
 		       "set mac address failed! status=%d, error_code=0x%x\n",
 		       status, req->status_code);
+	} else {
+		memcpy(priv->netdev->dev_addr, priv->current_addr, ETH_ALEN);
+		HEXDUMP("priv->MacAddr:", priv->current_addr, ETH_ALEN);
 	}
+
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
@@ -1604,6 +1649,56 @@ done:
 }
 
 /**
+ * @brief Set Country Code
+ *
+ * @param priv     A pointer to moal_private structure
+ * @param region   A pointer to region string
+ *
+ * @return         MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise fail
+ */
+int
+woal_set_countrycode(moal_private *priv, char *country)
+{
+	int ret = 0;
+	mlan_ioctl_req *req = NULL;
+	mlan_ds_misc_cfg *pcfg_misc = NULL;
+	mlan_ds_misc_country_code *country_code = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	/* Allocate an IOCTL request buffer */
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (req == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	/* Fill request buffer */
+	pcfg_misc = (mlan_ds_misc_cfg *)req->pbuf;
+	country_code = &pcfg_misc->param.country_code;
+	pcfg_misc->sub_command = MLAN_OID_MISC_COUNTRY_CODE;
+	req->req_id = MLAN_IOCTL_MISC_CFG;
+
+	memset(country_code->country_code, 0, COUNTRY_CODE_LEN);
+	memcpy(country_code->country_code, country, COUNTRY_CODE_LEN - 1);
+	req->action = MLAN_ACT_SET;
+
+	/* Send IOCTL request to MLAN */
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(req);
+
+	LEAVE();
+	return ret;
+}
+
+/**
  * @brief Set region code
  *
  * @param priv     A pointer to moal_private structure
@@ -1619,6 +1714,9 @@ woal_set_region_code(moal_private *priv, char *region)
 	mlan_ioctl_req *req = NULL;
 
 	ENTER();
+	if (woal_is_country_code_supported(region))
+		return woal_set_countrycode(priv, region);
+
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
 	if (req == NULL) {
 		ret = MLAN_STATUS_FAILURE;
@@ -2292,7 +2390,15 @@ woal_send_host_packet(struct net_device *dev, struct ifreq *req)
 				pdata = (t_u8 *)mgmt_frame->da;
 				memcpy(pdata,
 				       &pmbuf->pbuf[pmbuf->data_offset + 14],
-				       3 * MLAN_MAC_ADDR_LENGTH);
+				       MLAN_MAC_ADDR_LENGTH);
+				pdata = (t_u8 *)mgmt_frame->sa;
+				memcpy(pdata,
+				       &pmbuf->pbuf[pmbuf->data_offset + 20],
+				       MLAN_MAC_ADDR_LENGTH);
+				pdata = (t_u8 *)mgmt_frame->bssid;
+				memcpy(pdata,
+				       &pmbuf->pbuf[pmbuf->data_offset + 26],
+				       MLAN_MAC_ADDR_LENGTH);
 				//Copy packet data starting from category field
 				pdata = (t_u8 *)&mgmt_frame->u.action.category;
 				memcpy(pdata, (t_u8 *)action_cat,
@@ -5052,7 +5158,7 @@ woal_find_essid(moal_private *priv, mlan_ssid_bssid *ssid_bssid,
 		return ret;
 	}
 #endif
-	do_gettimeofday(&t);
+	woal_get_monotonic_time(&t);
 /** scan result timeout value */
 #define SCAN_RESULT_AGEOUT      10
 	if (t.tv_sec > (scan_resp.age_in_secs + SCAN_RESULT_AGEOUT)) {
@@ -5281,7 +5387,7 @@ woal_config_bgscan_and_rssi(moal_private *priv, t_u8 set_rssi)
 	if (set_rssi &&
 	    ((priv->rssi_low + RSSI_HYSTERESIS) <= LOWEST_RSSI_THRESHOLD)) {
 		priv->rssi_low += RSSI_HYSTERESIS;
-		sprintf(rssi_low, "%d", priv->rssi_low);
+		snprintf(rssi_low, sizeof(rssi_low), "%d", priv->rssi_low);
 		woal_set_rssi_low_threshold(priv, rssi_low, MOAL_NO_WAIT);
 	}
 	LEAVE();

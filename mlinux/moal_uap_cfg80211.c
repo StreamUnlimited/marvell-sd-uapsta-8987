@@ -2,7 +2,7 @@
   *
   * @brief This file contains the functions for uAP CFG80211.
   *
-  * Copyright (C) 2011-2018, Marvell International Ltd.
+  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -384,7 +384,6 @@ woal_set_wmm_ies(const t_u8 *ie, int len, mlan_uap_bss_param *sys_config)
 	IEEEtypes_VendorSpecific_t *pvendor_ie;
 	IEEEtypes_ElementId_e element_id;
 	const t_u8 wmm_oui[4] = { 0x00, 0x50, 0xf2, 0x02 };
-	t_u8 *poui;
 
 	while (bytes_left >= 2) {
 		element_id = (IEEEtypes_ElementId_e)(*((t_u8 *)pcurrent_ptr));
@@ -399,8 +398,10 @@ woal_set_wmm_ies(const t_u8 *ie, int len, mlan_uap_bss_param *sys_config)
 		switch (element_id) {
 		case VENDOR_SPECIFIC_221:
 			pvendor_ie = (IEEEtypes_VendorSpecific_t *)pcurrent_ptr;
-			poui = pvendor_ie->vend_hdr.oui;
-			if (!memcmp(poui, wmm_oui, sizeof(wmm_oui))) {
+			if (memcmp
+			    (pvendor_ie->vend_hdr.oui, wmm_oui,
+			     sizeof(pvendor_ie->vend_hdr.oui)) &&
+			    pvendor_ie->vend_hdr.oui_type == wmm_oui[3]) {
 				if (total_ie_len ==
 				    sizeof(IEEEtypes_WmmParameter_t)) {
 					/*
@@ -2357,12 +2358,11 @@ woal_cfg80211_del_beacon(struct wiphy *wiphy, struct net_device *dev)
 
 	ENTER();
 
-	priv->phandle->driver_state = woal_check_driver_status(priv->phandle);
-	if (priv->phandle->driver_state) {
+	if (priv->phandle->driver_status) {
 		PRINTM(MERROR,
 		       "Block  woal_cfg80211_del_beacon in abnormal driver state\n");
 		LEAVE();
-		return -EFAULT;
+		return ret;
 	}
 	priv->uap_host_based = MFALSE;
 	PRINTM(MMSG, "wlan: Stoping AP\n");
@@ -2399,24 +2399,25 @@ woal_cfg80211_del_beacon(struct wiphy *wiphy, struct net_device *dev)
 #endif
 	/* if the bss is still running, then stop it */
 	if (priv->bss_started == MTRUE) {
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_uap_bss_ctrl(priv, MOAL_IOCTL_WAIT, UAP_BSS_STOP)) {
+		if (MLAN_STATUS_FAILURE ==
+		    woal_uap_bss_ctrl(priv, MOAL_NO_WAIT, UAP_BSS_STOP)) {
 			ret = -EFAULT;
 			goto done;
 		}
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_uap_bss_ctrl(priv, MOAL_IOCTL_WAIT, UAP_BSS_RESET)) {
+		if (MLAN_STATUS_FAILURE ==
+		    woal_uap_bss_ctrl(priv, MOAL_NO_WAIT, UAP_BSS_RESET)) {
 			ret = -EFAULT;
 			goto done;
 		}
 		/* Set WLAN MAC addresses */
-		if (MLAN_STATUS_SUCCESS != woal_request_set_mac_address(priv)) {
+		if (MLAN_STATUS_FAILURE ==
+		    woal_request_set_mac_address(priv, MOAL_NO_WAIT)) {
 			PRINTM(MERROR, "Set MAC address failed\n");
 			ret = -EFAULT;
 			goto done;
 		}
 	}
-	woal_clear_all_mgmt_ies(priv, MOAL_IOCTL_WAIT);
+	woal_clear_all_mgmt_ies(priv, MOAL_NO_WAIT);
 #ifdef STA_SUPPORT
 	if (!woal_is_any_interface_active(priv->phandle)) {
 		pmpriv = woal_get_priv((moal_handle *)priv->phandle,
@@ -2495,6 +2496,12 @@ woal_cfg80211_change_bss(struct wiphy *wiphy, struct net_device *dev,
 			bss_started = MTRUE;
 			woal_uap_bss_ctrl(priv, MOAL_IOCTL_WAIT, UAP_BSS_STOP);
 		}
+		if (params->use_short_preamble == 1)
+			sys_config->preamble_type = 1;
+		else if (params->use_short_preamble == 0)
+			sys_config->preamble_type = 2;
+		else
+			sys_config->preamble_type = 0;
 		if (MLAN_STATUS_SUCCESS == woal_set_get_sys_config(priv,
 								   MLAN_ACT_SET,
 								   MOAL_IOCTL_WAIT,
@@ -2584,13 +2591,12 @@ woal_cfg80211_del_station(struct wiphy *wiphy, struct net_device *dev,
 		reason_code = param->reason_code;
 	}
 #endif
-    /** we will not send deauth to p2p interface, it might cause WPS failure */
+    /** we will not send deauth to p2p and uAP interface, it might cause WPS failure */
 	if (mac_addr) {
 		PRINTM(MMSG, "wlan: deauth station " MACSTR "\n",
 		       MAC2STR(mac_addr));
 #ifdef WIFI_DIRECT_SUPPORT
-		if (!priv->phandle->is_go_timer_set ||
-		    priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT)
+		if (!priv->phandle->is_go_timer_set)
 #endif
 			woal_deauth_station(priv, (u8 *)mac_addr, reason_code);
 	} else {

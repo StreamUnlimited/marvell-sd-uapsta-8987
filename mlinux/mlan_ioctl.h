@@ -2,7 +2,7 @@
  *
  *  @brief This file declares the IOCTL data structures and APIs.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -298,6 +298,8 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_MISC_CFP_INFO = 0x00200060,
 	MLAN_OID_MISC_BOOT_SLEEP = 0x00200061,
 	MLAN_OID_MISC_ACS = 0x00200063,
+	MLAN_OID_MISC_TX_AMPDU_PROT_MODE = 0x00200068,
+	MLAN_OID_MISC_GET_CHAN_TRPC_CFG = 0x00200070,
 };
 
 /** Sub command size */
@@ -632,6 +634,8 @@ typedef struct _mlan_chan_list {
 #define CHAN_FLAGS_20MHZ            MBIT(11)
 /* 10 MHz operation is not allowed on this channel */
 #define CHAN_FLAGS_NO_10MHZ         MBIT(12)
+/** This channel's flag is valid */
+#define CHAN_FLAGS_MAX              MBIT(31)
 
 /** Maximum response buffer length */
 #define ASSOC_RSP_BUF_SIZE 500
@@ -813,8 +817,6 @@ typedef struct _mlan_deauth_param {
 #define PROTOCOL_EAP                0x40
 /** WAPI */
 #define PROTOCOL_WAPI               0x80
-/** WPA3 SAE */
-#define PROTOCOL_WPA3_SAE         64
 
 /** Key_mgmt_psk */
 #define KEY_MGMT_NONE   0x04
@@ -1205,7 +1207,7 @@ typedef struct _mlan_ds_bss {
 
 /** Type definition of mlan_ds_custom_reg_domain */
 typedef struct _mlan_ds_custom_reg_domain {
-	t_u8 cfg_len;
+	t_u16 cfg_len;
 	t_u8 cfg_buf[0];
 } mlan_ds_custom_reg_domain;
 /*-----------------------------------------------------------------*/
@@ -2304,7 +2306,6 @@ enum _mlan_auth_mode {
 	MLAN_AUTH_MODE_OPEN = 0x00,
 	MLAN_AUTH_MODE_SHARED = 0x01,
 	MLAN_AUTH_MODE_FT = 0x02,
-	MLAN_AUTH_MODE_SAE = 0x03,
 	MLAN_AUTH_MODE_NETWORKEAP = 0x80,
 	MLAN_AUTH_MODE_AUTO = 0xFF,
 };
@@ -2316,7 +2317,6 @@ typedef enum {
 	AssocAgentAuth_FastBss,
 	AssocAgentAuth_FastBss_Skip,
 	AssocAgentAuth_Network_EAP,
-	AssocAgentAuth_Wpa3Sae,
 	AssocAgentAuth_Auto,
 } AssocAgentAuthType_e;
 
@@ -2329,6 +2329,7 @@ enum _mlan_encryption_mode {
 	MLAN_ENCRYPTION_MODE_WEP104 = 4,
 	MLAN_ENCRYPTION_MODE_GCMP = 5,
 	MLAN_ENCRYPTION_MODE_GCMP_256 = 6,
+	MLAN_ENCRYPTION_MODE_CCMP_256 = 7,
 };
 
 /** Enumeration for PSK */
@@ -2377,6 +2378,8 @@ enum _mlan_psk_type {
 #define KEY_FLAG_GCMP           0x00000020
 /** key flag for GCMP_256 */
 #define KEY_FLAG_GCMP_256           0x00000040
+/** key flag for CCMP_256 */
+#define KEY_FLAG_CCMP_256           0x00000080
 /** Type definition of mlan_ds_encrypt_key for MLAN_OID_SEC_CFG_ENCRYPT_KEY */
 typedef struct _mlan_ds_encrypt_key {
     /** Key disabled, all other fields will be
@@ -3850,6 +3853,14 @@ typedef struct _mlan_ds_misc_tx_datapause {
 	t_u16 tx_buf_cnt;
 } mlan_ds_misc_tx_datapause;
 
+/** Type definition of mlan_ds_misc_rx_abort_cfg_ext
+ * for MLAN_OID_MISC_TX_AMDPU_PROT_MODE
+ */
+typedef struct _mlan_ds_misc_tx_ampdu_prot_mode {
+    /** set prot mode */
+	t_u16 mode;
+} mlan_ds_misc_tx_ampdu_prot_mode;
+
 /** IP address length */
 #define IPADDR_LEN                  (16)
 /** Max number of ip */
@@ -4211,7 +4222,7 @@ typedef struct _mlan_ds_misc_rx_packet_coalesce {
 /** Temperature Sensor structure */
 typedef struct _mlan_ds_sensor_temp {
     /** Temperature */
-	t_u32 temperature;
+	int temperature;
 } mlan_ds_sensor_temp;
 
 #define MLAN_KCK_LEN   16
@@ -4309,6 +4320,16 @@ typedef struct _mlan_ds_misc_acs {
 	ChStat_t ch_stats[MAX_CH_STATS];
 } mlan_ds_misc_acs, *pmlan_ds_misc_acs;
 
+/** Type definition of mlan_ds_misc_chan_trpc_cfg for MLAN_OID_MISC_GET_CHAN_TRPC_CFG */
+typedef struct _mlan_ds_misc_chan_trpc_cfg {
+    /** sub_band */
+	t_u16 sub_band;
+    /** length */
+	t_u16 length;
+    /** buf */
+	t_u8 trpc_buf[2048];
+} mlan_ds_misc_chan_trpc_cfg;
+
 /** Type definition of mlan_ds_misc_cfg for MLAN_IOCTL_MISC_CFG */
 typedef struct _mlan_ds_misc_cfg {
     /** Sub-command */
@@ -4350,6 +4371,7 @@ typedef struct _mlan_ds_misc_cfg {
 		mlan_ds_misc_net_monitor net_mon;
 	/** Tx data pause for MLAN_OID_MISC_TX_DATAPAUSE */
 		mlan_ds_misc_tx_datapause tx_datapause;
+		mlan_ds_misc_tx_ampdu_prot_mode tx_ampdu_prot_mode;
 	/** IP address configuration */
 		mlan_ds_misc_ipaddr_cfg ipaddr_cfg;
 	/** MAC control for MLAN_OID_MISC_MAC_CONTROL */
@@ -4417,6 +4439,7 @@ typedef struct _mlan_ds_misc_cfg {
 		t_u16 boot_sleep;
     /** ACS */
 		mlan_ds_misc_acs acs;
+		mlan_ds_misc_chan_trpc_cfg trpc_cfg;
 	} param;
 } mlan_ds_misc_cfg, *pmlan_ds_misc_cfg;
 

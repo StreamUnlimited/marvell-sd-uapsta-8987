@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2008-2018, Marvell International Ltd.
+ Copyright (C) 2008-2019, Marvell International Ltd.
  All Rights Reserved
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel up to 4.19.
+	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
 
 2) FOR DRIVER INSTALL
 
@@ -55,8 +55,13 @@
 		rmmod sd8xxx
 		rmmod mlan
 
-	To load driver with MFG firmware file, use mfg_mode=1 when insmod WLAN driver and
-	specify MFG firmware name if needed.
+	Use mfg_mode = 1:
+	To load driver with MFG firmware file, when insmod WLAN driver and specify MFG firmware name if needed.
+	This option loads default normal FW on HW reset (reset button is pressed on the board).
+
+	Use mfg_mode = 2:
+	To load driver with MFG firmware file, when insmod WLAN driver and specify MFG firmware name if needed.
+	This option reloads previously specifed MFG firmware only on HW reset.
 
 	There are some other parameters for debugging purpose etc. Use modinfo to check details.
 	  drvdbg=<bit mask of driver debug message control>
@@ -86,7 +91,7 @@
 		Bit 1: uAP WEXT
 		Bit 2: STA CFG80211
 		Bit 3: uAP CFG80211
-	cfg80211_drcs=1|0 <Enable DRCS support (default) | Disable DRCS support>
+	cfg80211_drcs=1|0 <Enable DRCS support | Disable DRCS support (default)>
 	  reg_alpha2=<Regulatory alpha2 (default NULL)>
 	  wq_sched_prio: Priority for work queue
 	  wq_sched_policy: Scheduling policy for work queue
@@ -309,7 +314,6 @@ SYNOPSIS
 	iwpriv mlanX ipaddr ["<op>;<ipaddr>"]
 	iwpriv mlanX macctrl [n]
 	iwpriv mlanX dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num>]
-	iwpriv mlanX thermal
     iwpriv mlanX indrstcfg <ir_mode> [gpio_pin]
 
 DESCRIPTION
@@ -449,6 +453,7 @@ passphrase
 
 	Where <n>
 		ASCII string for ssid/passphrase/psk.
+
 
 	1) "0;<ssid=valid ssid>" - This will get the passphrase, AKMP
 	   for specified ssid, if none specified then it will get all.
@@ -1619,12 +1624,6 @@ dfstesting
 		iwpriv mlan0 dfstesting 2000 0 0 0  : user_cac=2sec, others disabled/default
 		iwpriv mlan0 dfstesting 0 0 1 0     : only no_chan_change enabled
 		iwpriv mlan0 dfstesting 0 120 0 64  : user_nop=2min, force chan 64 on radar
-
-thermal
-	This command is used to get the current thermal reading.
-
-	Examples:
-		iwpriv mlan0 thermal            : Get thermal reading
 
 indrstcfg
     This command is used to set/get settings for independent reset mode

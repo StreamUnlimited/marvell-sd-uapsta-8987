@@ -2,7 +2,7 @@
   *
   * @brief This file contains functions for proc file.
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -116,6 +116,7 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 
 	memset(fmt, 0, sizeof(fmt));
 #ifdef UAP_SUPPORT
+	memset(&ustats, 0, sizeof(ustats));
 	if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_UAP) {
 		seq_printf(sfp, "driver_name = " "\"uap\"\n");
 		woal_uap_get_version(priv, fmt, sizeof(fmt) - 1);

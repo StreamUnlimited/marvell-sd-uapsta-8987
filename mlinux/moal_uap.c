@@ -3,7 +3,7 @@
   * @brief This file contains the major functions in UAP
   * driver.
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -3305,7 +3305,8 @@ woal_uap_bss_ctrl(moal_private *priv, t_u8 wait_option, int data)
 							      MOAL_IOCTL_WAIT);
 			if (status) {
 				PRINTM(MMSG, "11h channel check fails\n");
-				ret = -EINVAL;
+				status = MLAN_STATUS_FAILURE;
+				ret = -1;
 				goto done;
 			}
 		}

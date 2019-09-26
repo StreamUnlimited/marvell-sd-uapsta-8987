@@ -3,7 +3,7 @@
   * @brief This file contains definitions for SDIO interface.
   * driver.
   *
-  * Copyright (C) 2008-2018, Marvell International Ltd.
+  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
   * This software file (the "File") is distributed by Marvell International
   * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -87,6 +87,12 @@ Change log:
 mlan_status woal_write_reg(moal_handle *handle, t_u32 reg, t_u32 data);
 /** Function to read register */
 mlan_status woal_read_reg(moal_handle *handle, t_u32 reg, t_u32 *data);
+/** Function to write register */
+mlan_status woal_sdio_writeb(moal_handle *handle, t_u32 reg, t_u8 data);
+/** Function to read register */
+mlan_status woal_sdio_readb(moal_handle *handle, t_u32 reg, t_u8 *data);
+/** Function to read F0 register */
+mlan_status woal_sdio_f0_readb(moal_handle *handle, t_u32 reg, t_u8 *data);
 /** Function to write data to IO memory */
 mlan_status woal_write_data_sync(moal_handle *handle, mlan_buffer *pmbuf,
 				 t_u32 port, t_u32 timeout);
