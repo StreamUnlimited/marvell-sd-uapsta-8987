@@ -5,7 +5,7 @@
  *  IOCTL handlers as well as command preparation and response routines
  *  for sending scan commands to the firmware.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -110,6 +110,7 @@ enum cipher_suite {
 	CIPHER_SUITE_WEP104,
 	CIPHER_SUITE_GCMP,
 	CIPHER_SUITE_GCMP_256,
+	CIPHER_SUITE_CCMP_256,
 	CIPHER_SUITE_MAX
 };
 
@@ -120,13 +121,14 @@ static t_u8 wpa_oui[CIPHER_SUITE_MAX][4] = {
 	{0x00, 0x50, 0xf2, 0x05},	/* WEP104 */
 };
 
-static t_u8 rsn_oui[CIPHER_SUITE_MAX][6] = {
+static t_u8 rsn_oui[CIPHER_SUITE_MAX][4] = {
 	{0x00, 0x0f, 0xac, 0x01},	/* WEP40 */
 	{0x00, 0x0f, 0xac, 0x02},	/* TKIP */
 	{0x00, 0x0f, 0xac, 0x04},	/* AES */
 	{0x00, 0x0f, 0xac, 0x05},	/* WEP104 */
 	{0x00, 0x0f, 0xac, 0x08},	/* GCMP */
 	{0x00, 0x0f, 0xac, 0x09},	/* GCMP-256 */
+	{0x00, 0x0f, 0xac, 0x0a},	/* CCMP-256 */
 };
 
 /**
@@ -1159,10 +1161,13 @@ wlan_scan_channel_list(IN mlan_private *pmpriv,
 		}
 
 		/* The total scan time should be less than scan command timeout value */
-		if (total_scan_time > MRVDRV_MAX_TOTAL_SCAN_TIME) {
+		if (total_scan_time > MRVDRV_MAX_TOTAL_SCAN_TIME ||
+		    !total_scan_time || !pchan_tlv_out->header.len) {
 			PRINTM(MMSG,
-			       "Total scan time %d ms is over limit (%d ms), scan skipped\n",
-			       total_scan_time, MRVDRV_MAX_TOTAL_SCAN_TIME);
+			       "Total scan time %d ms, limit (%d ms), chan tlv len=%d scan skipped\n",
+			       total_scan_time, MRVDRV_MAX_TOTAL_SCAN_TIME,
+			       pchan_tlv_out->header.len);
+
 			if (pioctl_req)
 				pioctl_req->status_code =
 					MLAN_ERROR_CMD_SCAN_FAIL;
@@ -1967,6 +1972,7 @@ wlan_interpret_bss_desc_with_ie(IN pmlan_adapter pmadapter,
 			PRINTM(MERROR, "InterpretIE: Error in processing IE, "
 			       "bytes left < IE length\n");
 			bytes_left_for_current_beacon = 0;
+			ret = MLAN_STATUS_FAILURE;
 			continue;
 		}
 
@@ -1975,6 +1981,7 @@ wlan_interpret_bss_desc_with_ie(IN pmlan_adapter pmadapter,
 		case SSID:
 			if (element_len > MRVDRV_MAX_SSID_LENGTH) {
 				bytes_left_for_current_beacon = 0;
+				ret = MLAN_STATUS_FAILURE;
 				continue;
 			}
 			if (!pbss_entry->ssid.ssid_len) {
@@ -1989,6 +1996,7 @@ wlan_interpret_bss_desc_with_ie(IN pmlan_adapter pmadapter,
 		case SUPPORTED_RATES:
 			if (element_len > WLAN_SUPPORTED_RATES) {
 				bytes_left_for_current_beacon = 0;
+				ret = MLAN_STATUS_FAILURE;
 				continue;
 			}
 			memcpy(pmadapter, pbss_entry->data_rates,
@@ -3570,6 +3578,8 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 						   CIPHER_SUITE_GCMP)
 			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
 						   CIPHER_SUITE_GCMP_256)
+			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
+						   CIPHER_SUITE_CCMP_256)
 				) {
 
 				if (is_wpa_oui_present
@@ -3733,6 +3743,8 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 						   CIPHER_SUITE_GCMP)
 			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
 						   CIPHER_SUITE_GCMP_256)
+			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
+						   CIPHER_SUITE_CCMP_256)
 				) {
 				if (is_rsn_oui_present
 				    (pmpriv->adapter, pbss_desc,

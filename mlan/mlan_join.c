@@ -6,7 +6,7 @@
  *  for sending adhoc start, adhoc join, and association commands
  *  to the firmware.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -656,6 +656,46 @@ done:
 }
 
 /**
+ *  @brief This function is to find specific IE.
+ *
+ *  @param ie           A pointer to ie buffer
+ *  @param ie_len    Length of ie buffer
+ *  @param ie_type  Type of ie that wants to be found in ie buffer
+ *
+ *  @return     MFALSE if not found; MTURE if found
+ */
+t_u8
+wlan_find_ie(t_u8 *ie, t_u8 ie_len, t_u8 ie_type)
+{
+	IEEEtypes_Header_t *pheader = MNULL;
+	t_u8 *pos = MNULL;
+	t_s8 ret_len;
+	t_u8 ret = MFALSE;
+
+	ENTER();
+
+	pos = (t_u8 *)ie;
+	ret_len = ie_len;
+	while (ret_len >= 2) {
+		pheader = (IEEEtypes_Header_t *)pos;
+		if (pheader->len + sizeof(IEEEtypes_Header_t) > ret_len) {
+			PRINTM(MMSG, "invalid IE length = %d left len %d\n",
+			       pheader->len, ret_len);
+			break;
+		}
+		if (pheader->element_id == ie_type) {
+			ret = MTRUE;
+			break;
+		}
+		ret_len -= pheader->len + sizeof(IEEEtypes_Header_t);
+		pos += pheader->len + sizeof(IEEEtypes_Header_t);
+	}
+
+	LEAVE();
+	return ret;
+}
+
+/**
  *  @brief This function prepares command of association.
  *
  *  @param pmpriv       A pointer to mlan_private structure
@@ -686,6 +726,7 @@ wlan_cmd_802_11_associate(IN mlan_private *pmpriv,
 	t_u8 *pos;
 	t_u8 ft_akm = 0;
 	t_u8 oper_class;
+	t_u8 oper_class_flag = MFALSE;
 	MrvlIEtypes_HostMlme_t *host_mlme_tlv = MNULL;
 
 	ENTER();
@@ -771,10 +812,6 @@ wlan_cmd_802_11_associate(IN mlan_private *pmpriv,
 			 MLAN_AUTH_MODE_FT)
 			pauth_tlv->auth_type =
 				wlan_cpu_to_le16(AssocAgentAuth_FastBss_Skip);
-		else if (pmpriv->sec_info.authentication_mode ==
-			 MLAN_AUTH_MODE_SAE)
-			pauth_tlv->auth_type =
-				wlan_cpu_to_le16(AssocAgentAuth_Wpa3Sae);
 		else
 			pauth_tlv->auth_type =
 				wlan_cpu_to_le16(MLAN_AUTH_MODE_OPEN);
@@ -928,14 +965,19 @@ wlan_cmd_802_11_associate(IN mlan_private *pmpriv,
 	    && wlan_11n_bandconfig_allowed(pmpriv, pbss_desc->bss_band))
 		wlan_cmd_append_11n_tlv(pmpriv, pbss_desc, &pos);
 	if (pmpriv->adapter->ecsa_enable) {
-		if (MLAN_STATUS_SUCCESS ==
-		    wlan_get_curr_oper_class(pmpriv,
-					     pbss_desc->phy_param_set.
-					     ds_param_set.current_chan,
-					     pbss_desc->curr_bandwidth,
-					     &oper_class))
-			wlan_add_supported_oper_class_ie(pmpriv, &pos,
-							 oper_class);
+		oper_class_flag =
+			wlan_find_ie(pmpriv->gen_ie_buf, pmpriv->gen_ie_buf_len,
+				     REGULATORY_CLASS);
+		if (!oper_class_flag) {
+			if (MLAN_STATUS_SUCCESS ==
+			    wlan_get_curr_oper_class(pmpriv,
+						     pbss_desc->phy_param_set.
+						     ds_param_set.current_chan,
+						     pbss_desc->curr_bandwidth,
+						     &oper_class))
+				wlan_add_supported_oper_class_ie(pmpriv, &pos,
+								 oper_class);
+		}
 	}
 	if (ISSUPP_11ACENABLED(pmadapter->fw_cap_info)
 	    && (!pbss_desc->disable_11n)

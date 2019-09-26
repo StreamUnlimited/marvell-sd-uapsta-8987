@@ -2,7 +2,7 @@
  *
  *  @brief This file declares the generic data structures and APIs.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -27,7 +27,7 @@ Change log:
 #define _MLAN_DECL_H_
 
 /** MLAN release version */
-#define MLAN_RELEASE_VERSION		 "C623"
+#define MLAN_RELEASE_VERSION		 "C651"
 
 /** Re-define generic data types for MLAN/MOAL */
 /** Signed char (1-byte) */
@@ -555,6 +555,15 @@ typedef struct _mlan_init_param {
     /** Other custom data */
 } mlan_init_param, *pmlan_init_param;
 
+/** channel type */
+enum mlan_channel_type {
+	CHAN_NO_HT,
+	CHAN_HT20,
+	CHAN_HT40MINUS,
+	CHAN_HT40PLUS,
+	CHAN_VHT80
+};
+
 /** channel band */
 enum {
 	BAND_2GHZ = 0,
@@ -645,6 +654,9 @@ typedef struct _mlan_cmdresp_event {
     /** resp buffer pointer */
 	t_u8 *resp;
 } mlan_cmdresp_event, *pmlan_cmdresp_event;
+
+/** csi event data structure */
+
 /** mlan_ioctl_req data structure */
 typedef struct _mlan_ioctl_req {
     /** Pointer to previous mlan_ioctl_req */
@@ -1255,6 +1267,7 @@ typedef struct _mlan_callbacks {
     /** moal_read_reg */
 	mlan_status (*moal_read_reg) (IN t_void *pmoal_handle,
 				      IN t_u32 reg, OUT t_u32 *data);
+
     /** moal_write_data_sync */
 	mlan_status (*moal_write_data_sync) (IN t_void *pmoal_handle,
 					     IN pmlan_buffer pmbuf,

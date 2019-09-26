@@ -4,7 +4,7 @@
  *  it prepares command and sends it to firmware when
  *  it is ready.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1047,6 +1047,30 @@ wlan_cmd_802_11_key_material(IN pmlan_private pmpriv,
 			wlan_cpu_to_le16(sizeof(MrvlIEtypesHeader_t) +
 					 S_DS_GEN + KEY_PARAMS_FIXED_LEN +
 					 sizeof(gcmp_param)
+					 + sizeof(pkey_material->action));
+
+		goto done;
+	}
+	if (pkey->key_flags & KEY_FLAG_CCMP_256) {
+		if (pkey->key_flags &
+		    (KEY_FLAG_RX_SEQ_VALID | KEY_FLAG_TX_SEQ_VALID)) {
+			memcpy(pmpriv->adapter,
+			       pkey_material->key_param_set.key_params.ccmp256.
+			       pn, pkey->pn, SEQ_MAX_SIZE);
+		}
+		pkey_material->key_param_set.key_type = KEY_TYPE_ID_CCMP_256;
+		pkey_material->key_param_set.key_params.ccmp256.key_len =
+			wlan_cpu_to_le16(pkey->key_len);
+		memcpy(pmpriv->adapter,
+		       pkey_material->key_param_set.key_params.ccmp256.key,
+		       pkey->key_material, pkey->key_len);
+		pkey_material->key_param_set.length =
+			wlan_cpu_to_le16(KEY_PARAMS_FIXED_LEN +
+					 sizeof(ccmp_256_param));
+		cmd->size =
+			wlan_cpu_to_le16(sizeof(MrvlIEtypesHeader_t) +
+					 S_DS_GEN + KEY_PARAMS_FIXED_LEN +
+					 sizeof(ccmp_256_param)
 					 + sizeof(pkey_material->action));
 
 		goto done;
@@ -2269,11 +2293,12 @@ wlan_cmd_net_monitor(IN HostCmd_DS_COMMAND *cmd,
 	cmd->command = wlan_cpu_to_le16(cmd->command);
 	cmd_net_mon->action = wlan_cpu_to_le16(cmd_action);
 	if (cmd_action == HostCmd_ACT_GEN_SET) {
-		cmd_net_mon->enable_net_mon =
-			wlan_cpu_to_le16((t_u16)net_mon->enable_net_mon);
-		if (net_mon->enable_net_mon)
+		if (net_mon->enable_net_mon) {
+			cmd_net_mon->enable_net_mon =
+				wlan_cpu_to_le16((t_u16)NET_MON_MODE3);
 			cmd_net_mon->filter_flag =
 				wlan_cpu_to_le16((t_u16)net_mon->filter_flag);
+		}
 		/* fill the TLV only if channel is specified */
 		if (net_mon->enable_net_mon && net_mon->channel) {
 			pchan_band =
@@ -3030,6 +3055,14 @@ wlan_ops_sta_prepare_cmd(IN t_void *priv,
 	case HostCmd_CMD_FW_DUMP_EVENT:
 		ret = wlan_cmd_fw_dump_event(pmpriv, cmd_ptr, cmd_action,
 					     pdata_buf);
+		break;
+	case HostCmd_CMD_TX_AMPDU_PROT_MODE:
+		ret = wlan_cmd_tx_ampdu_prot_mode(pmpriv, cmd_ptr, cmd_action,
+						  pdata_buf);
+		break;
+	case HostCmd_CHANNEL_TRPC_CONFIG:
+		ret = wlan_cmd_get_chan_trpc_config(pmpriv, cmd_ptr, cmd_action,
+						    pdata_buf);
 		break;
 	default:
 		PRINTM(MERROR, "PREP_CMD: unknown command- %#x\n", cmd_no);

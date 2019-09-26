@@ -3,7 +3,7 @@
  *  @brief This file contains IEEE information element related
  *  definitions used in MLAN and MOAL module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -271,6 +271,14 @@ typedef MLAN_PACK_START struct {
 	t_u8 variable[0];
 } MLAN_PACK_END IEEEtypes_Auth_framebody;
 
+/** associate request frame */
+typedef MLAN_PACK_START struct {
+	t_u16 capab_info;
+	t_u16 listen_interval;
+    /** followed by SSID and Supported rates */
+	t_u8 variablep[0];
+} MLAN_PACK_END IEEEtypes_assoc_req;
+
 /*Mgmt frame*/
 typedef MLAN_PACK_START struct {
     /** frame control */
@@ -289,6 +297,7 @@ typedef MLAN_PACK_START struct {
 	t_u8 addr4[MLAN_MAC_ADDR_LENGTH];
 	union {
 		IEEEtypes_Auth_framebody auth;
+		IEEEtypes_assoc_req assoc_req;
 		IEEEtypes_Ft_action_response ft_resp;
 		IEEEtypes_Ft_action_request ft_req;
 	} u;

@@ -2,7 +2,7 @@
  *
  *  @brief This file contains APIs to MOAL module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -465,14 +465,14 @@ error:
 			if (pcb->moal_vmalloc && pcb->moal_vfree)
 				pcb->moal_vfree(pmadapter->pmoal_handle,
 						(t_u8 *)pmadapter->priv[i]);
-			else
+			else if (pcb->moal_mfree)
 				pcb->moal_mfree(pmadapter->pmoal_handle,
 						(t_u8 *)pmadapter->priv[i]);
 		}
 	}
 	if (pcb->moal_vmalloc && pcb->moal_vfree)
 		pcb->moal_vfree(pmadapter->pmoal_handle, (t_u8 *)pmadapter);
-	else
+	else if (pcb->moal_mfree)
 		pcb->moal_mfree(pmadapter->pmoal_handle, (t_u8 *)pmadapter);
 
 exit_register:
@@ -1279,7 +1279,6 @@ mlan_send_packet(IN t_void *pmlan_adapter, IN pmlan_buffer pmbuf)
 	     ))
 	    || (eth_type == MLAN_ETHER_PKT_TYPE_TDLS_ACTION)
 	    || (pmbuf->buf_type == MLAN_BUF_TYPE_RAW_DATA)
-
 		) {
 		if (eth_type == MLAN_ETHER_PKT_TYPE_TDLS_ACTION) {
 			memcpy(pmadapter, ra, pmbuf->pbuf + pmbuf->data_offset,

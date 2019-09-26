@@ -3,7 +3,7 @@
  *  @brief This file contains related macros, enum, and struct
  *  of 11n RxReordering functionalities
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -74,6 +74,7 @@ Change log:
 
 /** Indicate packet has been dropped in FW */
 #define RX_PKT_DROPPED_IN_FW             0xffffffff
+t_void wlan_reset_pn_value(mlan_private *pmpriv, mlan_ds_encrypt_key *key);
 t_u8 wlan_is_rsn_replay_attack(mlan_private *pmpriv, t_void *payload,
 			       RxReorderTbl *rx_reor_tbl_ptr);
 mlan_status mlan_11n_rxreorder_pkt(void *priv, t_u16 seqNum, t_u16 tid,

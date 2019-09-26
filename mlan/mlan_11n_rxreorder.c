@@ -3,7 +3,7 @@
  *  @brief This file contains the handling of RxReordering in wlan
  *  driver.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -157,7 +157,6 @@ mlan_11n_rxreorder_timer_restart(pmlan_adapter pmadapter,
 					      timer, MFALSE,
 					      (rx_reor_tbl_ptr->win_size *
 					       min_flush_time));
-
 	rx_reor_tbl_ptr->timer_context.timer_is_set = MTRUE;
 	LEAVE();
 }
@@ -477,82 +476,78 @@ wlan_11n_create_rxreorder_tbl(mlan_private *priv, t_u8 *ta, int tid,
 	 */
 	rx_reor_tbl_ptr = wlan_11n_get_rxreorder_tbl(priv, tid, ta);
 	if (rx_reor_tbl_ptr) {
-		wlan_11n_dispatch_pkt_until_start_win(priv,
-						      rx_reor_tbl_ptr, seq_num);
-	} else {
-		PRINTM(MDAT_D, "%s: seq_num %d, tid %d, ta " MACSTR
-		       ", win_size %d\n", __func__,
-		       seq_num, tid, MAC2STR(ta), win_size);
-		if (pmadapter->callbacks.
-		    moal_malloc(pmadapter->pmoal_handle, sizeof(RxReorderTbl),
-				MLAN_MEM_DEF, (t_u8 **)&new_node)) {
-			PRINTM(MERROR, "Rx reorder memory allocation failed\n");
-			LEAVE();
-			return;
-		}
+		PRINTM(MCMND, "%s: delete %p old_size=%d, win_size=%d\n",
+		       __func__, rx_reor_tbl_ptr, rx_reor_tbl_ptr->win_size,
+		       win_size);
+		wlan_11n_delete_rxreorder_tbl_entry(priv, rx_reor_tbl_ptr);
+	}
+	mlan_block_rx_process(pmadapter, MTRUE);
+	PRINTM(MCMND, "%s: seq_num %d, tid %d, ta " MACSTR
+	       ", win_size %d\n", __func__,
+	       seq_num, tid, MAC2STR(ta), win_size);
+	if (pmadapter->callbacks.
+	    moal_malloc(pmadapter->pmoal_handle, sizeof(RxReorderTbl),
+			MLAN_MEM_DEF, (t_u8 **)&new_node)) {
+		PRINTM(MERROR, "Rx reorder memory allocation failed\n");
+		mlan_block_rx_process(pmadapter, MFALSE);
+		LEAVE();
+		return;
+	}
 
-		util_init_list((pmlan_linked_list)new_node);
-		new_node->tid = tid;
-		memcpy(pmadapter, new_node->ta, ta, MLAN_MAC_ADDR_LENGTH);
-		new_node->start_win = seq_num;
-		new_node->pkt_count = 0;
-		if (queuing_ra_based(priv)) {
-			/* TODO for adhoc */
-			if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_UAP) {
-				sta_ptr = wlan_get_station_entry(priv, ta);
-				if (sta_ptr)
-					last_seq = sta_ptr->rx_seq[tid];
-			}
-			PRINTM(MINFO, "UAP/ADHOC:last_seq=%d start_win=%d\n",
-			       last_seq, new_node->start_win);
-		} else {
+	util_init_list((pmlan_linked_list)new_node);
+	if (pmadapter->callbacks.
+	    moal_malloc(pmadapter->pmoal_handle, sizeof(t_void *) * win_size,
+			MLAN_MEM_DEF, (t_u8 **)&new_node->rx_reorder_ptr)) {
+		PRINTM(MERROR, "Rx reorder table memory allocation" "failed\n");
+		pmadapter->callbacks.moal_mfree(pmadapter->pmoal_handle,
+						(t_u8 *)new_node);
+		mlan_block_rx_process(pmadapter, MFALSE);
+		LEAVE();
+		return;
+	}
+	PRINTM(MDAT_D, "Create ReorderPtr: %p start_win=%d last_seq=%d\n",
+	       new_node, new_node->start_win, last_seq);
+	new_node->timer_context.ptr = new_node;
+	new_node->timer_context.priv = priv;
+	new_node->timer_context.timer_is_set = MFALSE;
+	pmadapter->callbacks.moal_init_timer(pmadapter->pmoal_handle,
+					     &new_node->timer_context.timer,
+					     wlan_flush_data,
+					     &new_node->timer_context);
+	util_enqueue_list_tail(pmadapter->pmoal_handle,
+			       &priv->rx_reorder_tbl_ptr,
+			       (pmlan_linked_list)new_node,
+			       pmadapter->callbacks.moal_spin_lock,
+			       pmadapter->callbacks.moal_spin_unlock);
+	new_node->tid = tid;
+	memcpy(pmadapter, new_node->ta, ta, MLAN_MAC_ADDR_LENGTH);
+	new_node->start_win = seq_num;
+	new_node->pkt_count = 0;
+	if (queuing_ra_based(priv)) {
+		if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_UAP) {
 			sta_ptr = wlan_get_station_entry(priv, ta);
 			if (sta_ptr)
 				last_seq = sta_ptr->rx_seq[tid];
-			else
-				last_seq = priv->rx_seq[tid];
 		}
-		new_node->last_seq = last_seq;
-		new_node->win_size = win_size;
-		new_node->force_no_drop = MFALSE;
-		new_node->check_start_win = MTRUE;
-
-		if (pmadapter->callbacks.
-		    moal_malloc(pmadapter->pmoal_handle,
-				sizeof(t_void *) * win_size, MLAN_MEM_DEF,
-				(t_u8 **)&new_node->rx_reorder_ptr)) {
-			PRINTM(MERROR,
-			       "Rx reorder table memory allocation" "failed\n");
-			pmadapter->callbacks.moal_mfree(pmadapter->pmoal_handle,
-							(t_u8 *)new_node);
-			LEAVE();
-			return;
-		}
-
-		PRINTM(MDAT_D,
-		       "Create ReorderPtr: %p start_win=%d last_seq=%d\n",
-		       new_node, new_node->start_win, last_seq);
-		new_node->timer_context.ptr = new_node;
-		new_node->timer_context.priv = priv;
-		new_node->timer_context.timer_is_set = MFALSE;
-		new_node->ba_status = BA_STREAM_SETUP_INPROGRESS;
-
-		pmadapter->callbacks.moal_init_timer(pmadapter->pmoal_handle,
-						     &new_node->
-						     timer_context.timer,
-						     wlan_flush_data,
-						     &new_node->timer_context);
-
-		for (i = 0; i < win_size; ++i)
-			new_node->rx_reorder_ptr[i] = MNULL;
-
-		util_enqueue_list_tail(pmadapter->pmoal_handle,
-				       &priv->rx_reorder_tbl_ptr,
-				       (pmlan_linked_list)new_node,
-				       pmadapter->callbacks.moal_spin_lock,
-				       pmadapter->callbacks.moal_spin_unlock);
+		PRINTM(MINFO, "UAP/ADHOC:last_seq=%d start_win=%d\n", last_seq,
+		       new_node->start_win);
+	} else {
+		sta_ptr = wlan_get_station_entry(priv, ta);
+		if (sta_ptr)
+			last_seq = sta_ptr->rx_seq[tid];
+		else
+			last_seq = priv->rx_seq[tid];
 	}
-
+	new_node->last_seq = last_seq;
+	new_node->win_size = win_size;
+	new_node->force_no_drop = MFALSE;
+	new_node->check_start_win = MTRUE;
+	new_node->ba_status = BA_STREAM_SETUP_INPROGRESS;
+	for (i = 0; i < win_size; ++i)
+		new_node->rx_reorder_ptr[i] = MNULL;
+	new_node->hi_curr_rx_count32 = 0xffffffff;
+	new_node->lo_curr_rx_count16 = 0;
+	mlan_block_rx_process(pmadapter, MFALSE);
 	LEAVE();
 }
 
@@ -775,6 +770,40 @@ wlan_cmd_11n_delba(mlan_private *priv, HostCmd_DS_COMMAND *cmd, void *pdata_buf)
 }
 
 /**
+ *  @bref This function is to reset PN value when ptk rekey
+ *  @param pmpriv                pointer to mlan_private
+ *  @param key               pointer to mlan_ds_encrypt_key
+ *
+ *  @return                     N/A
+ */
+t_void
+wlan_reset_pn_value(mlan_private *pmpriv, mlan_ds_encrypt_key *key)
+{
+	RxReorderTbl *rx_reor_tbl_ptr = MNULL;
+
+	t_u8 tid = 0;
+
+	ENTER();
+
+	if (key->key_flags & KEY_FLAG_REMOVE_KEY
+	    || key->key_flags & KEY_FLAG_GROUP_KEY)
+		goto done;
+
+	for (tid = 0; tid < 7; tid++) {
+		rx_reor_tbl_ptr =
+			wlan_11n_get_rxreorder_tbl(pmpriv, tid, key->mac_addr);
+		if (rx_reor_tbl_ptr) {
+			rx_reor_tbl_ptr->hi_curr_rx_count32 = 0xffffffff;
+			rx_reor_tbl_ptr->lo_curr_rx_count16 = 0;
+		}
+	}
+
+done:
+	LEAVE();
+	return;
+}
+
+/**
  *  @bref This function check PN numbers to detect replay counter attack
  *  @param pmpriv                pointer to mlan_private
  *  @param payload               pointer to mlan_buffer
@@ -806,8 +835,8 @@ wlan_is_rsn_replay_attack(mlan_private *pmpriv, t_void *payload,
 	    || (rx_reor_tbl_ptr->hi_curr_rx_count32 != 0xffffffff &&
 		prx_pd->hi_rx_count32 < rx_reor_tbl_ptr->hi_curr_rx_count32)) {
 		PRINTM(MERROR,
-		       "Drop packet because of invalid PN value. Last PN:0x%x 0x%x,New PN:0x%x 0x%x\n",
-		       rx_reor_tbl_ptr->hi_curr_rx_count32,
+		       "Drop packet because of invalid PN value. Seq_num %d Last PN:0x%x 0x%x,New PN:0x%x 0x%x\n",
+		       prx_pd->seq_num, rx_reor_tbl_ptr->hi_curr_rx_count32,
 		       rx_reor_tbl_ptr->lo_curr_rx_count16,
 		       prx_pd->hi_rx_count32, prx_pd->lo_rx_count16);
 		wlan_free_mlan_buffer(pmadapter, pmbuf);
@@ -817,6 +846,8 @@ wlan_is_rsn_replay_attack(mlan_private *pmpriv, t_void *payload,
 
 	rx_reor_tbl_ptr->lo_curr_rx_count16 = prx_pd->lo_rx_count16;
 	rx_reor_tbl_ptr->hi_curr_rx_count32 = prx_pd->hi_rx_count32;
+	PRINTM(MDAT_D, "seq_num %d PN:0x%x 0x%x\n", prx_pd->seq_num,
+	       prx_pd->hi_rx_count32, prx_pd->lo_rx_count16);
 
 	LEAVE();
 	return MFALSE;
@@ -1219,7 +1250,7 @@ wlan_ret_11n_addba_resp(mlan_private *priv, HostCmd_DS_COMMAND *resp)
 				rx_reor_tbl_ptr->amsdu = MFALSE;
 		}
 	} else {
-		PRINTM(MERROR, "ADDBA RSP: Failed(" MACSTR " tid=%d)\n",
+		PRINTM(MCMND, "ADDBA RSP: Failed(" MACSTR " tid=%d)\n",
 		       MAC2STR(padd_ba_rsp->peer_mac_addr), tid);
 		rx_reor_tbl_ptr = wlan_11n_get_rxreorder_tbl(priv, tid,
 							     padd_ba_rsp->

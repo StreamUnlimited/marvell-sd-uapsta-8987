@@ -5,7 +5,7 @@
  *  Driver interface functions and type declarations for the 11n module
  *    implemented in mlan_11n.c.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -229,6 +229,7 @@ reset_station_ampdu(mlan_private *priv, t_u8 tid, t_u8 *ra)
 	return;
 }
 
+#define IS_BG_RATE (priv->bitmap_rates[0] || priv->bitmap_rates[1])
 /**
  *  @brief This function checks whether AMPDU is allowed or not
  *
@@ -241,18 +242,52 @@ reset_station_ampdu(mlan_private *priv, t_u8 tid, t_u8 *ra)
 static INLINE t_u8
 wlan_is_ampdu_allowed(mlan_private *priv, raListTbl *ptr, int tid)
 {
+	if (ptr->is_tdls_link)
+		return is_station_ampdu_allowed(priv, ptr, tid);
+	if (priv->adapter->tdls_status != TDLS_NOT_SETUP && !priv->txaggrctrl)
+		return MFALSE;
+
+	if ((!priv->is_data_rate_auto) && IS_BG_RATE)
+		return MFALSE;
 #ifdef UAP_SUPPORT
 	if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_UAP)
 		return is_station_ampdu_allowed(priv, ptr, tid);
 #endif /* UAP_SUPPORT */
 	if (priv->sec_info.wapi_enabled && !priv->sec_info.wapi_key_on)
 		return MFALSE;
-	if (ptr->is_tdls_link)
-		return is_station_ampdu_allowed(priv, ptr, tid);
-	if (priv->adapter->tdls_status != TDLS_NOT_SETUP && !priv->txaggrctrl)
-		return MFALSE;
 	return (priv->aggr_prio_tbl[tid].ampdu_ap != BA_STREAM_NOT_ALLOWED)
 		? MTRUE : MFALSE;
+}
+
+#define BA_RSSI_HIGH_THRESHOLD  -70
+
+static INLINE void
+wlan_update_station_del_ba_count(mlan_private *priv, raListTbl *ptr)
+{
+	sta_node *sta_ptr = MNULL;
+	t_s8 rssi;
+	sta_ptr = wlan_get_station_entry(priv, ptr->ra);
+	if (sta_ptr) {
+		rssi = sta_ptr->snr - sta_ptr->nf;
+		if (rssi > BA_RSSI_HIGH_THRESHOLD)
+			ptr->del_ba_count = 0;
+	}
+	return;
+}
+
+static INLINE void
+wlan_update_del_ba_count(mlan_private *priv, raListTbl *ptr)
+{
+	t_s8 rssi;
+#ifdef UAP_SUPPORT
+	if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_UAP)
+		return wlan_update_station_del_ba_count(priv, ptr);
+#endif /* UAP_SUPPORT */
+	if (ptr->is_tdls_link)
+		return wlan_update_station_del_ba_count(priv, ptr);
+	rssi = priv->snr - priv->nf;
+	if (rssi > BA_RSSI_HIGH_THRESHOLD)
+		ptr->del_ba_count = 0;
 }
 
 /**
@@ -278,11 +313,15 @@ wlan_is_amsdu_allowed(mlan_private *priv, raListTbl *ptr, int tid)
 		}
 	}
 #endif /* UAP_SUPPORT */
+	if (ptr->is_tdls_link)
+		return (priv->aggr_prio_tbl[tid].amsdu !=
+			BA_STREAM_NOT_ALLOWED)? MTRUE : MFALSE;
 #define TXRATE_BITMAP_INDEX_MCS0_7 2
 	return ((priv->aggr_prio_tbl[tid].amsdu != BA_STREAM_NOT_ALLOWED)
 		&&((priv->is_data_rate_auto)
-		   || !((priv->bitmap_rates[TXRATE_BITMAP_INDEX_MCS0_7]) &
-			0x03))) ? MTRUE : MFALSE;
+		   ||
+		   !(((priv->bitmap_rates[TXRATE_BITMAP_INDEX_MCS0_7]) & 0x03)
+		     || IS_BG_RATE))) ? MTRUE : MFALSE;
 }
 
 /**

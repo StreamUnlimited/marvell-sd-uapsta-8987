@@ -3,7 +3,7 @@
  *  @brief This file contains the initialization for FW
  *  and HW.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -613,6 +613,7 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	pmadapter->specific_scan_time = MRVDRV_SPECIFIC_SCAN_CHAN_TIME;
 	pmadapter->active_scan_time = MRVDRV_ACTIVE_SCAN_CHAN_TIME;
 	pmadapter->passive_scan_time = MRVDRV_PASSIVE_SCAN_CHAN_TIME;
+
 	pmadapter->passive_to_active_scan = MLAN_PASS_TO_ACT_SCAN_EN;
 
 	pmadapter->num_in_scan_table = 0;

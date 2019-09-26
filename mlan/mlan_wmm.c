@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for WMM.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1141,6 +1141,8 @@ wlan_dequeue_tx_packet(pmlan_adapter pmadapter)
 		return MLAN_STATUS_SUCCESS;
 	}
 
+	if (ptr->del_ba_count >= DEL_BA_THRESHOLD)
+		wlan_update_del_ba_count(priv, ptr);
 	if (!ptr->is_11n_enabled ||
 	    (ptr->ba_status || ptr->del_ba_count >= DEL_BA_THRESHOLD)
 #ifdef STA_SUPPORT

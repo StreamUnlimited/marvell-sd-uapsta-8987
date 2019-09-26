@@ -4,7 +4,7 @@
  *  structures and declares global function prototypes used
  *  in MLAN module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -36,6 +36,9 @@ Change log:
 #endif
 
 #define WPA_GCMP_KEY_LEN 32
+
+#define WPA_CCMP_256_KEY_LEN 32
+
 /** Ethernet header */
 typedef MLAN_PACK_START struct {
     /** Ethernet header destination address */
@@ -80,6 +83,9 @@ typedef MLAN_PACK_START struct {
 
 /** Setup the number of rates passed in the driver/firmware API */
 #define A_SUPPORTED_RATES               9
+
+/** IEEEtypes Data Frame Subtype of QoS pkt */
+#define QOS_DATA                        8
 
 /** CapInfo Short Slot Time Disabled */
 /* #define SHORT_SLOT_TIME_DISABLED(CapInfo) ((IEEEtypes_CapInfo_t)(CapInfo).short_slot_time = 0) */
@@ -183,10 +189,12 @@ typedef enum _KEY_TYPE_ID {
 	KEY_TYPE_ID_AES = 2,
 	KEY_TYPE_ID_WAPI = 3,
 	KEY_TYPE_ID_AES_CMAC = 4,
-	KEY_TYPE_ID_GCMP = 5,
     /** Key type : GCMP */
-	KEY_TYPE_ID_GCMP_256 = 6,
+	KEY_TYPE_ID_GCMP = 5,
     /** Key type : GCMP_256 */
+	KEY_TYPE_ID_GCMP_256 = 6,
+    /** Key type : CCMP_256 */
+	KEY_TYPE_ID_CCMP_256 = 7,
 } KEY_TYPE_ID;
 
 /** Key Info flag for multicast key */
@@ -1032,6 +1040,9 @@ typedef enum _WLAN_802_11_WEP_STATUS {
 /** Host Command ID : 802.11 D domain information */
 #define HostCmd_CMD_802_11D_DOMAIN_INFO       0x005b
 
+/*This command gets/sets the Transmit Rate-based Power Control (TRPC) channel configuration.*/
+#define HostCmd_CHANNEL_TRPC_CONFIG           0x00fb
+
 /** Host Command ID : 802.11 TPC information */
 #define HostCmd_CMD_802_11_TPC_INFO           0x005f
 /** Host Command ID : 802.11 TPC adapt req */
@@ -1333,6 +1344,13 @@ typedef MLAN_PACK_START struct _otp_region_info {
 	t_u16 reserved:15;
 } MLAN_PACK_END otp_region_info_t;
 
+typedef MLAN_PACK_START struct _power_table_attr {
+	t_u8 rows_2g;
+	t_u8 cols_2g;
+	t_u8 rows_5g;
+	t_u8 cols_5g;
+} MLAN_PACK_END power_table_attr_t;
+
 #define FW_CFP_TABLE_MAX_ROWS_BG		14
 #define FW_CFP_TABLE_MAX_COLS_BG		11
 
@@ -1342,6 +1360,8 @@ typedef MLAN_PACK_START struct _otp_region_info {
 #define HostCmd_CMD_DYN_BW                  0x0252
 
 #define HostCmd_CMD_BOOT_SLEEP              0x0258
+
+#define HostCmd_CMD_TX_AMPDU_PROT_MODE      0x0263
 
 #define HostCmd_CMD_ACS     0x025a
 
@@ -1736,6 +1756,7 @@ typedef MLAN_PACK_START struct _event_nan_generic {
 
 #define RXPD_FLAG_EXTRA_HEADER             (1 << 1)
 #define RXPD_FLAG_PN_CHECK_SUPPORT             (1 << 2)
+#define RXPD_FLAG_UCAST_PKT                (1 << 3)
 
 /** Event_WEP_ICV_ERR structure */
 typedef MLAN_PACK_START struct _Event_WEP_ICV_ERR {
@@ -2491,6 +2512,17 @@ typedef MLAN_PACK_START struct _gcmp_param {
     /** aes key */
 	t_u8 key[WPA_GCMP_KEY_LEN];
 } MLAN_PACK_END gcmp_param;
+
+/** ccmp256_param */
+typedef MLAN_PACK_START struct _ccmp256_param {
+    /** ccmp256 pn */
+	t_u8 pn[WPA_PN_SIZE];
+    /** key_len */
+	t_u16 key_len;
+    /** ccmp256 key */
+	t_u8 key[WPA_CCMP_256_KEY_LEN];
+} MLAN_PACK_END ccmp_256_param;
+
 /** MrvlIEtype_KeyParamSet_t */
 typedef MLAN_PACK_START struct _MrvlIEtype_KeyParamSetV2_t {
     /** Type ID */
@@ -2518,6 +2550,7 @@ typedef MLAN_PACK_START struct _MrvlIEtype_KeyParamSetV2_t {
 		cmac_aes_param cmac_aes;
 	/** gcmp key param */
 		gcmp_param gcmp;
+		ccmp_256_param ccmp256;
 	} key_params;
 } MLAN_PACK_END MrvlIEtype_KeyParamSetV2_t;
 
@@ -2647,6 +2680,37 @@ typedef MLAN_PACK_START struct _HostCmd_DS_GEN {
 
 /** Size of HostCmd_DS_GEN */
 #define S_DS_GEN        sizeof(HostCmd_DS_GEN)
+
+/** mod_group_setting */
+typedef MLAN_PACK_START struct _mod_group_setting {
+    /** modulation group */
+	t_u8 mod_group;
+    /** power */
+	t_u8 power;
+} MLAN_PACK_END mod_group_setting;
+
+/** MrvlIETypes_ChanTRPCConfig_t */
+typedef MLAN_PACK_START struct _MrvlIETypes_ChanTRPCConfig_t {
+    /** Header */
+	MrvlIEtypesHeader_t header;
+    /** start freq */
+	t_u16 start_freq;
+	/* channel width */
+	t_u8 width;
+    /** channel number */
+	t_u8 chan_num;
+	mod_group_setting mod_group[0];
+} MLAN_PACK_END MrvlIETypes_ChanTRPCConfig_t;
+
+/* HostCmd_DS_CHANNEL_TRPC_CONFIG */
+typedef MLAN_PACK_START struct _HostCmd_DS_CHANNEL_TRPC_CONFIG {
+    /** action */
+	t_u16 action;
+    /** 0/1/2/3 */
+	t_u16 sub_band;
+    /** chan TRPC config */
+	MrvlIETypes_ChanTRPCConfig_t tlv[0];
+} MLAN_PACK_END HostCmd_DS_CHANNEL_TRPC_CONFIG;
 
 /** Address type: broadcast */
 #define ADDR_TYPE_BROADCAST		1
@@ -4693,6 +4757,7 @@ typedef MLAN_PACK_START struct _HostCmd_DS_VERSION_EXT {
 #define TLV_TYPE_CHAN_ATTR_CFG		(PROPRIETARY_TLV_BASE_ID + 237)
 #define TLV_TYPE_REGION_INFO		(PROPRIETARY_TLV_BASE_ID + 238)
 #define TLV_TYPE_POWER_TABLE		(PROPRIETARY_TLV_BASE_ID + 262)
+#define TLV_TYPE_POWER_TABLE_ATTR		(PROPRIETARY_TLV_BASE_ID + 317)
 /** HostCmd_DS_CHAN_REGION_CFG */
 typedef MLAN_PACK_START struct _HostCmd_DS_CHAN_REGION_CFG {
     /** Action */
@@ -6113,7 +6178,7 @@ typedef MLAN_PACK_START struct {
 /** HostCmd_DS_SENSOR_TEMP structure */
 typedef MLAN_PACK_START struct _HostCmd_DS_SENSOR_TEMP {
 	/** Temperature */
-	t_u32 temperature;
+	int temperature;
 } MLAN_PACK_END HostCmd_DS_SENSOR_TEMP;
 
 #ifdef STA_SUPPORT
@@ -6168,6 +6233,14 @@ typedef MLAN_PACK_START struct _MrvlIEtypes_StaFlag_t {
 	t_u32 sta_flags;
 } MLAN_PACK_END MrvlIEtypes_StaFlag_t;
 #endif
+
+/** HostCmd_DS_CMD_TX_AMPDU_PROT_MODE */
+typedef MLAN_PACK_START struct _HostCmd_DS_CMD_TX_AMPDU_PROT_MODE {
+    /** Action */
+	t_u16 action;
+    /** Prot mode */
+	t_u16 mode;
+} MLAN_PACK_END HostCmd_DS_CMD_TX_AMPDU_PROT_MODE;
 
 /** HostCmd_DS_COMMAND */
 typedef struct MLAN_PACK_START _HostCmd_DS_COMMAND {
@@ -6387,6 +6460,9 @@ typedef struct MLAN_PACK_START _HostCmd_DS_COMMAND {
     /** Add station cmd */
 		HostCmd_DS_ADD_STATION sta_info;
 #endif
+		HostCmd_DS_CMD_TX_AMPDU_PROT_MODE tx_ampdu_prot_mode;
+    /** trpc_config */
+		HostCmd_DS_CHANNEL_TRPC_CONFIG ch_trpc_config;
 	} params;
 } MLAN_PACK_END HostCmd_DS_COMMAND;
 

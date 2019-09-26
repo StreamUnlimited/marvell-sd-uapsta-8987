@@ -3,7 +3,7 @@
  *  @brief This file contains the handling of RX in MLAN
  *  module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -35,17 +35,6 @@ Change log:
 /********************************************************
 		Local Variables
 ********************************************************/
-
-/** Ethernet II header */
-typedef struct {
-    /** Ethernet II header destination address */
-	t_u8 dest_addr[MLAN_MAC_ADDR_LENGTH];
-    /** Ethernet II header source address */
-	t_u8 src_addr[MLAN_MAC_ADDR_LENGTH];
-    /** Ethernet II header length */
-	t_u16 ethertype;
-
-} EthII_Hdr_t;
 
 /********************************************************
 		Global Variables
@@ -511,6 +500,14 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	RxPD *prx_pd;
 	RxPacketHdr_t *prx_pkt;
+	RxPD *prx_pd2;
+	EthII_Hdr_t *peth_hdr2;
+	wlan_802_11_header *pwlan_hdr;
+	IEEEtypes_FrameCtl_t *frmctl;
+	pmlan_buffer pmbuf2 = MNULL;
+	mlan_802_11_mac_addr src_addr, dest_addr;
+	t_u16 hdr_len;
+	t_u8 snap_eth_hdr[5] = { 0xaa, 0xaa, 0x03, 0x00, 0x00 };
 	pmlan_private priv = pmadapter->priv[pmbuf->bss_index];
 	t_u8 ta[MLAN_MAC_ADDR_LENGTH];
 	t_u16 rx_pkt_type = 0;
@@ -580,6 +577,106 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 		goto done;
 	}
 
+	if (pmadapter->enable_net_mon && (prx_pd->flags & RXPD_FLAG_UCAST_PKT)) {
+		pwlan_hdr = (wlan_802_11_header *)
+			((t_u8 *)prx_pd + prx_pd->rx_pkt_offset);
+		frmctl = (IEEEtypes_FrameCtl_t *)pwlan_hdr;
+		if (frmctl->type == 0x02) {
+			/* This is a valid unicast destined data packet, with 802.11 and rtap
+			 * headers attached. Duplicate this packet and process this copy as a
+			 * sniffed packet, meant for monitor iface
+			 */
+			pmbuf2 = wlan_alloc_mlan_buffer(pmadapter,
+							pmbuf->data_len,
+							MLAN_RX_HEADER_LEN,
+							MOAL_ALLOC_MLAN_BUFFER);
+			if (!pmbuf2) {
+				PRINTM(MERROR,
+				       "Unable to allocate mlan_buffer for Rx");
+				PRINTM(MERROR, "sniffed packet\n");
+			} else {
+				pmbuf2->bss_index = pmbuf->bss_index;
+				pmbuf2->buf_type = pmbuf->buf_type;
+				pmbuf2->priority = pmbuf->priority;
+				pmbuf2->in_ts_sec = pmbuf->in_ts_sec;
+				pmbuf2->in_ts_usec = pmbuf->in_ts_usec;
+				pmbuf2->data_len = pmbuf->data_len;
+				memcpy(pmadapter,
+				       pmbuf2->pbuf + pmbuf2->data_offset,
+				       pmbuf->pbuf + pmbuf->data_offset,
+				       pmbuf->data_len);
+
+				prx_pd2 =
+					(RxPD *)(pmbuf2->pbuf +
+						 pmbuf2->data_offset);
+				/* set pkt type of duplicated pkt to 802.11 */
+				prx_pd2->rx_pkt_type = PKT_TYPE_802DOT11;
+				wlan_process_rx_packet(pmadapter, pmbuf2);
+			}
+
+			/* Now, process this pkt as a normal data packet.
+			 * rx_pkt_offset points to the 802.11 hdr. Construct 802.3 header
+			 * from 802.11 hdr fields and attach it just before the payload.
+			 */
+			memcpy(pmadapter, (t_u8 *)&dest_addr, pwlan_hdr->addr1,
+			       sizeof(pwlan_hdr->addr1));
+			memcpy(pmadapter, (t_u8 *)&src_addr, pwlan_hdr->addr2,
+			       sizeof(pwlan_hdr->addr2));
+
+			hdr_len = sizeof(wlan_802_11_header);
+
+			/* subtract mac addr field size for 3 address mac80211 header */
+			if (!(frmctl->from_ds && frmctl->to_ds))
+				hdr_len -= sizeof(mlan_802_11_mac_addr);
+
+			/* add 2 bytes of qos ctrl flags */
+			if (frmctl->sub_type & QOS_DATA)
+				hdr_len += 2;
+
+			if (prx_pd->rx_pkt_type == PKT_TYPE_AMSDU) {
+				/* no need to generate 802.3 hdr, update pkt offset */
+				prx_pd->rx_pkt_offset += hdr_len;
+				prx_pd->rx_pkt_length -= hdr_len;
+			} else {
+				/* skip 6-byte snap and 2-byte type */
+				if (memcmp
+				    (pmadapter, (t_u8 *)pwlan_hdr + hdr_len,
+				     snap_eth_hdr, sizeof(snap_eth_hdr)) == 0)
+					hdr_len += 8;
+
+				peth_hdr2 = (EthII_Hdr_t *)
+					((t_u8 *)prx_pd +
+					 prx_pd->rx_pkt_offset + hdr_len -
+					 sizeof(EthII_Hdr_t));
+				memcpy(pmadapter, peth_hdr2->dest_addr,
+				       (t_u8 *)&dest_addr,
+				       sizeof(peth_hdr2->dest_addr));
+				memcpy(pmadapter, peth_hdr2->src_addr,
+				       (t_u8 *)&src_addr,
+				       sizeof(peth_hdr2->src_addr));
+
+				/* Update the rx_pkt_offset to point the 802.3 hdr */
+				prx_pd->rx_pkt_offset +=
+					(hdr_len - sizeof(EthII_Hdr_t));
+				prx_pd->rx_pkt_length -=
+					(hdr_len - sizeof(EthII_Hdr_t));
+			}
+			/* update the prx_pkt pointer */
+			prx_pkt =
+				(RxPacketHdr_t *)((t_u8 *)prx_pd +
+						  prx_pd->rx_pkt_offset);
+		} else {
+			pmbuf->status_code = MLAN_ERROR_PKT_SIZE_INVALID;
+			ret = MLAN_STATUS_FAILURE;
+			PRINTM(MERROR,
+			       "Drop invalid unicast sniffer pkt, subType=0x%x, flag=0x%x, pkt_type=%d\n",
+			       frmctl->sub_type, prx_pd->flags,
+			       prx_pd->rx_pkt_type);
+			wlan_free_mlan_buffer(pmadapter, pmbuf);
+			goto done;
+		}
+	}
+
 	/*
 	 * If the packet is not an unicast packet then send the packet
 	 * directly to os. Don't pass thru rx reordering
@@ -589,6 +686,8 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 	    ) ||
 	    memcmp(priv->adapter, priv->curr_addr,
 		   prx_pkt->eth803_hdr.dest_addr, MLAN_MAC_ADDR_LENGTH)) {
+		priv->snr = prx_pd->snr;
+		priv->nf = prx_pd->nf;
 		wlan_process_rx_packet(pmadapter, pmbuf);
 		goto done;
 	}
@@ -604,9 +703,9 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 			if (sta_ptr) {
 				sta_ptr->rx_seq[prx_pd->priority] =
 					prx_pd->seq_num;
+				sta_ptr->snr = prx_pd->snr;
+				sta_ptr->nf = prx_pd->nf;
 				if (prx_pd->flags & RXPD_FLAG_PKT_DIRECT_LINK) {
-					sta_ptr->snr = prx_pd->snr;
-					sta_ptr->nf = prx_pd->nf;
 					pmadapter->callbacks.
 						moal_updata_peer_signal
 						(pmadapter->pmoal_handle,
@@ -620,6 +719,8 @@ wlan_ops_sta_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 			}
 		}
 	} else {
+		priv->snr = prx_pd->snr;
+		priv->nf = prx_pd->nf;
 		if ((rx_pkt_type != PKT_TYPE_BAR) &&
 		    (prx_pd->priority < MAX_NUM_TID))
 			priv->rx_seq[prx_pd->priority] = prx_pd->seq_num;

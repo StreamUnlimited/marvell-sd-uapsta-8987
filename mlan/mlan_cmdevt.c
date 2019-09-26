@@ -3,7 +3,7 @@
  *
  *  @brief This file contains the handling of CMD/EVENT in MLAN
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -604,7 +604,7 @@ wlan_process_hostcmd_cfg(IN pmlan_private pmpriv, IN t_u16 cfg_type,
  *
  *  @param pmpriv       A pointer to mlan_private structure
  *  @param pcmd_node    A pointer to cmd_ctrl_node structure
- *  @param cmd_oid      Cmd oid: treated as sub command
+ *  @param cmd_no       cmd id
  *  @param pioctl_buf   A pointer to MLAN IOCTL Request buffer
  *  @param pdata_buf    A pointer to information buffer
  *
@@ -613,8 +613,7 @@ wlan_process_hostcmd_cfg(IN pmlan_private pmpriv, IN t_u16 cfg_type,
 static void
 wlan_init_cmd_node(IN pmlan_private pmpriv,
 		   IN cmd_ctrl_node *pcmd_node,
-		   IN t_u32 cmd_oid,
-		   IN t_void *pioctl_buf, IN t_void *pdata_buf)
+		   IN t_u32 cmd_no, IN t_void *pioctl_buf, IN t_void *pdata_buf)
 {
 	mlan_adapter *pmadapter = pmpriv->adapter;
 
@@ -625,7 +624,7 @@ wlan_init_cmd_node(IN pmlan_private pmpriv,
 		return;
 	}
 	pcmd_node->priv = pmpriv;
-	pcmd_node->cmd_oid = cmd_oid;
+	pcmd_node->cmd_no = cmd_no;
 	pcmd_node->pioctl_buf = pioctl_buf;
 	pcmd_node->pdata_buf = pdata_buf;
 
@@ -698,7 +697,7 @@ wlan_clean_cmd_node(pmlan_adapter pmadapter, cmd_ctrl_node *pcmd_node)
 		LEAVE();
 		return;
 	}
-	pcmd_node->cmd_oid = 0;
+	pcmd_node->cmd_no = 0;
 	pcmd_node->cmd_flag = 0;
 	pcmd_node->pioctl_buf = MNULL;
 	pcmd_node->pdata_buf = MNULL;
@@ -937,6 +936,7 @@ wlan_dnld_cmd_to_fw(IN mlan_private *pmpriv, IN cmd_ctrl_node *pcmd_node)
 				 (pmadapter->seq_num, pcmd_node->priv->bss_num,
 				  pcmd_node->priv->bss_type));
 	cmd_code = wlan_le16_to_cpu(pcmd->command);
+	pcmd_node->cmd_no = cmd_code;
 	cmd_size = wlan_le16_to_cpu(pcmd->size);
 
 	pcmd_node->cmdbuf->data_len = cmd_size;
@@ -1459,7 +1459,7 @@ wlan_prepare_cmd(IN mlan_private *pmpriv,
 	pmadapter->dbg.num_no_cmd_node = 0;
 
 	/* Initialize the command node */
-	wlan_init_cmd_node(pmpriv, pcmd_node, cmd_oid, pioctl_buf, pdata_buf);
+	wlan_init_cmd_node(pmpriv, pcmd_node, cmd_no, pioctl_buf, pdata_buf);
 
 	if (pcmd_node->cmdbuf == MNULL) {
 		PRINTM(MERROR, "PREP_CMD: No free cmd buf\n");
@@ -1731,15 +1731,6 @@ wlan_process_cmdresp(mlan_adapter *pmadapter)
 
 	ENTER();
 
-	/* Now we got response from FW, cancel the command timer */
-	if (pmadapter->cmd_timer_is_set) {
-		/* Cancel command timeout timer */
-		pcb->moal_stop_timer(pmadapter->pmoal_handle,
-				     pmadapter->pmlan_cmd_timer);
-		/* Cancel command timeout timer */
-		pmadapter->cmd_timer_is_set = MFALSE;
-	}
-
 	if (pmadapter->curr_cmd)
 		if (pmadapter->curr_cmd->pioctl_buf != MNULL) {
 			pioctl_buf =
@@ -1757,8 +1748,6 @@ wlan_process_cmdresp(mlan_adapter *pmadapter)
 		goto done;
 	}
 
-	pmadapter->num_cmd_timeout = 0;
-
 	DBG_HEXDUMP(MCMD_D, "CMD_RESP",
 		    pmadapter->curr_cmd->respbuf->pbuf +
 		    pmadapter->curr_cmd->respbuf->data_offset,
@@ -1767,6 +1756,24 @@ wlan_process_cmdresp(mlan_adapter *pmadapter)
 	resp = (HostCmd_DS_COMMAND *)(pmadapter->curr_cmd->respbuf->pbuf +
 				      pmadapter->curr_cmd->respbuf->
 				      data_offset);
+	orig_cmdresp_no = wlan_le16_to_cpu(resp->command);
+	cmdresp_no = (orig_cmdresp_no & HostCmd_CMD_ID_MASK);
+	if (pmadapter->curr_cmd->cmd_no != cmdresp_no) {
+		PRINTM(MERROR, "cmdresp error: cmd=0x%x cmd_resp=0x%x\n",
+		       pmadapter->curr_cmd->cmd_no, cmdresp_no);
+		ret = MLAN_STATUS_FAILURE;
+		goto done;
+	}
+	pmadapter->dnld_cmd_in_secs = 0;
+	/* Now we got response from FW, cancel the command timer */
+	if (pmadapter->cmd_timer_is_set) {
+		/* Cancel command timeout timer */
+		pcb->moal_stop_timer(pmadapter->pmoal_handle,
+				     pmadapter->pmlan_cmd_timer);
+		/* Cancel command timeout timer */
+		pmadapter->cmd_timer_is_set = MFALSE;
+	}
+	pmadapter->num_cmd_timeout = 0;
 	wlan_request_cmd_lock(pmadapter);
 	if (pmadapter->curr_cmd->cmd_flag & CMD_F_CANCELED) {
 		cmd_ctrl_node *free_cmd = pmadapter->curr_cmd;
@@ -1787,7 +1794,6 @@ wlan_process_cmdresp(mlan_adapter *pmadapter)
 		if (pmpriv)
 			wlan_ret_host_cmd(pmpriv, resp, pioctl_buf);
 	}
-	orig_cmdresp_no = wlan_le16_to_cpu(resp->command);
 	resp->size = wlan_le16_to_cpu(resp->size);
 	resp->seq_num = wlan_le16_to_cpu(resp->seq_num);
 	resp->result = wlan_le16_to_cpu(resp->result);
@@ -6402,6 +6408,68 @@ wlan_ret_boot_sleep(IN pmlan_private pmpriv,
 	cfg->param.boot_sleep = wlan_le16_to_cpu(boot_sleep->enable);
 	PRINTM(MCMND, "boot sleep cfg status %u", cfg->param.boot_sleep);
 
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
+}
+
+/**
+ *  @brief This function prepares command of CHAN_TRPC_CONFIG
+ *
+ *  @param pmpriv       A pointer to mlan_private structure
+ *  @param cmd          A pointer to HostCmd_DS_COMMAND structure
+ *  @param cmd_action   the action: GET or SET
+ *  @param pdata_buf    A pointer to data buffer
+ *  @return             MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+wlan_cmd_get_chan_trpc_config(IN pmlan_private pmpriv,
+			      IN HostCmd_DS_COMMAND *cmd,
+			      IN t_u16 cmd_action, IN t_void *pdata_buf)
+{
+	HostCmd_DS_CHANNEL_TRPC_CONFIG *trpc_cfg = &cmd->params.ch_trpc_config;
+	mlan_ds_misc_chan_trpc_cfg *cfg =
+		(mlan_ds_misc_chan_trpc_cfg *) pdata_buf;
+
+	ENTER();
+
+	cmd->command = wlan_cpu_to_le16(HostCmd_CHANNEL_TRPC_CONFIG);
+	trpc_cfg->action = wlan_cpu_to_le16(cmd_action);
+	cmd->size =
+		wlan_cpu_to_le16(sizeof(HostCmd_DS_CHANNEL_TRPC_CONFIG) +
+				 S_DS_GEN);
+	trpc_cfg->sub_band = wlan_cpu_to_le16(cfg->sub_band);
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
+}
+
+/**
+ *  @brief This function handles the command response of
+ *  packet aggregation
+ *
+ *  @param pmpriv       A pointer to mlan_private structure
+ *  @param resp         A pointer to HostCmd_DS_COMMAND
+ *  @param pioctl_buf   A pointer to command buffer
+ *
+ *  @return             MLAN_STATUS_SUCCESS
+ */
+mlan_status
+wlan_ret_get_chan_trpc_config(IN pmlan_private pmpriv,
+			      IN HostCmd_DS_COMMAND *resp,
+			      IN mlan_ioctl_req *pioctl_buf)
+{
+	mlan_ds_misc_cfg *misc = MNULL;
+	HostCmd_DS_CHANNEL_TRPC_CONFIG *trpc_cfg = &resp->params.ch_trpc_config;
+	mlan_ds_misc_chan_trpc_cfg *cfg = MNULL;
+	mlan_adapter *pmadapter = pmpriv->adapter;
+
+	ENTER();
+	if (pioctl_buf) {
+		misc = (mlan_ds_misc_cfg *)pioctl_buf->pbuf;
+		cfg = (mlan_ds_misc_chan_trpc_cfg *) & (misc->param.trpc_cfg);
+		cfg->sub_band = wlan_le16_to_cpu(trpc_cfg->sub_band);
+		cfg->length = wlan_le16_to_cpu(resp->size);
+		memcpy(pmadapter, cfg->trpc_buf, (t_u8 *)resp, cfg->length);
+	}
 	LEAVE();
 	return MLAN_STATUS_SUCCESS;
 }

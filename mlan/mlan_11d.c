@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 802.11D.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -719,6 +719,23 @@ wlan_11d_is_enabled(mlan_private *pmpriv)
 {
 	ENTER();
 	LEAVE();
+	return (pmpriv->state_11d.enable_11d == ENABLE_11D &&
+		pmpriv->state_11d.user_enable_11d ==
+		ENABLE_11D) ? MTRUE : MFALSE;
+}
+
+/**
+ *  @brief This function gets if 11D is enabled in FW
+ *
+ *  @param pmpriv       Pointer to mlan_private structure
+ *
+ *  @return             MTRUE or MFALSE
+ */
+t_bool
+wlan_fw_11d_is_enabled(mlan_private *pmpriv)
+{
+	ENTER();
+	LEAVE();
 	return (pmpriv->state_11d.enable_11d == ENABLE_11D) ? MTRUE : MFALSE;
 }
 
@@ -835,10 +852,20 @@ wlan_cmd_802_11d_domain_info(mlan_private *pmpriv,
 		&pcmd->params.domain_info;
 	MrvlIEtypes_DomainParamSet_t *domain = &pdomain_info->domain;
 	t_u8 no_of_sub_band = pmadapter->domain_reg.no_of_sub_band;
+	t_u8 i;
 
 	ENTER();
-
-	PRINTM(MINFO, "11D: number of sub-band=0x%x\n", no_of_sub_band);
+	PRINTM(MCMND, "11D:Country=%c%c band=%d sub-band=5d\n",
+	       pmadapter->domain_reg.country_code[0],
+	       pmadapter->domain_reg.country_code[1],
+	       pmadapter->domain_reg.band, no_of_sub_band);
+	for (i = 0; i < no_of_sub_band; i++) {
+		PRINTM(MCMND,
+		       "11D: first chan=%d no_of_chan=%d, max_tx_pwr=%d\n",
+		       pmadapter->domain_reg.sub_band[i].first_chan,
+		       pmadapter->domain_reg.sub_band[i].no_of_chan,
+		       pmadapter->domain_reg.sub_band[i].max_tx_pwr);
+	}
 
 	pcmd->command = wlan_cpu_to_le16(HostCmd_CMD_802_11D_DOMAIN_INFO);
 	pdomain_info->action = wlan_cpu_to_le16(cmd_action);
@@ -1498,6 +1525,9 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 		ret = MLAN_STATUS_FAILURE;
 		goto done;
 	}
+	if (!wlan_fw_11d_is_enabled(pmpriv))
+		wlan_11d_enable(pmpriv, MNULL, ENABLE_11D);
+
 	cfg_11d = (mlan_ds_11d_cfg *)pioctl_req->pbuf;
 	domain_info = &cfg_11d->param.domain_info;
 	memcpy(pmadapter, pmadapter->country_code, domain_info->country_code,

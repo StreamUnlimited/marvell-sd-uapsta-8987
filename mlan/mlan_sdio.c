@@ -2,7 +2,7 @@
  *
  *  @brief This file contains SDIO specific code
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -683,6 +683,13 @@ wlan_decode_rx_packet(mlan_adapter *pmadapter, mlan_buffer *pmbuf,
 	switch (upld_typ) {
 	case MLAN_TYPE_DATA:
 		PRINTM(MINFO, "--- Rx: Data packet ---\n");
+		if (pmadapter->upld_len > pmbuf->data_len) {
+			PRINTM(MERROR,
+			       "SDIO: Drop packet upld_len=%d data_len=%d \n",
+			       pmadapter->upld_len, pmbuf->data_len);
+			wlan_free_mlan_buffer(pmadapter, pmbuf);
+			break;
+		}
 		pmbuf->data_len = (pmadapter->upld_len - INTF_HEADER_LEN);
 		pmbuf->data_offset += INTF_HEADER_LEN;
 		if (pmadapter->rx_work_flag) {

@@ -2,7 +2,7 @@
  *
  *  @brief This file contains the handling of AP mode ioctls
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -36,6 +36,7 @@ Change log:
 #include "mlan_fw.h"
 #include "mlan_11h.h"
 #include "mlan_11ac.h"
+#include "mlan_11n_rxreorder.h"
 
 /********************************************************
 			Global Variables
@@ -149,6 +150,9 @@ wlan_uap_callback_bss_ioctl_start(IN t_void *priv)
 		if (ret != MLAN_STATUS_SUCCESS) {
 			old_channel = puap_state_chan_cb->channel;
 			ret = wlan_11h_switch_non_dfs_chan(pmpriv,
+							   pmpriv->
+							   uap_state_chan_cb.
+							   bandcfg,
 							   &puap_state_chan_cb->
 							   channel);
 
@@ -1033,6 +1037,8 @@ wlan_uap_sec_ioctl_set_encrypt_key(IN pmlan_adapter pmadapter,
 		LEAVE();
 		return ret;
 	}
+	wlan_reset_pn_value(pmpriv, &sec->param.encrypt_key);
+
 	ret = wlan_prepare_cmd(pmpriv,
 			       HostCmd_CMD_802_11_KEY_MATERIAL,
 			       HostCmd_ACT_GEN_SET,
@@ -1520,7 +1526,7 @@ wlan_uap_snmp_mib_11h(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 
 	if (enable) {
 		/* first enable 11D if it is not enabled */
-		if (!wlan_11d_is_enabled(pmpriv)) {
+		if (!wlan_fw_11d_is_enabled(pmpriv)) {
 			ret = wlan_11d_enable(pmpriv, MNULL, ENABLE_11D);
 			if (ret != MLAN_STATUS_SUCCESS) {
 				PRINTM(MERROR,
@@ -1921,6 +1927,10 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		if (misc->sub_command == MLAN_OID_MISC_FW_DUMP_EVENT)
 			status = wlan_misc_ioctl_fw_dump_event(pmadapter,
 							       pioctl_req);
+
+		if (misc->sub_command == MLAN_OID_MISC_TX_AMPDU_PROT_MODE)
+			status = wlan_misc_ioctl_tx_ampdu_prot_mode(pmadapter,
+								    pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_ROBUSTCOEX)
 			status = wlan_misc_robustcoex(pmadapter, pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_GET_CORRELATED_TIME)
@@ -1934,6 +1944,8 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 		if (misc->sub_command == MLAN_OID_MISC_ACS)
 			status = wlan_misc_acs(pmadapter, pioctl_req);
 #endif
+		if (misc->sub_command == MLAN_OID_MISC_GET_CHAN_TRPC_CFG)
+			status = wlan_get_chan_trpc_cfg(pmadapter, pioctl_req);
 		break;
 	case MLAN_IOCTL_PM_CFG:
 		pm = (mlan_ds_pm_cfg *)pioctl_req->pbuf;

@@ -3,7 +3,7 @@
  *  @brief This header file contains data structures and
  *  function declarations of 802.11h
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -176,7 +176,9 @@ mlan_status wlan_11h_remove_custom_ie(mlan_adapter *pmadapter,
 extern mlan_status wlan_11h_dfs_event_preprocessing(mlan_adapter *pmadapter);
 
 /** DFS switch to non-DFS channel */
-extern mlan_status wlan_11h_switch_non_dfs_chan(mlan_private *priv, t_u8 *chan);
+extern mlan_status wlan_11h_switch_non_dfs_chan(mlan_private *priv,
+						Band_Config_t bandcfg,
+						t_u8 *chan);
 
 extern void wlan_11h_update_bandcfg(IN Band_Config_t *uap_band_cfg,
 				    IN t_u8 new_channel);

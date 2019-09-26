@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 11n handling.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -2411,6 +2411,8 @@ wlan_check_chan_width_ht40_by_region(IN mlan_private *pmpriv,
 	if ((chan_offset == SEC_CHAN_BELOW) &&
 	    (pmpriv->curr_chan_flags & CHAN_FLAGS_NO_HT40MINUS))
 		return MFALSE;
+	if (pmpriv->curr_chan_flags & CHAN_FLAGS_MAX)
+		return MTRUE;
 
 	num_cfp = pmadapter->region_channel[0].num_cfp;
 
@@ -2490,7 +2492,8 @@ wlan_cmd_append_11n_tlv(IN mlan_private *pmpriv,
 		usr_dot_11ac_bw = BW_FOLLOW_VHTCAP;
 	else
 		usr_dot_11ac_bw = pmpriv->usr_dot_11ac_bw;
-	if ((pbss_desc->bss_band & (BAND_B | BAND_G | BAND_A)) &&
+	if ((pbss_desc->bss_band & (BAND_B | BAND_G
+				    | BAND_A)) &&
 	    ISSUPP_CHANWIDTH40(usr_dot_11n_dev_cap) &&
 	    !wlan_check_chan_width_ht40_by_region(pmpriv, pbss_desc)) {
 		orig_usr_dot_11n_dev_cap = usr_dot_11n_dev_cap;
@@ -3013,14 +3016,18 @@ wlan_get_rxreorder_tbl(mlan_private *priv, rx_reorder_tbl *buf)
 	RxReorderTbl *rx_reorder_tbl_ptr;
 	int count = 0;
 	ENTER();
+	priv->adapter->callbacks.moal_spin_lock(priv->adapter->pmoal_handle,
+						priv->rx_reorder_tbl_ptr.plock);
 	rx_reorder_tbl_ptr =
 		(RxReorderTbl *)util_peek_list(priv->adapter->pmoal_handle,
-					       &priv->rx_reorder_tbl_ptr,
-					       priv->adapter->callbacks.
-					       moal_spin_lock,
-					       priv->adapter->callbacks.
-					       moal_spin_unlock);
+					       &priv->rx_reorder_tbl_ptr, MNULL,
+					       MNULL);
 	if (!rx_reorder_tbl_ptr) {
+		priv->adapter->callbacks.moal_spin_unlock(priv->adapter->
+							  pmoal_handle,
+							  priv->
+							  rx_reorder_tbl_ptr.
+							  plock);
 		LEAVE();
 		return count;
 	}
@@ -3043,6 +3050,9 @@ wlan_get_rxreorder_tbl(mlan_private *priv, rx_reorder_tbl *buf)
 		if (count >= MLAN_MAX_RX_BASTREAM_SUPPORTED)
 			break;
 	}
+	priv->adapter->callbacks.moal_spin_unlock(priv->adapter->pmoal_handle,
+						  priv->rx_reorder_tbl_ptr.
+						  plock);
 	LEAVE();
 	return count;
 }

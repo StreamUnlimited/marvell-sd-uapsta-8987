@@ -2,7 +2,7 @@
  *
  *  @brief This file contains functions for 802.11H.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1323,31 +1323,48 @@ wlan_11h_prepare_custom_ie_chansw(IN mlan_adapter *pmadapter,
 	return MLAN_STATUS_SUCCESS;
 }
 
-#ifdef UAP_SUPPORT
-/** Bits 2,3 of band config define the band width */
-#define UAP_BAND_WIDTH_MASK 0x0C
-
 /**
  *  @brief Check if start channel 165 is allowed to operate in
  *  previous uAP channel's band config
  *
- *  @param start_chn     Random Start channel choosen after radar detection
- *  @param uap_band_cfg  Private driver uAP band configuration information structure
+ *  @param pcfp          a pointer to chan_freq_power_t structure
+ *  @param Band_cfg      Private driver uAP band configuration information structure
  *
  *  @return MFALSE if the channel is not allowed in given band
  */
 static t_bool
-wlan_11h_is_band_valid(t_u8 start_chn, Band_Config_t uap_band_cfg)
+wlan_11h_is_chan_band_valid(chan_freq_power_t *pcfp, Band_Config_t bandcfg)
 {
+	t_u8 start_ch = pcfp->channel;
+	t_bool ret = MTRUE;
+
+	if (pcfp->dynamic.flags & MARVELL_CHANNEL_DISABLED)
+		return MFALSE;
 
 	/* if band width is not 20MHZ (either 40 or 80MHz)
 	 * return MFALSE, 165 is not allowed in bands other than 20MHZ
 	 */
-	if (start_chn == 165 && (uap_band_cfg.chanWidth != CHAN_BW_20MHZ)) {
+	if (start_ch == 165 && (bandcfg.chanWidth != CHAN_BW_20MHZ))
 		return MFALSE;
+
+	switch (bandcfg.chanWidth) {
+	case CHAN_BW_80MHZ:
+		if (pcfp->dynamic.flags & MARVELL_CHANNEL_NOHT80)
+			ret = MFALSE;
+		break;
+	case CHAN_BW_40MHZ:
+		if (pcfp->dynamic.flags & MARVELL_CHANNEL_NOHT40)
+			ret = MFALSE;
+		break;
+	default:
+		break;
 	}
-	return MTRUE;
+	return ret;
 }
+
+#ifdef UAP_SUPPORT
+/** Bits 2,3 of band config define the band width */
+#define UAP_BAND_WIDTH_MASK 0x0C
 
 /**
  *  @brief Retrieve a randomly selected starting channel if needed for 11h
@@ -1426,20 +1443,17 @@ wlan_11h_get_uap_start_channel(mlan_private *priv, Band_Config_t uap_band_cfg)
 					/* Loop until a non-dfs channel is found with compatible band
 					 * bounded by chn_tbl->num_cfp entries in the channel table
 					 */
-					while (((chn_tbl->pcfp[rand_entry].
-						 dynamic.
-						 flags &
-						 MARVELL_CHANNEL_DISABLED) ||
-						(wlan_11h_is_channel_under_nop
-						 (adapter, start_chn) ||
-						 ((adapter->state_rdh.stage ==
-						   RDH_GET_INFO_CHANNEL) &&
-						  wlan_11h_radar_detect_required
-						  (priv, start_chn)) ||
-						 !(wlan_11h_is_band_valid
-						   (start_chn, uap_band_cfg))))
-					       && (++rand_tries <
-						   chn_tbl->num_cfp)) {
+					while ((!wlan_11h_is_chan_band_valid
+						(&chn_tbl->pcfp[rand_entry],
+						 uap_band_cfg) ||
+						wlan_11h_is_channel_under_nop
+						(adapter, start_chn) ||
+						((adapter->state_rdh.stage ==
+						  RDH_GET_INFO_CHANNEL) &&
+						 wlan_11h_radar_detect_required
+						 (priv, start_chn))) &&
+					       (++rand_tries <
+						chn_tbl->num_cfp)) {
 						rand_entry++;
 						rand_entry =
 							rand_entry %
@@ -2029,7 +2043,11 @@ wlan_11h_get_adhoc_start_channel(mlan_private *priv)
 							(t_u8)chn_tbl->
 							pcfp[rand_entry].
 							channel;
-					} while ((wlan_11h_is_channel_under_nop
+					} while (((chn_tbl->pcfp[rand_entry].
+						   dynamic.
+						   flags &
+						   MARVELL_CHANNEL_DISABLED) ||
+						  wlan_11h_is_channel_under_nop
 						  (adapter, start_chn) ||
 						  ((adapter->state_rdh.stage ==
 						    RDH_GET_INFO_CHANNEL) &&
@@ -2347,7 +2365,7 @@ wlan_11h_process_start(mlan_private *priv,
 	    && ((adapter->adhoc_start_band & BAND_A)
 	    )
 		) {
-		if (!wlan_11d_is_enabled(priv)) {
+		if (!wlan_fw_11d_is_enabled(priv)) {
 			/* No use having 11h enabled without 11d enabled */
 			wlan_11d_enable(priv, MNULL, ENABLE_11D);
 #ifdef STA_SUPPORT
@@ -2454,7 +2472,7 @@ wlan_11h_process_join(mlan_private *priv,
 	}
 
 	if (p11h_bss_info->sensed_11h) {
-		if (!wlan_11d_is_enabled(priv)) {
+		if (!wlan_fw_11d_is_enabled(priv)) {
 			/* No use having 11h enabled without 11d enabled */
 			wlan_11d_enable(priv, MNULL, ENABLE_11D);
 #ifdef STA_SUPPORT
@@ -2936,6 +2954,7 @@ wlan_11h_ioctl_get_channel_nop_info(pmlan_adapter pmadapter,
 	mlan_ds_11h_cfg *ds_11hcfg = MNULL;
 	t_s32 ret = MLAN_STATUS_FAILURE;
 	mlan_ds_11h_chan_nop_info *ch_nop_info = MNULL;
+	Band_Config_t bandcfg;
 
 	ENTER();
 
@@ -2949,8 +2968,10 @@ wlan_11h_ioctl_get_channel_nop_info(pmlan_adapter pmadapter,
 				wlan_11h_is_channel_under_nop(pmadapter,
 							      ch_nop_info->
 							      curr_chan);
+			memset(pmadapter, &bandcfg, 0, sizeof(Band_Config_t));
+			bandcfg.chanWidth = ch_nop_info->chan_width;
 			if (ch_nop_info->chan_under_nop) {
-				wlan_11h_switch_non_dfs_chan(pmpriv,
+				wlan_11h_switch_non_dfs_chan(pmpriv, bandcfg,
 							     &ch_nop_info->
 							     new_chan.channel);
 				if (ch_nop_info->chan_width == CHAN_BW_80MHZ ||
@@ -4073,7 +4094,8 @@ wlan_11h_dfs_event_preprocessing(mlan_adapter *pmadapter)
  *  @return MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE or MLAN_STATUS_PENDING
  */
 mlan_status
-wlan_11h_switch_non_dfs_chan(mlan_private *priv, t_u8 *chan)
+wlan_11h_switch_non_dfs_chan(mlan_private *priv,
+			     Band_Config_t bandcfg, t_u8 *chan)
 {
 	mlan_status ret = MLAN_STATUS_FAILURE;
 	t_u32 i;
@@ -4115,9 +4137,10 @@ wlan_11h_switch_non_dfs_chan(mlan_private *priv, t_u8 *chan)
 		def_chan = (t_u8)chn_tbl->pcfp[rand_entry].channel;
 		rand_tries++;
 	} while ((wlan_11h_is_channel_under_nop(pmadapter, def_chan) ||
+		  !(wlan_11h_is_chan_band_valid
+		    (&chn_tbl->pcfp[rand_entry], bandcfg)) ||
 		  chn_tbl->pcfp[rand_entry].passive_scan_or_radar_detect ==
 		  MTRUE) && (rand_tries < MAX_SWITCH_CHANNEL_RETRIES));
-
 	/* meet max retries, use the lowest non-dfs channel */
 	if (rand_tries == MAX_SWITCH_CHANNEL_RETRIES) {
 		for (i = 0; i < chn_tbl->num_cfp; i++) {

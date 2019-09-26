@@ -4,7 +4,7 @@
  *  @brief This file contains WLAN client mode channel, frequency and power
  *  related code
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -895,7 +895,7 @@ wlan_get_region_cfp_table(pmlan_adapter pmadapter, t_u8 region, t_u8 band,
 			if (pmadapter->otp_region->force_reg ||
 			    (cfp_bg ==
 			     (t_u8)pmadapter->otp_region->region_code)) {
-				*cfp_no = FW_CFP_TABLE_MAX_ROWS_BG;
+				*cfp_no = pmadapter->tx_power_table_bg_rows;
 				LEAVE();
 				return pmadapter->cfp_otp_bg;
 			}
@@ -918,7 +918,7 @@ wlan_get_region_cfp_table(pmlan_adapter pmadapter, t_u8 region, t_u8 band,
 			if (pmadapter->otp_region->force_reg ||
 			    (cfp_a ==
 			     (t_u8)pmadapter->otp_region->region_code)) {
-				*cfp_no = FW_CFP_TABLE_MAX_ROWS_A;
+				*cfp_no = pmadapter->tx_power_table_a_rows;
 				LEAVE();
 				return pmadapter->cfp_otp_a;
 			}
@@ -2108,6 +2108,8 @@ wlan_set_regiontable(mlan_private *pmpriv, t_u8 region, t_u8 band)
 	chan_freq_power_t *cfp;
 	int cfp_no;
 	region_chan_t region_chan_old[MAX_REGION_CHANNEL_NUM];
+	t_u8 cfp_code_bg = region;
+	t_u8 cfp_code_a = region;
 
 	ENTER();
 
@@ -2117,7 +2119,10 @@ wlan_set_regiontable(mlan_private *pmpriv, t_u8 region, t_u8 band)
 	       sizeof(pmadapter->region_channel));
 
 	if (band & (BAND_B | BAND_G | BAND_GN)) {
-		cfp = wlan_get_region_cfp_table(pmadapter, region,
+		if (pmadapter->cfp_code_bg)
+			cfp_code_bg = pmadapter->cfp_code_bg;
+		PRINTM(MCMND, "wlan_set_regiontable 2.4G 0x%x\n", cfp_code_bg);
+		cfp = wlan_get_region_cfp_table(pmadapter, cfp_code_bg,
 						BAND_G | BAND_B | BAND_GN,
 						&cfp_no);
 		if (cfp) {
@@ -2150,7 +2155,10 @@ wlan_set_regiontable(mlan_private *pmpriv, t_u8 region, t_u8 band)
 		i++;
 	}
 	if (band & (BAND_A | BAND_AN | BAND_AAC)) {
-		cfp = wlan_get_region_cfp_table(pmadapter, region, BAND_A,
+		if (pmadapter->cfp_code_bg)
+			cfp_code_a = pmadapter->cfp_code_a;
+		PRINTM(MCMND, "wlan_set_regiontable 5G 0x%x\n", cfp_code_a);
+		cfp = wlan_get_region_cfp_table(pmadapter, cfp_code_a, BAND_A,
 						&cfp_no);
 		if (cfp) {
 			pmadapter->region_channel[i].num_cfp = (t_u8)cfp_no;
@@ -2489,6 +2497,11 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 		PRINTM(MERROR, "CFP table update failed!\n");
 		goto out;
 	}
+
+	pmadapter->tx_power_table_bg_rows = FW_CFP_TABLE_MAX_ROWS_BG;
+	pmadapter->tx_power_table_bg_cols = FW_CFP_TABLE_MAX_COLS_BG;
+	pmadapter->tx_power_table_a_rows = FW_CFP_TABLE_MAX_ROWS_A;
+	pmadapter->tx_power_table_a_cols = FW_CFP_TABLE_MAX_COLS_A;
 	tlv_buf = (t_u8 *)buf;
 	tlv_buf_left = buf_left;
 
@@ -2578,7 +2591,8 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			}
 
 			ret = pcb->moal_malloc(pmadapter->pmoal_handle,
-					       FW_CFP_TABLE_MAX_ROWS_BG *
+					       pmadapter->
+					       tx_power_table_bg_rows *
 					       sizeof(chan_freq_power_t),
 					       MLAN_MEM_DEF,
 					       (t_u8 **)&pmadapter->cfp_otp_bg);
@@ -2592,7 +2606,7 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			/* Save channel usability flags from OTP data in the fw cfp bg
 			 * table and set frequency and max_tx_power values
 			 */
-			for (i = 0; i < FW_CFP_TABLE_MAX_ROWS_BG; i++) {
+			for (i = 0; i < pmadapter->tx_power_table_bg_rows; i++) {
 				(pmadapter->cfp_otp_bg + i)->channel = *data;
 				if (*data == 14)
 					(pmadapter->cfp_otp_bg + i)->freq =
@@ -2612,7 +2626,8 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 				data++;
 			}
 			ret = pcb->moal_malloc(pmadapter->pmoal_handle,
-					       FW_CFP_TABLE_MAX_ROWS_A *
+					       pmadapter->
+					       tx_power_table_a_rows *
 					       sizeof(chan_freq_power_t),
 					       MLAN_MEM_DEF,
 					       (t_u8 **)&pmadapter->cfp_otp_a);
@@ -2625,7 +2640,7 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			/* Save channel usability flags from OTP data in the fw cfp a
 			 * table and set frequency and max_tx_power values
 			 */
-			for (i = 0; i < FW_CFP_TABLE_MAX_ROWS_A; i++) {
+			for (i = 0; i < pmadapter->tx_power_table_a_rows; i++) {
 				(pmadapter->cfp_otp_a + i)->channel = *data;
 				if (*data < 183)
 					/* 5GHz channels */
@@ -2661,8 +2676,8 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			/* Save the tlv data in power tables for band BG and A */
 			tmp = data;
 			i = 0;
-			while ((i < FW_CFP_TABLE_MAX_ROWS_BG *
-				FW_CFP_TABLE_MAX_COLS_BG)
+			while ((i < pmadapter->tx_power_table_bg_rows *
+				pmadapter->tx_power_table_bg_cols)
 			       && (i < tlv_buf_len) && (*tmp != 36)) {
 				i++;
 				tmp++;
@@ -2686,8 +2701,8 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			data += i;
 			i = 0;
 			while ((i <
-				FW_CFP_TABLE_MAX_ROWS_A *
-				FW_CFP_TABLE_MAX_COLS_A)
+				pmadapter->tx_power_table_a_rows *
+				pmadapter->tx_power_table_a_cols)
 			       && (i <
 				   (tlv_buf_len -
 				    pmadapter->tx_power_table_bg_size))) {
@@ -2708,6 +2723,16 @@ wlan_add_fw_cfp_tables(pmlan_private pmpriv, t_u8 *buf, t_u16 buf_left)
 			}
 			memcpy(pmadapter, pmadapter->tx_power_table_a, data, i);
 			pmadapter->tx_power_table_a_size = i;
+			break;
+		case TLV_TYPE_POWER_TABLE_ATTR:
+			pmadapter->tx_power_table_bg_rows =
+				((power_table_attr_t *) data)->rows_2g;
+			pmadapter->tx_power_table_bg_cols =
+				((power_table_attr_t *) data)->cols_2g;
+			pmadapter->tx_power_table_a_rows =
+				((power_table_attr_t *) data)->rows_5g;
+			pmadapter->tx_power_table_a_cols =
+				((power_table_attr_t *) data)->cols_5g;
 			break;
 		default:
 			break;
@@ -2864,12 +2889,13 @@ wlan_get_cfpinfo(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	len += sizeof(size);
 
 	/* No. of rows */
-	size = FW_CFP_TABLE_MAX_ROWS_BG;
+	size = pmadapter->tx_power_table_bg_rows;
 	memcpy(pmadapter, req_buf + len, tmp, sizeof(size));
 	len += sizeof(size);
 
 	/* No. of cols */
-	size = pmadapter->tx_power_table_bg_size / FW_CFP_TABLE_MAX_ROWS_BG;
+	size = pmadapter->tx_power_table_bg_size /
+		pmadapter->tx_power_table_bg_rows;
 	memcpy(pmadapter, req_buf + len, tmp, sizeof(size));
 	len += sizeof(size);
 	memcpy(pmadapter, req_buf + len, pmadapter->tx_power_table_bg,
@@ -2882,12 +2908,13 @@ wlan_get_cfpinfo(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	len += sizeof(size);
 
 	/* No. of rows */
-	size = FW_CFP_TABLE_MAX_ROWS_A;
+	size = pmadapter->tx_power_table_a_rows;
 	memcpy(pmadapter, req_buf + len, tmp, sizeof(size));
 	len += sizeof(size);
 
 	/* No. of cols */
-	size = pmadapter->tx_power_table_a_size / FW_CFP_TABLE_MAX_ROWS_A;
+	size = pmadapter->tx_power_table_a_size /
+		pmadapter->tx_power_table_a_rows;
 	memcpy(pmadapter, req_buf + len, tmp, sizeof(size));
 	len += sizeof(size);
 	memcpy(pmadapter, req_buf + len, pmadapter->tx_power_table_a,

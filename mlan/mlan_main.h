@@ -4,7 +4,7 @@
  *  structures and declares global function prototypes used
  *  in MLAN module.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1049,6 +1049,10 @@ typedef struct _mlan_private {
 	t_u16 bcn_avg_factor;
     /** Factor for calculating data average */
 	t_u16 data_avg_factor;
+     /** SNR */
+	t_s8 snr;
+    /** Noise Floor */
+	t_s8 nf;
     /** Last data RSSI */
 	t_s16 data_rssi_last;
     /** Last data Noise Floor */
@@ -1360,8 +1364,8 @@ struct _cmd_ctrl_node {
 	cmd_ctrl_node *pnext;
     /** Pointer to priv */
 	pmlan_private priv;
-    /** Command OID for sub-command use */
-	t_u32 cmd_oid;
+    /** Command number */
+	t_u32 cmd_no;
     /** Command flag */
 	t_u32 cmd_flag;
     /** Pointer to mlan_buffer */
@@ -1417,16 +1421,16 @@ struct _sta_node {
 	IEEEtypes_HTCap_t HTcap;
     /** 11ac flag */
 	t_u8 is_11ac_enabled;
-    /** tdls status */
-	tdlsStatus_e status;
     /** SNR */
 	t_s8 snr;
     /** Noise Floor */
 	t_s8 nf;
-    /** flag for host based tdls */
-	t_u8 external_tdls;
     /** peer capability */
 	t_u16 capability;
+    /** tdls status */
+	tdlsStatus_e status;
+    /** flag for host based tdls */
+	t_u8 external_tdls;
     /** peer support rates */
 	t_u8 support_rate[32];
     /** rate size */
@@ -2238,9 +2242,13 @@ typedef struct _mlan_adapter {
 	chan_freq_power_t *cfp_otp_bg;
 	t_u8 *tx_power_table_bg;
 	t_u32 tx_power_table_bg_size;
+	t_u8 tx_power_table_bg_rows;
+	t_u8 tx_power_table_bg_cols;
 	chan_freq_power_t *cfp_otp_a;
 	t_u8 *tx_power_table_a;
 	t_u32 tx_power_table_a_size;
+	t_u8 tx_power_table_a_rows;
+	t_u8 tx_power_table_a_cols;
 } mlan_adapter, *pmlan_adapter;
 
 /** Ethernet packet type for EAPOL */
@@ -2250,6 +2258,23 @@ typedef struct _mlan_adapter {
 /** Ethernet packet type offset */
 #define MLAN_ETHER_PKT_TYPE_OFFSET	(12)
 
+/** Rx packet Sniffer Operation Mode
+ *
+ * MODE1 : Can be enabled only in disconnected state.
+ *
+ * MODE2 : Can be enabled irrespective of active connection state.
+ *         All destined unicast packets are duplicated in the FW.
+ *
+ * MODE3 : Can be enabled irrespective of active connection state.
+ *         Both 802.11 and rtap headers are attached to all destined
+ *         unicast data frames in the FW and uploaded to the host driver.
+ *         Such frame will be duplicated in mlan, one for monitor interface
+ *         and other for data interface, by reconstructing the 802.3 header.
+ */
+#define NET_MON_MODE_DISABLED 0
+#define NET_MON_MODE1         1
+#define NET_MON_MODE2         2
+#define NET_MON_MODE3         3
 mlan_status wlan_cmd_net_monitor(IN HostCmd_DS_COMMAND *cmd,
 				 IN t_u16 cmd_action, IN t_void *pdata_buf);
 
@@ -2830,6 +2855,8 @@ mlan_status wlan_11d_enable(mlan_private *pmpriv, t_void *pioctl_buf,
 			    state_11d_t flag);
 /** Get if 11D is enabled */
 t_bool wlan_11d_is_enabled(mlan_private *pmpriv);
+/** Get if FW 11D is enabled */
+t_bool wlan_fw_11d_is_enabled(mlan_private *pmpriv);
 /** Get if priv is station */
 t_bool wlan_is_station(mlan_private *pmpriv);
 /** Command handler for 11D country info */
@@ -2901,6 +2928,17 @@ void wlan_check_sta_capability(pmlan_private priv, pmlan_buffer pevent,
 t_u8 *wlan_get_specific_ie(pmlan_private priv, t_u8 *ie_buf, t_u8 ie_len,
 			   IEEEtypes_ElementId_e id);
 t_u8 wlan_is_wmm_ie_present(pmlan_adapter pmadapter, t_u8 *pbuf, t_u16 buf_len);
+
+/** Ethernet II header */
+typedef struct {
+    /** Ethernet II header destination address */
+	t_u8 dest_addr[MLAN_MAC_ADDR_LENGTH];
+    /** Ethernet II header source address */
+	t_u8 src_addr[MLAN_MAC_ADDR_LENGTH];
+    /** Ethernet II header length */
+	t_u16 ethertype;
+
+} EthII_Hdr_t;
 
 /**
  *  @brief This function checks whether a station TDLS link is enabled or not
@@ -3252,6 +3290,16 @@ mlan_status wlan_ret_get_tsf(IN pmlan_private pmpriv,
 
 t_u8 wlan_ft_akm_is_used(mlan_private *pmpriv, t_u8 *rsn_ie);
 
+mlan_status wlan_get_chan_trpc_cfg(IN pmlan_adapter pmadapter,
+				   IN mlan_ioctl_req *pioctl_req);
+mlan_status wlan_cmd_get_chan_trpc_config(IN pmlan_private pmpriv,
+					  IN HostCmd_DS_COMMAND *cmd,
+					  IN t_u16 cmd_action,
+					  IN t_void *pdata_buf);
+mlan_status wlan_ret_get_chan_trpc_config(IN pmlan_private pmpriv,
+					  IN HostCmd_DS_COMMAND *resp,
+					  IN mlan_ioctl_req *pioctl_buf);
+
 mlan_status wlan_cmd_ps_inactivity_timeout(IN pmlan_private pmpriv,
 					   IN HostCmd_DS_COMMAND *cmd,
 					   IN t_u16 cmd_action,
@@ -3282,6 +3330,16 @@ mlan_status wlan_cmd_fw_dump_event(IN pmlan_private pmpriv,
 
 mlan_status wlan_misc_bootsleep(IN pmlan_adapter pmadapter,
 				IN pmlan_ioctl_req pioctl_req);
+
+mlan_status wlan_misc_ioctl_tx_ampdu_prot_mode(IN pmlan_adapter pmadapter,
+					       IN pmlan_ioctl_req pioctl_req);
+mlan_status wlan_cmd_tx_ampdu_prot_mode(pmlan_private pmpriv,
+					IN HostCmd_DS_COMMAND *cmd,
+					IN t_u16 cmd_action,
+					IN t_void *pdata_buf);
+mlan_status wlan_ret_tx_ampdu_prot_mode(IN pmlan_private pmpriv,
+					IN HostCmd_DS_COMMAND *resp,
+					IN mlan_ioctl_req *pioctl_buf);
 
 /**
  *  @brief RA based queueing

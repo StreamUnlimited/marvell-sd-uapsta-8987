@@ -2,7 +2,7 @@
  *
  *  @brief This file contains the handling of AP mode command and event
  *
- *  Copyright (C) 2009-2018, Marvell International Ltd.
+ *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -503,6 +503,71 @@ wlan_process_tx_pause_event(pmlan_private priv, pmlan_buffer pevent)
 
 	LEAVE();
 	return;
+}
+
+/**
+ *  @brief This function prepares command of Tx ampdu prot mode
+ *
+ *  @param pmpriv       A pointer to mlan_private structure
+ *  @param cmd          A pointer to HostCmd_DS_COMMAND structure
+ *  @param cmd_action   the action: GET or SET
+ *  @param pdata_buf    A pointer to data buffer
+ *  @return             MLAN_STATUS_SUCCESS
+ */
+mlan_status
+wlan_cmd_tx_ampdu_prot_mode(pmlan_private pmpriv,
+			    IN HostCmd_DS_COMMAND *cmd,
+			    IN t_u16 cmd_action, IN t_void *pdata_buf)
+{
+	HostCmd_DS_CMD_TX_AMPDU_PROT_MODE *cfg_cmd =
+		(HostCmd_DS_CMD_TX_AMPDU_PROT_MODE *)
+		& cmd->params.tx_ampdu_prot_mode;
+	mlan_ds_misc_tx_ampdu_prot_mode *cfg =
+		(mlan_ds_misc_tx_ampdu_prot_mode *) pdata_buf;
+
+	ENTER();
+
+	cmd->command = wlan_cpu_to_le16(HostCmd_CMD_TX_AMPDU_PROT_MODE);
+	cmd->size = wlan_cpu_to_le16(sizeof(HostCmd_DS_CMD_TX_AMPDU_PROT_MODE) +
+				     S_DS_GEN);
+	cfg_cmd->action = wlan_cpu_to_le16(cmd_action);
+
+	if (cmd_action == HostCmd_ACT_GEN_SET) {
+		cfg_cmd->mode = wlan_cpu_to_le16(cfg->mode);
+	}
+
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
+}
+
+/**
+ *  @brief This function handles the command response of Tx ampdu prot mode
+ *
+ *  @param pmpriv       A pointer to mlan_private structure
+ *  @param resp         A pointer to HostCmd_DS_COMMAND
+ *  @param pioctl_buf   A pointer to mlan_ioctl_req structure
+ *
+ *  @return             MLAN_STATUS_SUCCESS
+ */
+mlan_status
+wlan_ret_tx_ampdu_prot_mode(IN pmlan_private pmpriv,
+			    IN HostCmd_DS_COMMAND *resp,
+			    IN mlan_ioctl_req *pioctl_buf)
+{
+	HostCmd_DS_CMD_TX_AMPDU_PROT_MODE *cfg_cmd =
+		(HostCmd_DS_CMD_TX_AMPDU_PROT_MODE *)
+		& resp->params.tx_ampdu_prot_mode;
+	mlan_ds_misc_cfg *misc_cfg = MNULL;
+
+	ENTER();
+
+	if (pioctl_buf) {
+		misc_cfg = (mlan_ds_misc_cfg *)pioctl_buf->pbuf;
+		misc_cfg->param.tx_ampdu_prot_mode.mode =
+			wlan_le16_to_cpu(cfg_cmd->mode);
+	}
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
 }
 
 /**
@@ -2027,11 +2092,6 @@ wlan_uap_ret_cmd_ap_config(IN pmlan_private pmpriv,
 					tlv_pwk_cipher->pairwise_cipher;
 			if (wlan_le16_to_cpu(tlv_pwk_cipher->protocol) &
 			    PROTOCOL_WPA2)
-				bss->param.bss_config.wpa_cfg.
-					pairwise_cipher_wpa2 =
-					tlv_pwk_cipher->pairwise_cipher;
-			if (wlan_le16_to_cpu(tlv_pwk_cipher->protocol) &
-			    PROTOCOL_WPA3_SAE)
 				bss->param.bss_config.wpa_cfg.
 					pairwise_cipher_wpa2 =
 					tlv_pwk_cipher->pairwise_cipher;
@@ -3809,7 +3869,11 @@ wlan_uap_cmd_add_station(pmlan_private pmpriv,
 	new_sta->aid = wlan_cpu_to_le16(bss->param.sta_info.aid);
 	new_sta->listen_interval =
 		wlan_cpu_to_le32(bss->param.sta_info.listen_interval);
-	new_sta->cap_info = wlan_cpu_to_le16(bss->param.sta_info.cap_info);
+	if (bss->param.sta_info.cap_info)
+		new_sta->cap_info =
+			wlan_cpu_to_le16(bss->param.sta_info.cap_info);
+	else
+		new_sta->cap_info = wlan_cpu_to_le16(sta_ptr->capability);
 	tlv_buf_left = bss->param.sta_info.tlv_len;
 	pos = new_sta->tlv;
 	tlv_buf = bss->param.sta_info.tlv;
@@ -3832,7 +3896,7 @@ wlan_uap_cmd_add_station(pmlan_private pmpriv,
 		switch (tlv->type) {
 		case EXT_CAPABILITY:
 			break;
-		case TLV_TYPE_RATES:
+		case SUPPORTED_RATES:
 			b_only = wlan_check_11B_support_rates((MrvlIEtypes_RatesParamSet_t *)tlv);
 			break;
 		case QOS_INFO:
@@ -4197,6 +4261,14 @@ wlan_ops_uap_prepare_cmd(IN t_void *priv,
 		ret = wlan_cmd_boot_sleep(pmpriv, cmd_ptr, cmd_action,
 					  pdata_buf);
 		break;
+	case HostCmd_CMD_TX_AMPDU_PROT_MODE:
+		ret = wlan_cmd_tx_ampdu_prot_mode(pmpriv, cmd_ptr,
+						  cmd_action, pdata_buf);
+		break;
+	case HostCmd_CHANNEL_TRPC_CONFIG:
+		ret = wlan_cmd_get_chan_trpc_config(pmpriv, cmd_ptr, cmd_action,
+						    pdata_buf);
+		break;
 	default:
 		PRINTM(MERROR, "PREP_CMD: unknown command- %#x\n", cmd_no);
 		if (pioctl_req)
@@ -4472,6 +4544,12 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 		break;
 	case HostCmd_CMD_ADD_NEW_STATION:
 		break;
+	case HostCmd_CMD_TX_AMPDU_PROT_MODE:
+		ret = wlan_ret_tx_ampdu_prot_mode(pmpriv, resp, pioctl_buf);
+		break;
+	case HostCmd_CHANNEL_TRPC_CONFIG:
+		ret = wlan_ret_get_chan_trpc_config(pmpriv, resp, pioctl_buf);
+		break;
 	default:
 		PRINTM(MERROR, "CMD_RESP: Unknown command response %#x\n",
 		       resp->command);
@@ -4523,7 +4601,8 @@ wlan_ops_uap_process_event(IN t_void *priv)
 	}
 
 	/* Allocate memory for event buffer */
-	ret = pcb->moal_malloc(pmadapter->pmoal_handle, MAX_EVENT_SIZE,
+	ret = pcb->moal_malloc(pmadapter->pmoal_handle,
+			       MAX_EVENT_SIZE + sizeof(mlan_event),
 			       MLAN_MEM_DEF, &event_buf);
 	if ((ret != MLAN_STATUS_SUCCESS) || !event_buf) {
 		PRINTM(MERROR, "Could not allocate buffer for event buf\n");
@@ -4543,6 +4622,7 @@ wlan_ops_uap_process_event(IN t_void *priv)
 	case EVENT_MICRO_AP_BSS_START:
 		PRINTM(MEVENT, "EVENT: MICRO_AP_BSS_START\n");
 		pmpriv->uap_bss_started = MTRUE;
+		pmpriv->is_data_rate_auto = MTRUE;
 		memcpy(pmadapter, pmpriv->curr_addr, pmadapter->event_body + 2,
 		       MLAN_MAC_ADDR_LENGTH);
 		pevent->event_id = MLAN_EVENT_ID_UAP_FW_BSS_START;

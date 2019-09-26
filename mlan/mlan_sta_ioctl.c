@@ -2,7 +2,7 @@
  *
  *  @brief This file contains the functions for station ioctl.
  *
- *  Copyright (C) 2008-2018, Marvell International Ltd.
+ *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
  *  This software file (the "File") is distributed by Marvell International
  *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -33,7 +33,7 @@ Change log:
 #include "mlan_11ac.h"
 #include "mlan_sdio.h"
 #include "mlan_11h.h"
-
+#include "mlan_11n_rxreorder.h"
 /********************************************************
 			Local Variables
 ********************************************************/
@@ -2923,6 +2923,8 @@ wlan_sec_ioctl_set_wpa_key(IN pmlan_adapter pmadapter,
 		goto exit;
 	}
 
+	wlan_reset_pn_value(pmpriv, &sec->param.encrypt_key);
+
 	ret = wlan_prepare_cmd(pmpriv,
 			       HostCmd_CMD_802_11_KEY_MATERIAL,
 			       HostCmd_ACT_GEN_SET,
@@ -3258,6 +3260,7 @@ wlan_set_gen_ie_helper(mlan_private *priv, t_u8 *ie_data_ptr, t_u16 ie_len)
 	IEEEtypes_VendorHeader_t *pvendor_ie;
 	const t_u8 wpa_oui[] = { 0x00, 0x50, 0xf2, 0x01 };
 	const t_u8 wps_oui[] = { 0x00, 0x50, 0xf2, 0x04 };
+	t_u8 i = 0, temp[12] = { 0 };
 
 	ENTER();
 
@@ -3274,11 +3277,14 @@ wlan_set_gen_ie_helper(mlan_private *priv, t_u8 *ie_data_ptr, t_u16 ie_len)
 
 		pvendor_ie = (IEEEtypes_VendorHeader_t *)ie_data_ptr;
 		if (pvendor_ie->element_id == EXT_CAPABILITY) {
-			t_u8 len = sizeof(priv->ext_cap);
-			if (len > pvendor_ie->len)
-				len = pvendor_ie->len;
-			memcpy(priv->adapter, &priv->ext_cap, &ie_data_ptr[2],
-			       len);
+			memcpy(priv->adapter, temp, &priv->ext_cap,
+			       sizeof(priv->ext_cap));
+			for (i = 0;
+			     i < MIN(sizeof(priv->ext_cap), pvendor_ie->len);
+			     i++)
+				temp[i] |= ie_data_ptr[2 + i];
+			memcpy(priv->adapter, &priv->ext_cap, temp,
+			       sizeof(temp));
 		} else
 			/* Test to see if it is a WPA IE, if not, then it is a gen IE */
 			if (((pvendor_ie->element_id == WPA_IE)
@@ -3949,6 +3955,8 @@ wlan_misc_ioctl_warm_reset(IN pmlan_adapter pmadapter,
 		LEAVE();
 		return ret;
 	}
+	if (ret == MLAN_STATUS_SUCCESS)
+		ret = MLAN_STATUS_PENDING;
 	if (ret == MLAN_STATUS_PENDING)
 		pmadapter->pwarm_reset_ioctl_req = pioctl_req;
 
@@ -4572,7 +4580,7 @@ wlan_misc_ioctl_ipaddr_cfg(IN pmlan_adapter pmadapter,
 	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
 	mlan_ds_misc_cfg *misc = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
 	mlan_status ret = MLAN_STATUS_SUCCESS;
-	t_u32 ipv4_addr[MAX_IPADDR];
+	t_u32 ipv4_addr[MAX_IPADDR] = { 0 };
 	int i = 0;
 
 	ENTER();
@@ -5147,6 +5155,10 @@ wlan_misc_cfg_ioctl(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 	case MLAN_OID_MISC_PER_PKT_CFG:
 		status = wlan_misc_per_pkt_cfg(pmadapter, pioctl_req);
 		break;
+	case MLAN_OID_MISC_TX_AMPDU_PROT_MODE:
+		status = wlan_misc_ioctl_tx_ampdu_prot_mode(pmadapter,
+							    pioctl_req);
+		break;
 	case MLAN_OID_MISC_ROBUSTCOEX:
 		status = wlan_misc_robustcoex(pmadapter, pioctl_req);
 		break;
@@ -5161,6 +5173,9 @@ wlan_misc_cfg_ioctl(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 		break;
 	case MLAN_OID_MISC_ACS:
 		status = wlan_misc_acs(pmadapter, pioctl_req);
+		break;
+	case MLAN_OID_MISC_GET_CHAN_TRPC_CFG:
+		status = wlan_get_chan_trpc_cfg(pmadapter, pioctl_req);
 		break;
 	default:
 		if (pioctl_req)
