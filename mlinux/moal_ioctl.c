@@ -2,11 +2,12 @@
   *
   * @brief This file contains ioctl function to MLAN
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -42,7 +43,7 @@ Change log:
 			Local Variables
 ********************************************************/
 #define MRVL_TLV_HEADER_SIZE            4
-/* Marvell Channel config TLV ID */
+/* NXP Channel config TLV ID */
 #define MRVL_CHANNELCONFIG_TLV_ID       (0x0100 + 0x2a)	/* 0x012a */
 
 typedef struct _hostcmd_header {
@@ -77,6 +78,8 @@ static region_code_mapping_t region_code_mapping[] = {
 	{"AU", 0x30},		/* Australia   */
 	{"KR", 0x30},		/* Republic Of Korea */
 	{"JP", 0x40},		/* Japan       */
+	{"BD", 0x40},		/* Bangladesh  */
+	{"KE", 0x40},		/* Kenya       */
 	{"CN", 0x50},		/* China       */
 	{"BR", 0x09},		/* Brazil      */
 	{"RU", 0x0f},		/* Russia      */
@@ -102,7 +105,10 @@ static t_u8 eu_country_code_table[][COUNTRY_CODE_LEN] = {
 	"CZ", "DK", "EE", "FI", "FR", "MK", "DE", "GR", "HU", "IS",
 	"IE", "IT", "KR", "LV", "LI", "LT", "LU", "MT", "MD", "MC",
 	"ME", "NL", "NO", "PL", "RO", "RU", "SM", "RS", "SI", "SK",
-	"ES", "SE", "CH", "TR", "UA", "UK", "GB"
+	"ES", "SE", "CH", "TR", "UA", "UK", "GB", "AF", "AI", "AW",
+	"BT", "ET", "GL", "GP", "KH", "KN", "LC", "LS", "MF", "MQ",
+	"MR", "MV", "MW", "NG", "PF", "PM", "RE", "SR", "TD", "TG",
+	"VC", "WF", "WS", "YT"
 };
 
 /********************************************************
@@ -127,9 +133,6 @@ int disconnect_on_suspend;
 extern int dfs_offload;
 #endif
 #endif
-
-/** gtk rekey offload mode */
-extern int gtk_rekey_offload;
 
 #ifdef MFG_CMD_SUPPORT
 /** Mfg mode */
@@ -493,7 +496,8 @@ woal_cac_period_block_cmd(moal_private *priv, pmlan_ioctl_req req)
 #endif
 		break;
 	case MLAN_IOCTL_RADIO_CFG:
-		if (sub_command == MLAN_OID_BAND_CFG)
+		if (sub_command == MLAN_OID_BAND_CFG
+		    || sub_command == MLAN_OID_REMAIN_CHAN_CFG)
 			ret = MTRUE;
 		break;
 	case MLAN_IOCTL_SNMP_MIB:
@@ -910,6 +914,8 @@ done:
 #ifdef REASSOCIATION
 	priv->reassoc_required = MFALSE;
 #endif /* REASSOCIATION */
+	priv->auto_assoc_priv.drv_assoc.status = MFALSE;
+	priv->auto_assoc_priv.drv_reconnect.status = MFALSE;
 	LEAVE();
 	return status;
 }
@@ -2102,7 +2108,7 @@ done:
 }
 #endif
 
-#if defined(WIFI_DIRECT_SUPPORT) || defined(UAP_SUPPORT)
+#if defined(UAP_SUPPORT)
 /**
  *  @brief host command ioctl function
  *
@@ -2310,13 +2316,6 @@ woal_send_host_packet(struct net_device *dev, struct ifreq *req)
 	int ret = 0;
 	pmlan_buffer pmbuf = NULL;
 	mlan_status status;
-	IEEEtypes_ActionCategory_e *action_cat;
-	t_u8 *action;
-	struct tx_status_info *tx_info = NULL;
-	struct sk_buff *skb = NULL;
-	unsigned long flags;
-	struct ieee80211_mgmt *mgmt_frame;
-	t_u8 *pdata;
 
 	ENTER();
 
@@ -2369,58 +2368,6 @@ woal_send_host_packet(struct net_device *dev, struct ifreq *req)
 	pmbuf->data_len = PACKET_HEADER_LEN + packet_len;
 	pmbuf->buf_type = MLAN_BUF_TYPE_RAW_DATA;
 	pmbuf->bss_index = priv->bss_index;
-	action_cat =
-		(IEEEtypes_ActionCategory_e *)&pmbuf->pbuf[pmbuf->data_offset +
-							   MLAN_ACTION_FRAME_CATEGORY_OFFSET];
-	action = &pmbuf->pbuf[pmbuf->data_offset +
-			      MLAN_ACTION_FRAME_ACTION_OFFSET];
-
-	if (*action_cat == IEEE_MGMT_ACTION_CATEGORY_UNPROTECT_WNM &&
-	    *action == 0x1) {
-		pmbuf->flags |= MLAN_BUF_FLAG_TX_STATUS;
-		if (!priv->tx_seq_num)
-			priv->tx_seq_num++;
-		pmbuf->tx_seq_num = priv->tx_seq_num++;
-		tx_info = kzalloc(sizeof(struct tx_status_info), GFP_ATOMIC);
-		if (tx_info) {
-			skb = alloc_skb(pmbuf->data_len, GFP_ATOMIC);
-			if (skb) {
-				mgmt_frame = (struct ieee80211_mgmt *)skb->data;
-				//Copy DA,SA and BSSID feilds.
-				pdata = (t_u8 *)mgmt_frame->da;
-				memcpy(pdata,
-				       &pmbuf->pbuf[pmbuf->data_offset + 14],
-				       MLAN_MAC_ADDR_LENGTH);
-				pdata = (t_u8 *)mgmt_frame->sa;
-				memcpy(pdata,
-				       &pmbuf->pbuf[pmbuf->data_offset + 20],
-				       MLAN_MAC_ADDR_LENGTH);
-				pdata = (t_u8 *)mgmt_frame->bssid;
-				memcpy(pdata,
-				       &pmbuf->pbuf[pmbuf->data_offset + 26],
-				       MLAN_MAC_ADDR_LENGTH);
-				//Copy packet data starting from category field
-				pdata = (t_u8 *)&mgmt_frame->u.action.category;
-				memcpy(pdata, (t_u8 *)action_cat,
-				       packet_len - sizeof(t_u16) -
-				       sizeof(moal_wlan_802_11_header));
-				/* packet_len - size of frame length field send from app */
-				skb_put(skb, packet_len - sizeof(t_u16));
-				spin_lock_irqsave(&priv->tx_stat_lock, flags);
-				tx_info->tx_skb = skb;
-				tx_info->tx_seq_num = pmbuf->tx_seq_num;
-				tx_info->tx_cookie = 0;
-				INIT_LIST_HEAD(&tx_info->link);
-				list_add_tail(&tx_info->link,
-					      &priv->tx_stat_queue);
-				spin_unlock_irqrestore(&priv->tx_stat_lock,
-						       flags);
-			} else {
-				kfree(tx_info);
-				tx_info = NULL;
-			}
-		}
-	}
 
 	status = mlan_send_packet(priv->phandle->pmlan_adapter, pmbuf);
 	switch (status) {
@@ -2495,88 +2442,6 @@ woal_set_get_custom_ie(moal_private *priv, t_u16 mask, t_u8 *ie, int ie_len)
 	return ret;
 }
 #endif /* defined(HOST_TXRX_MGMT_FRAME) && defined(UAP_WEXT) */
-
-/**
- *  @brief TDLS configuration ioctl handler
- *
- *  @param dev      A pointer to net_device structure
- *  @param req      A pointer to ifreq structure
- *  @return         0 --success, otherwise fail
- */
-int
-woal_tdls_config_ioctl(struct net_device *dev, struct ifreq *req)
-{
-	moal_private *priv = (moal_private *)netdev_priv(dev);
-	mlan_ioctl_req *ioctl_req = NULL;
-	mlan_ds_misc_cfg *misc = NULL;
-	mlan_ds_misc_tdls_config *tdls_data = NULL;
-	int ret = 0;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-	gfp_t flag;
-
-	ENTER();
-
-	/* Sanity check */
-	if (req->ifr_data == NULL) {
-		PRINTM(MERROR, "woal_tdls_config_ioctl() corrupt data\n");
-		ret = -EFAULT;
-		goto done;
-	}
-	flag = (in_atomic() || irqs_disabled())? GFP_ATOMIC : GFP_KERNEL;
-	tdls_data = kzalloc(sizeof(mlan_ds_misc_tdls_config), flag);
-	if (!tdls_data) {
-		ret = -ENOMEM;
-		goto done;
-	}
-
-	if (copy_from_user
-	    (tdls_data, req->ifr_data, sizeof(mlan_ds_misc_tdls_config))) {
-		PRINTM(MERROR, "Copy from user failed\n");
-		ret = -EFAULT;
-		goto done;
-	}
-
-	ioctl_req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-	if (ioctl_req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-
-	misc = (mlan_ds_misc_cfg *)ioctl_req->pbuf;
-	misc->sub_command = MLAN_OID_MISC_TDLS_CONFIG;
-	ioctl_req->req_id = MLAN_IOCTL_MISC_CFG;
-	if (tdls_data->tdls_action == WLAN_TDLS_DISCOVERY_REQ
-	    || tdls_data->tdls_action == WLAN_TDLS_LINK_STATUS)
-		ioctl_req->action = MLAN_ACT_GET;
-	else
-		ioctl_req->action = MLAN_ACT_SET;
-
-	memcpy(&misc->param.tdls_config, tdls_data,
-	       sizeof(mlan_ds_misc_tdls_config));
-
-	status = woal_request_ioctl(priv, ioctl_req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	if (tdls_data->tdls_action == WLAN_TDLS_DISCOVERY_REQ
-	    || tdls_data->tdls_action == WLAN_TDLS_LINK_STATUS) {
-		if (copy_to_user(req->ifr_data, &misc->param.tdls_config,
-				 sizeof(mlan_ds_misc_tdls_config))) {
-			PRINTM(MERROR, "Copy to user failed!\n");
-			ret = -EFAULT;
-			goto done;
-		}
-	}
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(ioctl_req);
-	kfree(tdls_data);
-	LEAVE();
-	return ret;
-}
 
 /**
  *  @brief ioctl function get BSS type
@@ -2736,9 +2601,6 @@ woal_set_get_bss_role(moal_private *priv, struct iwreq *wrq)
 		}
 		if ((bss_role != MLAN_BSS_ROLE_STA &&
 		     bss_role != MLAN_BSS_ROLE_UAP)
-#if defined(WIFI_DIRECT_SUPPORT)
-		    || (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT)
-#endif
 			) {
 			PRINTM(MWARN, "Invalid BSS role\n");
 			ret = -EINVAL;
@@ -3010,7 +2872,6 @@ woal_cancel_hs(moal_private *priv, t_u8 wait_option)
 	moal_handle *handle = NULL;
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	mlan_ds_hs_cfg hscfg;
-	int i;
 	ENTER();
 
 	if (!priv) {
@@ -3029,20 +2890,6 @@ woal_cancel_hs(moal_private *priv, t_u8 wait_option)
 		PRINTM(MIOCTL, "Cancel Host Sleep... remove FW auto arp\n");
 		/* remove auto arp from FW */
 		woal_set_auto_arp(priv->phandle, MFALSE);
-	}
-#endif
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
-	if (GTK_REKEY_OFFLOAD_SUSPEND == gtk_rekey_offload) {
-		PRINTM(MIOCTL,
-		       "Cancel Host Sleep... clear gtk rekey offload of FW\n");
-		for (i = 0; i < handle->priv_num; i++) {
-			if (handle->priv[i] && handle->priv[i]->gtk_data_ready) {
-				PRINTM(MCMND, "clear GTK in resume\n");
-				woal_set_rekey_data(handle->priv[i], NULL,
-						    MLAN_ACT_CLEAR);
-			}
-		}
 	}
 #endif
 
@@ -3092,7 +2939,7 @@ woal_enable_hs(moal_private *priv)
 		}
 		if (handle->priv[i]) {
 			PRINTM(MIOCTL, "woal_delba_all on priv[%d]\n", i);
-			woal_delba_all(handle->priv[i], MOAL_IOCTL_WAIT);
+			woal_delba_all(handle->priv[i], MOAL_NO_WAIT);
 		}
 	}
 
@@ -3151,21 +2998,6 @@ woal_enable_hs(moal_private *priv)
 		/* Set auto arp response configuration to Fw */
 		woal_set_auto_arp(handle, MTRUE);
 	}
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
-	if (GTK_REKEY_OFFLOAD_SUSPEND == gtk_rekey_offload) {
-		PRINTM(MIOCTL,
-		       "Host Sleep enabled... set gtk rekey offload to FW\n");
-		for (i = 0; i < handle->priv_num; i++) {
-			if (handle->priv[i] && handle->priv[i]->gtk_data_ready) {
-				PRINTM(MCMND, "set GTK before suspend\n");
-				woal_set_rekey_data(handle->priv[i],
-						    &handle->priv[i]->
-						    gtk_rekey_data,
-						    MLAN_ACT_SET);
-			}
-		}
-	}
-#endif
 
 	/* Enable Host Sleep */
 	handle->hs_activate_wait_q_woken = MFALSE;
@@ -3895,6 +3727,19 @@ woal_11h_channel_check_ioctl(moal_private *priv, t_u8 wait_option)
 #endif
 	ENTER();
 
+	if (priv->skip_cac) {
+		LEAVE();
+		return ret;
+	}
+
+	/* Skip sending request/report query when DFS_REPEATER_MODE is on. This
+	 * would get rid of CAC timers before starting BSSes in DFS_REPEATER_MODE
+	 */
+	if (priv->phandle->dfs_repeater_mode) {
+		LEAVE();
+		return ret;
+	}
+
 	if (woal_is_any_interface_active(priv->phandle)) {
 		/* When any other interface is active
 		 * Get rid of CAC timer when drcs is disabled */
@@ -4055,95 +3900,6 @@ done:
 	LEAVE();
 	return ret;
 }
-
-#if defined(WIFI_DIRECT_SUPPORT)
-/**
- *  @brief set/get wifi direct mode
- *
- *  @param priv         A pointer to moal_private structure
- *  @param action       set or get
- *  @param mode         A pointer to wifi direct mode
- *
- *  @return             MLAN_STATUS_SUCCESS -- success, otherwise fail
- */
-mlan_status
-woal_wifi_direct_mode_cfg(moal_private *priv, t_u16 action, t_u16 *mode)
-{
-	mlan_status ret = MLAN_STATUS_SUCCESS;
-	mlan_ioctl_req *req = NULL;
-	mlan_ds_bss *bss = NULL;
-
-	ENTER();
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_bss));
-	if (req == NULL) {
-		ret = MLAN_STATUS_FAILURE;
-		goto done;
-	}
-	bss = (mlan_ds_bss *)req->pbuf;
-	bss->sub_command = MLAN_OID_WIFI_DIRECT_MODE;
-	req->req_id = MLAN_IOCTL_BSS;
-
-	req->action = action;
-	if (action == MLAN_ACT_SET)
-		bss->param.wfd_mode = *mode;
-	ret = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (ret == MLAN_STATUS_SUCCESS) {
-		*mode = bss->param.wfd_mode;
-		PRINTM(MIOCTL, "ACT=%d, wifi_direct_mode=%d\n", action, *mode);
-	}
-done:
-	if (ret != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/**
- *  @brief Set p2p config
- *
- *  @param priv         A pointer to moal_private structure
- *  @param action       Action set or get
- *  @param p2p_config   A pointer to  mlan_ds_wifi_direct_config structure
- *
- *  @return             MLAN_STATUS_SUCCESS -- success, otherwise fail
- */
-mlan_status
-woal_p2p_config(moal_private *priv, t_u32 action,
-		mlan_ds_wifi_direct_config *p2p_config)
-{
-	mlan_status ret = MLAN_STATUS_SUCCESS;
-	mlan_ioctl_req *req = NULL;
-	mlan_ds_misc_cfg *misc_cfg = NULL;
-
-	ENTER();
-	if (!p2p_config) {
-		LEAVE();
-		return MLAN_STATUS_FAILURE;
-	}
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-	if (req == NULL) {
-		ret = MLAN_STATUS_FAILURE;
-		goto done;
-	}
-	misc_cfg = (mlan_ds_misc_cfg *)req->pbuf;
-	misc_cfg->sub_command = MLAN_OID_MISC_WIFI_DIRECT_CONFIG;
-	req->req_id = MLAN_IOCTL_MISC_CFG;
-	req->action = action;
-	memcpy(&misc_cfg->param.p2p_config, p2p_config,
-	       sizeof(mlan_ds_wifi_direct_config));
-	ret = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (ret == MLAN_STATUS_SUCCESS) {
-		if (action == MLAN_ACT_GET)
-			memcpy(p2p_config, &misc_cfg->param.p2p_config,
-			       sizeof(mlan_ds_wifi_direct_config));
-	}
-done:
-	if (ret != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-#endif /* WIFI_DIRECT_SUPPORT */
 
 #ifdef STA_SUPPORT
 /**
@@ -5151,7 +4907,7 @@ woal_find_essid(moal_private *priv, mlan_ssid_bssid *ssid_bssid,
 		return MLAN_STATUS_FAILURE;
 	}
 #ifdef STA_CFG80211
-	if (priv->ft_pre_connect) {
+	if (priv->ft_pre_connect || priv->ft_ie_len) {
 	/** skip check the scan age out */
 		ret = woal_find_best_network(priv, wait_option, ssid_bssid);
 		LEAVE();
@@ -6515,17 +6271,8 @@ woal_set_11d(moal_private *priv, t_u8 wait_option, t_u8 enable)
 void
 woal_ioctl_get_misc_conf(moal_private *priv, mlan_ds_misc_cfg *info)
 {
-	char event[1000];
-	mlan_ds_host_clock *host_clock = NULL;
 	ENTER();
 	switch (info->sub_command) {
-	case MLAN_OID_MISC_GET_CORRELATED_TIME:
-		host_clock = &info->param.host_clock;
-		memset(event, 0, sizeof(event));
-		sprintf(event, "%s %llu %llu", CUS_EVT_GET_CORRELATED_TIME,
-			host_clock->time, host_clock->fw_time);
-		woal_broadcast_event(priv, event, strlen(event));
-		PRINTM(MERROR, "CMD = %s\n", event);
 	default:
 		break;
 	}

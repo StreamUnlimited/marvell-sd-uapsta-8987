@@ -2,11 +2,12 @@
   *
   * @brief This file contains standard ioctl functions
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -199,13 +200,6 @@ woal_warm_reset(moal_private *priv)
 	moal_handle *handle = priv->phandle;
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_misc_cfg *misc = NULL;
-#if defined(WIFI_DIRECT_SUPPORT)
-#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
-#if defined(STA_WEXT) || defined(UAP_WEXT)
-	t_u8 bss_role = MLAN_BSS_ROLE_STA;
-#endif
-#endif
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
 	mlan_status status = MLAN_STATUS_SUCCESS;
 
 	ENTER();
@@ -214,29 +208,6 @@ woal_warm_reset(moal_private *priv)
 
 	/* Reset all interfaces */
 	ret = woal_reset_intf(priv, MOAL_IOCTL_WAIT, MTRUE);
-
-	/* Initialize private structures */
-	for (intf_num = 0; intf_num < handle->priv_num; intf_num++) {
-		woal_init_priv(handle->priv[intf_num], MOAL_IOCTL_WAIT);
-#if defined(WIFI_DIRECT_SUPPORT)
-#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
-#if defined(STA_WEXT) || defined(UAP_WEXT)
-		if ((handle->priv[intf_num]->bss_type ==
-		     MLAN_BSS_TYPE_WIFIDIRECT) &&
-		    (GET_BSS_ROLE(handle->priv[intf_num]) ==
-		     MLAN_BSS_ROLE_UAP)) {
-			if (MLAN_STATUS_SUCCESS !=
-			    woal_bss_role_cfg(handle->priv[intf_num],
-					      MLAN_ACT_SET, MOAL_IOCTL_WAIT,
-					      &bss_role)) {
-				ret = -EFAULT;
-				goto done;
-			}
-		}
-#endif /* STA_WEXT || UAP_WEXT */
-#endif /* STA_SUPPORT && UAP_SUPPORT */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
-	}
 
 	/* Restart the firmware */
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
@@ -253,6 +224,11 @@ woal_warm_reset(moal_private *priv)
 			goto done;
 		}
 		kfree(req);
+	}
+
+	/* Initialize private structures */
+	for (intf_num = 0; intf_num < handle->priv_num; intf_num++) {
+		woal_init_priv(handle->priv[intf_num], MOAL_IOCTL_WAIT);
 	}
 
 	/* Enable interfaces */
@@ -1920,10 +1896,10 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 			}
 			if (user_data_len > 2) {
 				/* Supported bands */
-				for (i = 0; i < sizeof(SupportedAdhocBand); i++)
-					if (data[2] == SupportedAdhocBand[i])
+				for (i = 0; i < sizeof(SupportedInfraBand); i++)
+					if (data[2] == SupportedInfraBand[i])
 						break;
-				if (i == sizeof(SupportedAdhocBand)) {
+				if (i == sizeof(SupportedInfraBand)) {
 					PRINTM(MERROR,
 					       "NET_MON: Invalid band\n");
 					ret = -EINVAL;
@@ -2006,6 +1982,7 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 				net_mon->channel;
 			handle->mon_if->band_chan_cfg.chan_bandwidth =
 				net_mon->chan_bandwidth;
+			handle->mon_if->flag = net_mon->filter_flag;
 		} else {
 			/* Disable sniffer mode */
 			if (handle->mon_if) {
@@ -6535,13 +6512,6 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		case WOAL_PORT_CTRL:
 			ret = woal_port_ctrl(priv, wrq);
 			break;
-#if defined(WIFI_DIRECT_SUPPORT)
-#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
-		case WOAL_SET_GET_BSS_ROLE:
-			ret = woal_set_get_bss_role(priv, wrq);
-			break;
-#endif
-#endif
 		case WOAL_SET_GET_11H_LOCAL_PWR_CONSTRAINT:
 			ret = woal_set_get_11h_local_pwr_constraint(priv, wrq);
 			break;

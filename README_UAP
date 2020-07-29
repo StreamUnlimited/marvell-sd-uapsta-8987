@@ -1,35 +1,34 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2009-2019, Marvell International Ltd.
- All Rights Reserved
+ Copyright 2014-2020 NXP
+
 
 1) FOR DRIVER BUILD
 
 	Goto source code directory wlan_src.
 		make [clean] build
 	The driver binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
+	The driver code supports Linux kernel from 2.6.32 to 5.5.2 .
 
 2) FOR DRIVER INSTALL
 
-	a) Copy sd8786_uapsta.bin | sd8787_uapsta.bin | ... to /lib/firmware/mrvl/ directory,
+	a) Copy sd8786_uapsta.bin | sd8787_uapsta.bin | ... to /lib/firmware/nxp/ directory,
 	   create the directory if it doesn't exist.
 	b) Install uAP driver,
 	   There are drv_mode, max_sta_bss, max_uap_bss etc. module parameters.
 		The bit settings of drv_mode are,
 			Bit 0 :  STA
 			Bit 1 :  uAP
-			Bit 2 :  WIFIDIRECT
-		The default drv_mode is 7.
+		The default drv_mode is 3.
 			Bit 4 :  NAN
 
-		max_uap_bss: Maximum number of uAP BSS (default 1, max 2)
+		max_uap_bss: Maximum number of uAP BSS (default 1, max 1)
 		uap_name: Name of the uAP interface (default: "uap")
 	   For example, to install SD8787 driver,
 	   To load driver in uAP only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=2 [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko drv_mode=2 [fw_name=nxp/sd8787_uapsta.bin]
 	   To switch mode between STA only, uAP only and uAPSTA in run time,
 		echo drv_mode=1 > /proc/mwlan/config		// STA mode
 		echo drv_mode=2 > /proc/mwlan/config		// uAP mode
@@ -56,14 +55,15 @@
 	  hw_test=0|1 <Disable hardware test (default) | Enable hardware test>
 	  fw_serial=0|1 <support parallel download FW | support serial download FW (default)>
 	  req_fw_nowait=0|1 <use request_firmware API (default) | use request_firmware_nowait API>
+	  slew_rate=0|1|2|3 <0 is the slowest slew rate and 03 has the highest slew rate (default)>
 	  init_cfg=<init config (MAC addresses, registers etc.) file name>
-		e.g. copy init_cfg.conf to firmware directory, init_cfg=mrvl/init_cfg.conf
+		e.g. copy init_cfg.conf to firmware directory, init_cfg=nxp/init_cfg.conf
 	  cal_data_cfg=<CAL data config file name>
-		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=mrvl/cal_data.conf
+		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=nxp/cal_data.conf
 	  txpwrlimit_cfg=<Tx power limit config file name>
-		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=mrvl/txpwrlimit_cfg_set.conf
+		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=nxp/txpwrlimit_cfg_set.conf
 	  init_hostcmd_cfg=<init hostcmd config file name>
-		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=mrvl/init_hostcmd_cfg.conf
+		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=nxp/init_hostcmd_cfg.conf
 	  cfg80211_wext=<bit mask of CFG80211 and WEXT control>
 		Bit 0: STA WEXT
 		Bit 1: uAP WEXT
@@ -76,9 +76,6 @@
 		as module parameters. If wq_sched_policy is (0, 3 or 5), then wq_sched_prio
 		must be 0. wq_sched_prio should be 1 to 99 otherwise.
 	  rx_work=0|1|2 <default | Enable rx_work_queue | Disable rx_work_queue>
-	  low_power_mode_enable=0|1 <disable low power mode (default)| enable low power mode>
-	  When low power mode is enabled, the output power will be clipped at ~+10dBm and the
-	  expected PA current is expected to be in the 80-90 mA range for b/g/n modes
 
 	Note: On some platforms (e.g. PXA910/920) double quotation marks ("") need to used
 	for module parameters.
@@ -318,8 +315,8 @@ rdeeprom <offset> <byteCount>
 cfg_data <type> [*.conf]
 sys_cfg_80211d [state STATE] [country COUNTRY]
 uap_stats
-sys_cfg_tdls_ext_cap [CONFIG_FILE]
 sys_cfg_restrict_client_mode [<ENABLE> [MODE_CONFIG]]
+skip_cac [<MODE>]
 
 -------------------
 Details of Commands
@@ -1055,6 +1052,8 @@ sys_cfg_auth
     The supported options are:
         AUTHMODE :     0 - Open authentication
                        1 - Shared key authentication
+                       3 - WPA3 SAE
+                       4 - OWE
                        255 - Auto (Open and Shared key) authentication
     empty - Get current authentication mode
 
@@ -1078,6 +1077,8 @@ sys_cfg_protocol
 			8		  WPA
 			32		  WPA2
 			40		 WPA, WPA2 Mixed Mode
+			64		 WPA3 SAE
+			128		 OWE
     empty - Get current encryption protocol
 
     AKM_SUITE:
@@ -1258,6 +1259,12 @@ sys_cfg_wpa_passphrase
     "./uaputl.exe sys_cfg_wpa_passphrase [PASSPHRASE]"
 
     This command is used to set or get the WPA or WPA2 passphrase.
+
+    This passphrase is used as password if WPA3 SAE protocol is configured, so please
+    use extremely difficult to guess password to protect from attacks.
+
+    Also setting psk for WPA3 SAE protocol is not possible, as new psk gets generated
+    everytime in protocol flow.
 
     If no arguments are given, this command returns the current WPA or WPA2
     passphrase.
@@ -2078,20 +2085,19 @@ addbareject
 
         Note:- This command should only be issued in disconnected state.
 
-sys_cfg_tdls_ext_cap
---------------------
+    "./uaputl.exe skip_cac [<MODE>]"
 
-    "./uaputl.exe sys_cfg_tdls_ext_cap [CONFIG_FILE]"
+    This command is used to set/get SKIP_CAC feature. If enabled then next BSS
+    start would skip the channel availability check (CAC). The mode will be
+    disabled automatically once BSS_START is performed.
 
-    This command is used to set/get TDLS extended capability settings.
+    MODE : 0 - Disable skip CAC mode
+	   1 - Enable skip CAC mode
 
-    If CONFIG_FILE is provided, a SET is performed , else a GET is performed.
-
-    Examples:
-        ./uaputl.exe sys_cfg_tdls_ext_cap config/tdls_ext_cap.conf
-        Set TDLS extended capability parameters in the config file.
-        ./uaputl.exe sys_cfg_tdls_ext_cap
-        Get TDLS extended capability parameters.
+    eg.,
+	./uaputl.exe skip_cac ==> GET current configured mode
+	./uaputl.exe skip_cac 1 ==> enables skip_cac mode
+	./uaputl.exe skip_cac 0 ==> disable skip_cac mode
 
 httxbfcfg
 ---------
@@ -2544,7 +2550,7 @@ BSS_ACTIVE
         U S E R  M A N U A L  F O R  IWPRIV
 
 NAME
-	This manual describes the usage of private commands used in Marvell MLAN
+	This manual describes the usage of private commands used in NXP MLAN
 	Linux UAP Driver.
 
 	To use parameters as hex format, a '0x' must precede it for the parameters to
@@ -2564,7 +2570,7 @@ SYNOPSIS
 	                   [CHANNEL,][PREAMBLE,][MAX_SCB,][END]"
 
 DESCRIPTION
-	Those commands are used to send additional commands to the Marvell MLAN
+	Those commands are used to send additional commands to the NXP MLAN
 	card via the Linux device driver.
 
 	The uapX parameter specifies the network device that is to be used to

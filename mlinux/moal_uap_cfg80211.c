@@ -2,11 +2,12 @@
   *
   * @brief This file contains the functions for uAP CFG80211.
   *
-  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -30,9 +31,6 @@
 /********************************************************
 				Global Variables
 ********************************************************/
-#ifdef WIFI_DIRECT_SUPPORT
-extern int GoAgeoutTime;
-#endif
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 extern int dfs_offload;
 #endif
@@ -631,20 +629,23 @@ woal_set_uap_rates(mlan_uap_bss_param *bss_cfg, const t_u8 *head_ie,
 	const u8 *var_pos = head_ie + var_offset;
 	int len = head_len - var_offset;
 	int rate_len = 0;
+	int left_rate_len = 0;
 
 	rate_ie = (void *)woal_parse_ie_tlv(var_pos, len, WLAN_EID_SUPP_RATES);
 	if (rate_ie) {
 		memset(bss_cfg->rates, 0, sizeof(bss_cfg->rates));
-		memcpy(bss_cfg->rates, rate_ie + 1, rate_ie->len);
-		rate_len = rate_ie->len;
+		memcpy(bss_cfg->rates, rate_ie + 1,
+		       MIN(rate_ie->len, sizeof(bss_cfg->rates)));
+		rate_len = MIN(rate_ie->len, sizeof(bss_cfg->rates));
+		left_rate_len = sizeof(bss_cfg->rates) - rate_len;
 	}
 	ext_rate_ie =
 		(void *)woal_parse_ie_tlv(tail_ie, tail_len,
 					  WLAN_EID_EXT_SUPP_RATES);
 	if (ext_rate_ie) {
 		memcpy(&bss_cfg->rates[rate_len], ext_rate_ie + 1,
-		       ext_rate_ie->len);
-		rate_len += ext_rate_ie->len;
+		       MIN(ext_rate_ie->len, left_rate_len));
+		rate_len += MIN(ext_rate_ie->len, left_rate_len);
 	}
 	DBG_HEXDUMP(MCMD_D, "rates", bss_cfg->rates, sizeof(bss_cfg->rates));
 }
@@ -696,13 +697,6 @@ woal_cfg80211_beacon_config(moal_private *priv,
 		0xb0, 0x48, 0x60, 0x6c,
 		0x00
 	};
-#ifdef WIFI_DIRECT_SUPPORT
-	t_u8 rates_wfd[9] = {
-		0x8c, 0x12, 0x18, 0x24,
-		0x30, 0x48, 0x60, 0x6c,
-		0x00
-	};
-#endif
 	t_u8 chan2Offset = SEC_CHAN_NONE;
 	t_u8 enable_11n = MTRUE;
 	t_u16 ht_cap = 0;
@@ -742,11 +736,7 @@ woal_cfg80211_beacon_config(moal_private *priv,
 				    MOAL_IOCTL_WAIT);
 	}
 	wiphy = priv->phandle->wiphy;
-	if (priv->bss_type != MLAN_BSS_TYPE_UAP
-#ifdef WIFI_DIRECT_SUPPORT
-	    && priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT
-#endif
-		) {
+	if (priv->bss_type != MLAN_BSS_TYPE_UAP) {
 		ret = -EFAULT;
 		goto done;
 	}
@@ -775,12 +765,6 @@ woal_cfg80211_beacon_config(moal_private *priv,
 	sys_config->mgmt_ie_passthru_mask = priv->mgmt_subtype_mask;
 	memcpy(sys_config->mac_addr, priv->current_addr, ETH_ALEN);
 
-#ifdef WIFI_DIRECT_SUPPORT
-	if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT && GoAgeoutTime) {
-		sys_config->sta_ageout_timer = GoAgeoutTime;
-		sys_config->ps_sta_ageout_timer = GoAgeoutTime;
-	}
-#endif
 	/* Set frag_threshold, rts_threshold, and retry limit */
 	sys_config->frag_threshold = wiphy->frag_threshold;
 	sys_config->rts_threshold = wiphy->rts_threshold;
@@ -888,30 +872,12 @@ woal_cfg80211_beacon_config(moal_private *priv,
 		sys_config->channel = priv->channel;
 		if (priv->channel <= MAX_BG_CHANNEL) {
 			sys_config->bandcfg.chanBand = BAND_2GHZ;
-#ifdef WIFI_DIRECT_SUPPORT
-			if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT)
-				memcpy(sys_config->rates, rates_wfd,
-				       sizeof(rates_wfd));
-			else
-#endif
-				memcpy(sys_config->rates, rates_bg,
-				       sizeof(rates_bg));
+			memcpy(sys_config->rates, rates_bg, sizeof(rates_bg));
 		} else {
 			sys_config->bandcfg.chanBand = BAND_5GHZ;
 #if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
 			chan2Offset =
 				woal_get_second_channel_offset(priv->channel);
-#endif
-
-#ifdef WIFI_DIRECT_SUPPORT
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
-
-			/* Force enable 40MHZ on WFD interface */
-			if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT)
-				chan2Offset =
-					woal_get_second_channel_offset(priv->
-								       channel);
-#endif
 #endif
 
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
@@ -923,14 +889,7 @@ woal_cfg80211_beacon_config(moal_private *priv,
 #else
 			enable_11ac = woal_check_11ac_capability(priv);
 #endif
-#ifdef WIFI_DIRECT_SUPPORT
-			if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT)
-				memcpy(sys_config->rates, rates_wfd,
-				       sizeof(rates_wfd));
-			else
-#endif
-				memcpy(sys_config->rates, rates_a,
-				       sizeof(rates_a));
+			memcpy(sys_config->rates, rates_a, sizeof(rates_a));
 		}
 
 		/* Replaced with rate from userspace, if exist */
@@ -1308,8 +1267,9 @@ woal_cfg80211_add_mon_if(struct wiphy *wiphy,
 		chan_info.channel = 1;
 		chan_info.is_11n_enabled = MTRUE;
 	}
+	mon_if->flag = 0x7;
 	if (MLAN_STATUS_SUCCESS != woal_set_net_monitor(priv, MOAL_IOCTL_WAIT,
-							MTRUE, 0x7,
+							MTRUE, mon_if->flag,
 							&mon_if->
 							band_chan_cfg)) {
 		PRINTM(MERROR, "%s: woal_set_net_monitor fail\n", __func__);
@@ -1356,437 +1316,6 @@ fail:
 	return ret;
 }
 
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-/**
- * @brief Callback function for virtual interface
- *      setup
- *
- *  @param dev    A pointer to structure net_device
- *
- *  @return       N/A
- */
-static void
-woal_virt_if_setup(struct net_device *dev)
-{
-	ENTER();
-	ether_setup(dev);
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 11, 9)
-	dev->needs_free_netdev = true;
-#else
-	dev->destructor = free_netdev;
-#endif
-	LEAVE();
-}
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-/**
- * @brief This function adds a new interface. It will
- *        allocate, initialize and register the device.
- *
- *  @param handle           A pointer to moal_handle structure
- *  @param bss_index        BSS index number
- *  @param name_assign_type Interface name assignment type
- *  @param bss_type         BSS type
- *
- *  @return                 A pointer to the new priv structure
- */
-moal_private *
-woal_alloc_virt_interface(moal_handle *handle, t_u8 bss_index,
-			  unsigned char name_assign_type,
-			  t_u8 bss_type, const char *name)
-#else
-/**
- * @brief This function adds a new interface. It will
- *        allocate, initialize and register the device.
- *
- *  @param handle    A pointer to moal_handle structure
- *  @param bss_index BSS index number
- *  @param bss_type  BSS type
- *
- *  @return          A pointer to the new priv structure
- */
-moal_private *
-woal_alloc_virt_interface(moal_handle *handle, t_u8 bss_index, t_u8 bss_type,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
-			  const
-#endif
-			  char *name)
-#endif
-{
-	struct net_device *dev = NULL;
-	moal_private *priv = NULL;
-	ENTER();
-
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 29)
-#ifndef MAX_WMM_QUEUE
-#define MAX_WMM_QUEUE   4
-#endif
-	/* Allocate an Ethernet device */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-	dev = alloc_netdev_mq(sizeof(moal_private), name, name_assign_type,
-			      woal_virt_if_setup, MAX_WMM_QUEUE);
-#else
-	dev = alloc_netdev_mq(sizeof(moal_private), name, NET_NAME_UNKNOWN,
-			      woal_virt_if_setup, MAX_WMM_QUEUE);
-#endif
-#else
-	dev = alloc_netdev_mq(sizeof(moal_private), name, woal_virt_if_setup,
-			      MAX_WMM_QUEUE);
-#endif
-#else
-	dev = alloc_netdev(sizeof(moal_private), name, woal_virt_if_setup);
-#endif
-	if (!dev) {
-		PRINTM(MFATAL, "Init virtual ethernet device failed\n");
-		goto error;
-	}
-	/* Allocate device name */
-	if ((dev_alloc_name(dev, name) < 0)) {
-		PRINTM(MERROR, "Could not allocate device name\n");
-		goto error;
-	}
-
-	priv = (moal_private *)netdev_priv(dev);
-	/* Save the priv to handle */
-	handle->priv[bss_index] = priv;
-
-	/* Use the same handle structure */
-	priv->phandle = handle;
-	priv->netdev = dev;
-	priv->bss_index = bss_index;
-	priv->bss_type = bss_type;
-	priv->bss_role = MLAN_BSS_ROLE_STA;
-
-	INIT_LIST_HEAD(&priv->tcp_sess_queue);
-	spin_lock_init(&priv->tcp_sess_lock);
-
-	INIT_LIST_HEAD(&priv->tx_stat_queue);
-	spin_lock_init(&priv->tx_stat_lock);
-	spin_lock_init(&priv->connect_lock);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
-	SET_MODULE_OWNER(dev);
-#endif
-
-	PRINTM(MCMND, "Alloc virtual interface%s\n", dev->name);
-
-	LEAVE();
-	return priv;
-error:
-	if (dev)
-		free_netdev(dev);
-	LEAVE();
-	return NULL;
-}
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-/**
- * @brief Request the driver to add a virtual interface
- *
- * @param wiphy             A pointer to wiphy structure
- * @param name              Virtual interface name
- * @param name_assign_type  Interface name assignment type
- * @param type              Virtual interface type
- * @param flags             Flags for the virtual interface
- * @param params            A pointer to vif_params structure
- * @param new_dev		    new net_device to return
- *
- * @return                  0 -- success, otherwise fail
- */
-int
-woal_cfg80211_add_virt_if(struct wiphy *wiphy,
-			  const char *name,
-			  unsigned char name_assign_type,
-			  enum nl80211_iftype type, u32 *flags,
-			  struct vif_params *params,
-			  struct net_device **new_dev)
-#else
-/**
- * @brief Request the driver to add a virtual interface
- *
- * @param wiphy           A pointer to wiphy structure
- * @param name            Virtual interface name
- * @param type            Virtual interface type
- * @param flags           Flags for the virtual interface
- * @param params          A pointer to vif_params structure
- * @param new_dev		  new net_device to return
- *
- * @return                0 -- success, otherwise fail
- */
-int
-woal_cfg80211_add_virt_if(struct wiphy *wiphy,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
-			  const
-#endif
-			  char *name, enum nl80211_iftype type, u32 *flags,
-			  struct vif_params *params,
-			  struct net_device **new_dev)
-#endif
-{
-	int ret = 0;
-	struct net_device *ndev = NULL;
-	moal_private *priv = NULL, *new_priv = NULL;
-	moal_handle *handle = (moal_handle *)woal_get_wiphy_priv(wiphy);
-	struct wireless_dev *wdev = NULL;
-	moal_private *vir_priv;
-	int i = 0;
-
-	ENTER();
-	ASSERT_RTNL();
-	priv = (moal_private *)woal_get_priv_bss_type(handle,
-						      MLAN_BSS_TYPE_WIFIDIRECT);
-	if (!priv || !priv->phandle) {
-		PRINTM(MERROR, "priv or handle is NULL\n");
-		LEAVE();
-		return -EFAULT;
-	}
-	if (priv->phandle->drv_mode.intf_num == priv->phandle->priv_num) {
-		PRINTM(MERROR, "max virtual interface limit reached\n");
-		for (i = 0; i < priv->phandle->priv_num; i++) {
-			vir_priv = priv->phandle->priv[i];
-			if (vir_priv->bss_virtual) {
-				woal_cfg80211_del_virt_if(wiphy,
-							  vir_priv->netdev);
-				break;
-			}
-		}
-		if (priv->phandle->drv_mode.intf_num == priv->phandle->priv_num) {
-			LEAVE();
-			return -ENOMEM;
-		}
-	}
-	PRINTM(MMSG, "Add virtual interface %s\n", name);
-	if ((type != NL80211_IFTYPE_P2P_CLIENT) &&
-	    (type != NL80211_IFTYPE_P2P_GO)) {
-		PRINTM(MERROR, "Invalid iftype: %d\n", type);
-		LEAVE();
-		return -EINVAL;
-	}
-
-	handle = priv->phandle;
-	/* Cancel previous scan req */
-	woal_cancel_scan(priv, MOAL_IOCTL_WAIT);
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-	new_priv =
-		woal_alloc_virt_interface(handle, handle->priv_num,
-					  name_assign_type,
-					  MLAN_BSS_TYPE_WIFIDIRECT, name);
-#else
-	new_priv =
-		woal_alloc_virt_interface(handle, handle->priv_num,
-					  MLAN_BSS_TYPE_WIFIDIRECT, name);
-#endif
-	if (!new_priv) {
-		PRINTM(MERROR, "Add virtual interface fail.");
-		LEAVE();
-		return -EFAULT;
-	}
-	handle->priv_num++;
-
-	wdev = (struct wireless_dev *)&new_priv->w_dev;
-	memset(wdev, 0, sizeof(struct wireless_dev));
-	ndev = new_priv->netdev;
-	SET_NETDEV_DEV(ndev, wiphy_dev(wiphy));
-	ndev->ieee80211_ptr = wdev;
-	wdev->iftype = type;
-	wdev->wiphy = wiphy;
-	new_priv->wdev = wdev;
-	new_priv->bss_virtual = MTRUE;
-	new_priv->pa_netdev = priv->netdev;
-
-	woal_init_sta_dev(ndev, new_priv);
-
-	/* Initialize priv structure */
-	woal_init_priv(new_priv, MOAL_IOCTL_WAIT);
-    /** Init to GO/CLIENT mode */
-	if (type == NL80211_IFTYPE_P2P_CLIENT)
-		woal_cfg80211_init_p2p_client(new_priv);
-	else if (type == NL80211_IFTYPE_P2P_GO)
-		woal_cfg80211_init_p2p_go(new_priv);
-	ret = register_netdevice(ndev);
-	if (ret) {
-		handle->priv[new_priv->bss_index] = NULL;
-		handle->priv_num--;
-		if (ndev->reg_state == NETREG_REGISTERED) {
-			unregister_netdevice(ndev);
-			free_netdev(ndev);
-			ndev = NULL;
-		}
-		PRINTM(MFATAL, "register net_device failed, ret=%d\n", ret);
-		goto done;
-	}
-	netif_carrier_off(ndev);
-	woal_stop_queue(ndev);
-	if (new_dev)
-		*new_dev = ndev;
-#ifdef CONFIG_PROC_FS
-	woal_create_proc_entry(new_priv);
-#ifdef PROC_DEBUG
-	woal_debug_entry(new_priv);
-#endif /* PROC_DEBUG */
-#endif /* CONFIG_PROC_FS */
-done:
-	LEAVE();
-	return ret;
-}
-
-/**
- *  @brief Notify mlan BSS will be removed.
- *
- *  @param priv          A pointer to moal_private structure
- *
- *  @return              MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING -- success, otherwise fail
- */
-mlan_status
-woal_bss_remove(moal_private *priv)
-{
-	mlan_ioctl_req *req = NULL;
-	mlan_ds_bss *bss = NULL;
-	mlan_status status;
-
-	ENTER();
-
-	/* Allocate an IOCTL request buffer */
-	req = (mlan_ioctl_req *)woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_bss));
-	if (req == NULL) {
-		status = MLAN_STATUS_FAILURE;
-		goto done;
-	}
-
-	/* Fill request buffer */
-	bss = (mlan_ds_bss *)req->pbuf;
-	bss->sub_command = MLAN_OID_BSS_REMOVE;
-	req->req_id = MLAN_IOCTL_BSS;
-	req->action = MLAN_ACT_SET;
-	/* Send IOCTL request to MLAN */
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return status;
-}
-
-/**
- *  @brief This function removes an virtual interface.
- *
- *  @param wiphy    A pointer to the wiphy structure
- *  @param dev      A pointer to the net_device structure
- *
- *  @return         0 -- success, otherwise fail
- */
-int
-woal_cfg80211_del_virt_if(struct wiphy *wiphy, struct net_device *dev)
-{
-	int ret = 0;
-	int i = 0;
-	moal_private *priv = NULL;
-	moal_private *vir_priv = NULL;
-	moal_private *remain_priv = NULL;
-	moal_handle *handle = (moal_handle *)woal_get_wiphy_priv(wiphy);
-
-	for (i = 0; i < handle->priv_num; i++) {
-		vir_priv = handle->priv[i];
-		if (vir_priv) {
-			if (vir_priv->netdev == dev) {
-				PRINTM(MMSG,
-				       "Del virtual interface %s, index=%d\n",
-				       dev->name, i);
-				break;
-			}
-		}
-	}
-
-	priv = (moal_private *)woal_get_priv_bss_type(handle,
-						      MLAN_BSS_TYPE_WIFIDIRECT);
-	if (!priv)
-		return ret;
-	if (vir_priv && vir_priv->netdev == dev) {
-		woal_stop_queue(dev);
-		netif_carrier_off(dev);
-		netif_device_detach(dev);
-		if (handle->is_remain_timer_set) {
-			woal_cancel_timer(&handle->remain_timer);
-			woal_remain_timer_func(handle);
-		}
-
-	/*** cancel pending scan */
-		woal_cancel_scan(vir_priv, MOAL_IOCTL_WAIT);
-
-		woal_flush_tx_stat_queue(vir_priv);
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)
-		/* cancel previous remain on channel to avoid firmware hang */
-		if (priv->phandle->remain_on_channel) {
-			t_u8 channel_status;
-			remain_priv =
-				priv->phandle->priv[priv->phandle->
-						    remain_bss_index];
-			if (remain_priv) {
-				if (woal_cfg80211_remain_on_channel_cfg
-				    (remain_priv, MOAL_IOCTL_WAIT, MTRUE,
-				     &channel_status, NULL, 0, 0))
-					PRINTM(MERROR,
-					       "del_virt_if: Fail to cancel remain on channel\n");
-
-				if (priv->phandle->cookie) {
-					cfg80211_remain_on_channel_expired(
-#if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
-										  remain_priv->
-										  netdev,
-#else
-										  remain_priv->
-										  wdev,
-#endif
-										  priv->
-										  phandle->
-										  cookie,
-										  &priv->
-										  phandle->
-										  chan,
-#if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-										  priv->
-										  phandle->
-										  channel_type,
-#endif
-										  GFP_ATOMIC);
-					priv->phandle->cookie = 0;
-				}
-				priv->phandle->remain_on_channel = MFALSE;
-			}
-		}
-#endif
-		woal_clear_all_mgmt_ies(vir_priv, MOAL_IOCTL_WAIT);
-		woal_cfg80211_deinit_p2p(vir_priv);
-		woal_bss_remove(vir_priv);
-#ifdef CONFIG_PROC_FS
-#ifdef PROC_DEBUG
-		/* Remove proc debug */
-		woal_debug_remove(vir_priv);
-#endif /* PROC_DEBUG */
-		woal_proc_remove(vir_priv);
-#endif /* CONFIG_PROC_FS */
-		/* Last reference is our one */
-#if CFG80211_VERSION_CODE < KERNEL_VERSION(2, 6, 37)
-		PRINTM(MINFO, "refcnt = %d\n", atomic_read(&dev->refcnt));
-#else
-		PRINTM(MINFO, "refcnt = %d\n", netdev_refcnt_read(dev));
-#endif
-		PRINTM(MINFO, "netdev_finish_unregister: %s\n", dev->name);
-		/* Clear the priv in handle */
-		vir_priv->phandle->priv[vir_priv->bss_index] = NULL;
-		priv->phandle->priv_num--;
-		if (dev->reg_state == NETREG_REGISTERED)
-			unregister_netdevice(dev);
-	}
-	return ret;
-}
-#endif
-#endif
-
 /**
  *  @brief This function removes an virtual interface.
  *
@@ -1797,37 +1326,8 @@ woal_cfg80211_del_virt_if(struct wiphy *wiphy, struct net_device *dev)
 void
 woal_remove_virtual_interface(moal_handle *handle)
 {
-#ifdef WIFI_DIRECT_SUPPORT
-	moal_private *priv = NULL;
-	int vir_intf = 0;
-	int i = 0;
-#endif
 	ENTER();
 	rtnl_lock();
-#ifdef WIFI_DIRECT_SUPPORT
-	for (i = 0; i < handle->priv_num; i++) {
-		priv = handle->priv[i];
-		if (priv) {
-			if (priv->bss_virtual) {
-				PRINTM(MCMND, "Remove virtual interface %s\n",
-				       priv->netdev->name);
-#ifdef CONFIG_PROC_FS
-#ifdef PROC_DEBUG
-				/* Remove proc debug */
-				woal_debug_remove(priv);
-#endif /* PROC_DEBUG */
-				woal_proc_remove(priv);
-#endif /* CONFIG_PROC_FS */
-				netif_device_detach(priv->netdev);
-				if (priv->netdev->reg_state ==
-				    NETREG_REGISTERED)
-					unregister_netdevice(priv->netdev);
-				handle->priv[i] = NULL;
-				vir_intf++;
-			}
-		}
-	}
-#endif
 	if (handle->mon_if) {
 		netif_device_detach(handle->mon_if->mon_ndev);
 		if (handle->mon_if->mon_ndev->reg_state == NETREG_REGISTERED)
@@ -1835,9 +1335,6 @@ woal_remove_virtual_interface(moal_handle *handle)
 		handle->mon_if = NULL;
 	}
 	rtnl_unlock();
-#ifdef WIFI_DIRECT_SUPPORT
-	handle->priv_num -= vir_intf;
-#endif
 	LEAVE();
 }
 
@@ -1969,20 +1466,6 @@ woal_cfg80211_add_virtual_intf(struct wiphy *wiphy,
 					       &ndev);
 #endif
 		break;
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-	case NL80211_IFTYPE_P2P_CLIENT:
-	case NL80211_IFTYPE_P2P_GO:
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-		ret = woal_cfg80211_add_virt_if(wiphy, name, name_assign_type,
-						type, flags, params, &ndev);
-#else
-		ret = woal_cfg80211_add_virt_if(wiphy, name, type, flags,
-						params, &ndev);
-#endif
-		break;
-#endif
-#endif
 	case NL80211_IFTYPE_AP:
 		if (!woal_uap_interface_ready(wiphy, (char *)name, &ndev)) {
 			PRINTM(MMSG,
@@ -2096,11 +1579,6 @@ woal_cfg80211_del_virtual_intf(struct wiphy *wiphy, struct wireless_dev *wdev)
 		LEAVE();
 		return ret;
 	}
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-	ret = woal_cfg80211_del_virt_if(wiphy, dev);
-#endif
-#endif
 	LEAVE();
 	return ret;
 }
@@ -2362,7 +1840,7 @@ woal_cfg80211_del_beacon(struct wiphy *wiphy, struct net_device *dev)
 		PRINTM(MERROR,
 		       "Block  woal_cfg80211_del_beacon in abnormal driver state\n");
 		LEAVE();
-		return ret;
+		return -EFAULT;
 	}
 	priv->uap_host_based = MFALSE;
 	PRINTM(MMSG, "wlan: Stoping AP\n");
@@ -2595,10 +2073,7 @@ woal_cfg80211_del_station(struct wiphy *wiphy, struct net_device *dev,
 	if (mac_addr) {
 		PRINTM(MMSG, "wlan: deauth station " MACSTR "\n",
 		       MAC2STR(mac_addr));
-#ifdef WIFI_DIRECT_SUPPORT
-		if (!priv->phandle->is_go_timer_set)
-#endif
-			woal_deauth_station(priv, (u8 *)mac_addr, reason_code);
+		woal_deauth_station(priv, (u8 *)mac_addr, reason_code);
 	} else {
 		PRINTM(MIOCTL, "del all station\n");
 	}

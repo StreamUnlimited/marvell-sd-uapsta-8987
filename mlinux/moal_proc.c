@@ -2,11 +2,12 @@
   *
   * @brief This file contains functions for proc file.
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -143,14 +144,6 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 #endif
 	seq_printf(sfp, "driver_version = %s", fmt);
 	seq_printf(sfp, "\ninterface_name=\"%s\"\n", netdev->name);
-#if defined(WIFI_DIRECT_SUPPORT)
-	if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT) {
-		if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA)
-			seq_printf(sfp, "bss_mode = \"WIFIDIRECT-Client\"\n");
-		else
-			seq_printf(sfp, "bss_mode = \"WIFIDIRECT-GO\"\n");
-	}
-#endif
 #ifdef STA_SUPPORT
 	if (priv->bss_type == MLAN_BSS_TYPE_STA)
 		seq_printf(sfp, "bss_mode =\"%s\"\n", szModes[info.bss_mode]);

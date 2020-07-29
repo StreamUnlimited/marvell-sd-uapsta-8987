@@ -1,22 +1,20 @@
-# File: Makefile
+#  File: Makefile
 #
-# Copyright (C) 2008-2019, Marvell International Ltd.
+#  Copyright 2014-2020 NXP
 #
-# This software file (the "File") is distributed by Marvell International
-# Ltd. under the terms of the GNU General Public License Version 2, June 1991
-# (the "License").  You may use, redistribute and/or modify this File in
-# accordance with the terms and conditions of the License, a copy of which
-# is available by writing to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
-# worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+#  This software file (the File) is distributed by NXP
+#  under the terms of the GNU General Public License Version 2, June 1991
+#  (the License).  You may use, redistribute and/or modify the File in
+#  accordance with the terms and conditions of the License, a copy of which
+#  is available by writing to the Free Software Foundation, Inc.,
+#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+#  worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
 #
-# A copy of the GPL is available in file gpl-2.0.txt accompanying in this
-# deliverables.
+#  THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
+#  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
+#  this warranty disclaimer.
 #
-# THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
-# ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
-# this warranty disclaimer.
 
 COMPATDIR=/lib/modules/$(KERNELVERSION_X86)/build/compat-wireless-3.2-rc1-1/include
 CC=		$(CROSS_COMPILE)gcc -I$(COMPATDIR)
@@ -55,11 +53,7 @@ CONFIG_STA_SUPPORT=y
 # Enable uAP mode support
 CONFIG_UAP_SUPPORT=y
 
-# Enable WIFIDIRECT support
-CONFIG_WIFI_DIRECT_SUPPORT=y
 
-# Enable WIFIDISPLAY support
-CONFIG_WIFI_DISPLAY_SUPPORT=y
 
 # Re-association in driver
 CONFIG_REASSOCIATION=y
@@ -134,7 +128,8 @@ APPDIR= $(shell if test -d "mapp"; then echo mapp; fi)
 
 	ccflags-y += -I$(KERNELDIR)/include
 
-	ccflags-y += -DFPNUM='"68"'
+
+	ccflags-y += -DFPNUM='"88"'
 
 ifeq ($(CONFIG_DEBUG),1)
 	ccflags-y += -DDEBUG_LEVEL1
@@ -161,8 +156,6 @@ ifeq ($(CONFIG_REASSOCIATION),y)
 	ccflags-y += -DREASSOCIATION
 endif
 else
-CONFIG_WIFI_DIRECT_SUPPORT=n
-CONFIG_WIFI_DISPLAY_SUPPORT=n
 CONFIG_STA_WEXT=n
 CONFIG_STA_CFG80211=n
 endif
@@ -170,18 +163,10 @@ endif
 ifeq ($(CONFIG_UAP_SUPPORT),y)
 	ccflags-y += -DUAP_SUPPORT
 else
-CONFIG_WIFI_DIRECT_SUPPORT=n
-CONFIG_WIFI_DISPLAY_SUPPORT=n
 CONFIG_UAP_WEXT=n
 CONFIG_UAP_CFG80211=n
 endif
 
-ifeq ($(CONFIG_WIFI_DIRECT_SUPPORT),y)
-	ccflags-y += -DWIFI_DIRECT_SUPPORT
-endif
-ifeq ($(CONFIG_WIFI_DISPLAY_SUPPORT),y)
-	ccflags-y += -DWIFI_DISPLAY_SUPPORT
-endif
 
 ifeq ($(CONFIG_MFG_CMD_SUPPORT),y)
 	ccflags-y += -DMFG_CMD_SUPPORT
@@ -306,15 +291,11 @@ endif
 endif
 
 ifneq ($(CONFIG_STA_SUPPORT),y)
-	CONFIG_WIFI_DIRECT_SUPPORT=n
-	CONFIG_WIFI_DISPLAY_SUPPORT=n
 	CONFIG_STA_WEXT=n
 	CONFIG_STA_CFG80211=n
 endif
 
 ifneq ($(CONFIG_UAP_SUPPORT),y)
-	CONFIG_WIFI_DIRECT_SUPPORT=n
-	CONFIG_WIFI_DISPLAY_SUPPORT=n
 	CONFIG_UAP_WEXT=n
 	CONFIG_UAP_CFG80211=n
 endif
@@ -464,7 +445,7 @@ ifeq ($(CONFIG_UAP_SUPPORT),y)
 .PHONY: mapp/mlanevent mapp/uaputl clean distclean
 endif
 endif
-	@echo "Finished Making Marvell Wlan Linux Driver"
+	@echo "Finished Making NXP Wlan Linux Driver"
 
 ifeq ($(CONFIG_STA_SUPPORT),y)
 mapp/mlanconfig:
@@ -476,10 +457,6 @@ mapp/mlan2040coex:
 endif
 ifeq ($(CONFIG_UAP_SUPPORT),y)
 mapp/uaputl:
-	$(MAKE) -C $@
-endif
-ifeq ($(CONFIG_WIFI_DIRECT_SUPPORT),y)
-mapp/wifidirectutl:
 	$(MAKE) -C $@
 endif
 mapp/mlanevent:
@@ -519,16 +496,6 @@ ifneq ($(APPDIR),)
 	$(MAKE) -C mapp/uaputl $@ INSTALLDIR=$(BINDIR)
 endif
 endif
-ifeq ($(CONFIG_WIFI_DIRECT_SUPPORT),y)
-	cp -f README_WIFIDIRECT $(BINDIR)
-	cp -rpf script/wifidirect $(BINDIR)
-ifeq ($(CONFIG_WIFI_DISPLAY_SUPPORT),y)
-	cp -rpf script/wifidisplay $(BINDIR)
-endif
-ifneq ($(APPDIR),)
-	$(MAKE) -C mapp/wifidirectutl $@ INSTALLDIR=$(BINDIR)
-endif
-endif
 ifneq ($(APPDIR),)
 	$(MAKE) -C mapp/mlanevent $@ INSTALLDIR=$(BINDIR)
 endif
@@ -552,9 +519,6 @@ ifeq ($(CONFIG_STA_SUPPORT),y)
 endif
 ifeq ($(CONFIG_UAP_SUPPORT),y)
 	$(MAKE) -C mapp/uaputl $@
-endif
-ifeq ($(CONFIG_WIFI_DIRECT_SUPPORT),y)
-	$(MAKE) -C mapp/wifidirectutl $@
 endif
 	$(MAKE) -C mapp/mlanevent $@
 endif
@@ -590,9 +554,6 @@ ifeq ($(CONFIG_STA_SUPPORT),y)
 endif
 ifeq ($(CONFIG_UAP_SUPPORT),y)
 	$(MAKE) -C mapp/uaputl $@
-endif
-ifeq ($(CONFIG_WIFI_DIRECT_SUPPORT),y)
-	$(MAKE) -C mapp/wifidirectutl $@
 endif
 	$(MAKE) -C mapp/mlanevent $@
 endif

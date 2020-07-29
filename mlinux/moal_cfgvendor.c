@@ -2,11 +2,12 @@
   *
   * @brief This file contains the functions for CFG80211 vendor.
   *
-  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -32,6 +33,7 @@
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 extern int dfs_offload;
 #endif
+extern int disable_regd_by_driver;
 /********************************************************
 				Local Functions
 ********************************************************/
@@ -41,7 +43,7 @@ extern int dfs_offload;
 ********************************************************/
 
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
-/**marvell vendor command and event*/
+/**nxp vendor command and event*/
 #define MRVL_VENDOR_ID  0x005043
 /** vendor events */
 const struct nl80211_vendor_cmd_info vendor_events[] = {
@@ -567,15 +569,15 @@ woal_cfg80211_subcmd_get_supp_feature_set(struct wiphy *wiphy,
 	mlan_fw_info fw_info;
 	ENTER();
 
-	supp_feature_set = WIFI_FEATURE_INFRA
+	supp_feature_set = WLAN_FEATURE_INFRA
 #if defined(UAP_SUPPORT) && defined(STA_SUPPORT)
-		| WIFI_FEATURE_AP_STA
+		| WLAN_FEATURE_AP_STA
 #endif
-		| WIFI_FEATURE_RSSI_MONITOR;
+		| WLAN_FEATURE_RSSI_MONITOR | WLAN_FEATURE_CONFIG_NDO;
 
 	woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
 	if (fw_info.fw_bands & BAND_A)
-		supp_feature_set |= WIFI_FEATURE_INFRA_5G;
+		supp_feature_set |= WLAN_FEATURE_INFRA_5G;
 
 	reply_len = sizeof(supp_feature_set);
 	/** Allocate skb for cmd reply*/
@@ -630,7 +632,8 @@ woal_cfg80211_subcmd_set_country_code(struct wiphy *wiphy,
 		}
 	}
 
-	regulatory_hint(wiphy, country);
+	if (!disable_regd_by_driver)
+		regulatory_hint(wiphy, country);
 
 	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, reply_len);
@@ -646,77 +649,6 @@ woal_cfg80211_subcmd_set_country_code(struct wiphy *wiphy,
 done:
 	LEAVE();
 	return ret;
-}
-
-/**
- * @brief vendor command to get correlated HW and System time
- *
- * @param wiphy    A pointer to wiphy struct
- * @param wdev     A pointer to wireless_dev struct
- * @param data     a pointer to data
- * @param  len     data length
- *
- * @return      0: success  -1: fail
- */
-static int
-woal_cfg80211_subcmd_get_correlated_time(struct wiphy *wiphy,
-					 struct wireless_dev *wdev,
-					 const void *data, int len)
-{
-	struct net_device *dev = wdev->netdev;
-	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
-	struct sk_buff *skb = NULL;
-	mlan_ioctl_req *req = NULL;
-	mlan_ds_misc_cfg *misc = NULL;
-	mlan_ds_get_correlated_time *info = NULL;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-	int err = -1;
-	int length = 0;
-
-	/* Allocate an IOCTL request buffer */
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-	if (req == NULL) {
-		PRINTM(MERROR, "Could not allocate mlan ioctl request!\n");
-		return -ENOMEM;
-	}
-
-	/* Fill request buffer */
-	misc = (mlan_ds_misc_cfg *)req->pbuf;
-	req->req_id = MLAN_IOCTL_MISC_CFG;
-	req->action = MLAN_ACT_GET;
-	misc->sub_command = MLAN_OID_MISC_GET_CORRELATED_TIME;
-
-	/* Send IOCTL request to MLAN */
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		PRINTM(MERROR, "get correleted time fail\n");
-		goto done;
-	}
-
-	length = sizeof(mlan_ds_get_correlated_time);
-	info = (mlan_ds_get_correlated_time *) (&misc->param.host_clock);
-
-	DBG_HEXDUMP(MCMD_D, "get_correlated_time", (t_u8 *)info, length);
-
-	/* Alloc the SKB for vendor_event */
-	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, length);
-	if (unlikely(!skb)) {
-		PRINTM(MERROR, "skb alloc failed\n");
-		goto done;
-	}
-
-	/* Push the data to the skb */
-	nla_put_nohdr(skb, length, info);
-
-	err = cfg80211_vendor_cmd_reply(skb);
-	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
-	}
-
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	return err;
 }
 
 #ifdef STA_CFG80211
@@ -874,6 +806,7 @@ woal_cfg80211_subcmd_11k_cfg(struct wiphy *wiphy,
 	struct net_device *dev = NULL;
 	moal_private *priv = NULL;
 	mlan_ioctl_req *req = NULL;
+	mlan_ds_11k_cfg *pcfg_11k = NULL;
 	struct nlattr *tb_vendor[ATTR_ND_OFFLOAD_MAX + 1];
 	int ret = 0;
 	int status = MLAN_STATUS_SUCCESS;
@@ -895,6 +828,28 @@ woal_cfg80211_subcmd_11k_cfg(struct wiphy *wiphy,
 		);
 	if (!tb_vendor[ATTR_ND_OFFLOAD_CONTROL]) {
 		PRINTM(MINFO, "%s: ATTR_ND_OFFLOAD not found\n", __FUNCTION__);
+		ret = -EFAULT;
+		goto done;
+	}
+	/* Allocate an IOCTL request buffer */
+	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_11k_cfg));
+	if (req == NULL) {
+		PRINTM(MERROR, "Could not allocate mlan ioctl request!\n");
+		ret = -EFAULT;
+		goto done;
+	}
+	/* Fill request buffer */
+	pcfg_11k = (mlan_ds_11k_cfg *) req->pbuf;
+	pcfg_11k->sub_command = MLAN_OID_11K_CFG_ENABLE;
+	req->req_id = MLAN_IOCTL_11K_CFG;
+	req->action = MLAN_ACT_SET;
+	if (nla_get_u32(tb_vendor[ATTR_ND_OFFLOAD_CONTROL]))
+		pcfg_11k->param.enable_11k = MTRUE;
+	else
+		pcfg_11k->param.enable_11k = MFALSE;
+	PRINTM(MCMND, "11k enable = %d\n", pcfg_11k->param.enable_11k);
+	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
 		ret = -EFAULT;
 		goto done;
 	}
@@ -947,18 +902,27 @@ const struct wiphy_vendor_command vendor_commands[] = {
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_set_drvdbg,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_drvdbg,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
 		  sub_cmd_get_valid_channels,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_valid_channels,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 #ifdef STA_CFG80211
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_rssi_monitor,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rssi_monitor,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 #endif
 
@@ -967,43 +931,54 @@ const struct wiphy_vendor_command vendor_commands[] = {
 		  sub_cmd_dfs_capability,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_dfs_offload,
-	 },
-
-	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_correlated_time,},
-	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
-	 .doit = woal_cfg80211_subcmd_get_correlated_time,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_nd_offload},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_11k_cfg,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
 		  sub_cmd_get_drv_version,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_drv_version,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
 		  sub_cmd_get_fw_version,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_fw_version,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
 		  sub_cmd_get_wifi_supp_feature_set,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_supp_feature_set,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 	{
 	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
 		  sub_cmd_set_country_code,},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_country_code,
+#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	 .policy = VENDOR_CMD_RAW_DATA,
+#endif
 	 },
 
 };

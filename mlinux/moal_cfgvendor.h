@@ -2,11 +2,12 @@
   *
   * @brief This file contains the CFG80211 vendor specific defines.
   *
-  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -36,32 +37,32 @@
 									VENDOR_DATA_OVERHEAD)
 
 /* Feature enums */
-#define WIFI_FEATURE_INFRA              0x0001	// Basic infrastructure mode
-#define WIFI_FEATURE_INFRA_5G           0x0002	// Support for 5 GHz Band
-#define WIFI_FEATURE_HOTSPOT            0x0004	// Support for GAS/ANQP
-#define WIFI_FEATURE_P2P                0x0008	// Wifi-Direct
-#define WIFI_FEATURE_SOFT_AP            0x0010	// Soft AP
-#define WIFI_FEATURE_GSCAN              0x0020	// Google-Scan APIs
-#define WIFI_FEATURE_NAN                0x0040	// Neighbor Awareness Networking
-#define WIFI_FEATURE_D2D_RTT            0x0080	// Device-to-device RTT
-#define WIFI_FEATURE_D2AP_RTT           0x0100	// Device-to-AP RTT
-#define WIFI_FEATURE_BATCH_SCAN         0x0200	// Batched Scan (legacy)
-#define WIFI_FEATURE_PNO                0x0400	// Preferred network offload
-#define WIFI_FEATURE_ADDITIONAL_STA     0x0800	// Support for two STAs
-#define WIFI_FEATURE_TDLS               0x1000	// Tunnel directed link setup
-#define WIFI_FEATURE_TDLS_OFFCHANNEL    0x2000	// Support for TDLS off channel
-#define WIFI_FEATURE_EPR                0x4000	// Enhanced power reporting
-#define WIFI_FEATURE_AP_STA             0x8000	// Support for AP STA Concurrency
-#define WIFI_FEATURE_LINK_LAYER_STATS   0x10000	// Link layer stats collection
-#define WIFI_FEATURE_LOGGER             0x20000	// WiFi Logger
-#define WIFI_FEATURE_HAL_EPNO           0x40000	// WiFi PNO enhanced
-#define WIFI_FEATURE_RSSI_MONITOR       0x80000	// RSSI Monitor
-#define WIFI_FEATURE_MKEEP_ALIVE        0x100000	// WiFi mkeep_alive
-#define WIFI_FEATURE_CONFIG_NDO         0x200000	// ND offload configure
-#define WIFI_FEATURE_TX_TRANSMIT_POWER  0x400000	// Capture Tx transmit power levels
-#define WIFI_FEATURE_CONTROL_ROAMING    0x800000	// Enable/Disable firmware roaming
-#define WIFI_FEATURE_IE_WHITELIST       0x1000000	// Support Probe IE white listing
-#define WIFI_FEATURE_SCAN_RAND          0x2000000	// Support MAC & Probe Sequence Number randomization
+#define WLAN_FEATURE_INFRA              0x0001	// Basic infrastructure mode
+#define WLAN_FEATURE_INFRA_5G           0x0002	// Support for 5 GHz Band
+#define WLAN_FEATURE_HOTSPOT            0x0004	// Support for GAS/ANQP
+#define WLAN_FEATURE_P2P                0x0008	// Wifi-Direct
+#define WLAN_FEATURE_SOFT_AP            0x0010	// Soft AP
+#define WLAN_FEATURE_GSCAN              0x0020	// Google-Scan APIs
+#define WLAN_FEATURE_NAN                0x0040	// Neighbor Awareness Networking
+#define WLAN_FEATURE_D2D_RTT            0x0080	// Device-to-device RTT
+#define WLAN_FEATURE_D2AP_RTT           0x0100	// Device-to-AP RTT
+#define WLAN_FEATURE_BATCH_SCAN         0x0200	// Batched Scan (legacy)
+#define WLAN_FEATURE_PNO                0x0400	// Preferred network offload
+#define WLAN_FEATURE_ADDITIONAL_STA     0x0800	// Support for two STAs
+#define WLAN_FEATURE_TDLS               0x1000	// Tunnel directed link setup
+#define WLAN_FEATURE_TDLS_OFFCHANNEL    0x2000	// Support for TDLS off channel
+#define WLAN_FEATURE_EPR                0x4000	// Enhanced power reporting
+#define WLAN_FEATURE_AP_STA             0x8000	// Support for AP STA Concurrency
+#define WLAN_FEATURE_LINK_LAYER_STATS   0x10000	// Link layer stats collection
+#define WLAN_FEATURE_LOGGER             0x20000	// WiFi Logger
+#define WLAN_FEATURE_HAL_EPNO           0x40000	// WiFi PNO enhanced
+#define WLAN_FEATURE_RSSI_MONITOR       0x80000	// RSSI Monitor
+#define WLAN_FEATURE_MKEEP_ALIVE        0x100000	// WiFi mkeep_alive
+#define WLAN_FEATURE_CONFIG_NDO         0x200000	// ND offload configure
+#define WLAN_FEATURE_TX_TRANSMIT_POWER  0x400000	// Capture Tx transmit power levels
+#define WLAN_FEATURE_CONTROL_ROAMING    0x800000	// Enable/Disable firmware roaming
+#define WLAN_FEATURE_IE_WHITELIST       0x1000000	// Support Probe IE white listing
+#define WLAN_FEATURE_SCAN_RAND          0x2000000	// Support MAC & Probe Sequence Number randomization
 // Add more features here
 
 #define MAX_CHANNEL_NUM 200
@@ -151,7 +152,6 @@ void woal_cfg80211_rssi_monitor_event(moal_private *priv, t_s16 rssi);
 enum vendor_sub_command {
 	sub_cmd_set_drvdbg = 0,
 	sub_cmd_dfs_capability = 0x0005,
-	sub_cmd_get_correlated_time = 0x0006,
 	sub_cmd_nd_offload = 0x0100,
 	sub_cmd_get_valid_channels = 0x1009,
 	sub_cmd_get_wifi_supp_feature_set = 0x100a,

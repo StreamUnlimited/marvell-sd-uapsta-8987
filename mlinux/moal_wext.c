@@ -2,11 +2,12 @@
   *
   * @brief This file contains wireless extension standard ioctl functions
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -2348,6 +2349,48 @@ done:
 }
 
 /**
+ * @brief Request scan based on connect parameter
+ *
+ * @param priv            A pointer to moal_private structure
+ * @param ssid_bssid      A pointer to mlan_ssid_bssid structure
+ *
+ * @return                0 -- success, otherwise fail
+ */
+int
+woal_owe_specific_scan(moal_private *priv, mlan_ssid_bssid *ssid_bssid)
+{
+	moal_handle *handle = priv->phandle;
+	int ret = 0;
+	wlan_user_scan_cfg scan_req;
+	ENTER();
+	if (handle->scan_pending_on_block == MTRUE) {
+		PRINTM(MINFO, "scan already in processing...\n");
+		LEAVE();
+		return ret;
+	}
+
+	priv->report_scan_result = MTRUE;
+	memset(&scan_req, 0x00, sizeof(scan_req));
+	scan_req.keep_previous_scan = MTRUE;
+	memcpy(scan_req.ssid_list[0].ssid, ssid_bssid->trans_ssid.ssid,
+	       ssid_bssid->trans_ssid.ssid_len);
+	scan_req.ssid_list[0].max_len = 0;
+	scan_req.chan_list[0].chan_number = ssid_bssid->channel;
+	if (ssid_bssid->bss_band == BAND_A)
+		scan_req.chan_list[0].radio_type = BAND_5GHZ;
+	else
+		scan_req.chan_list[0].radio_type = BAND_2GHZ;
+	scan_req.chan_list[0].scan_time = 0;
+	//TODO need set to PASSIVE TO ACTIVE on DFS channel
+	scan_req.chan_list[0].scan_type = MLAN_SCAN_TYPE_ACTIVE;
+
+	ret = woal_request_userscan(priv, MOAL_IOCTL_WAIT, &scan_req);
+	LEAVE();
+	return ret;
+
+}
+
+/**
  *  @brief Set essid
  *
  *  @param dev          A pointer to net_device structure
@@ -2364,6 +2407,7 @@ woal_set_essid(struct net_device *dev, struct iw_request_info *info,
 	moal_private *priv = (moal_private *)netdev_priv(dev);
 	mlan_802_11_ssid req_ssid;
 	mlan_ssid_bssid ssid_bssid;
+	mlan_ssid_bssid owe_ssid_bssid;
 #ifdef REASSOCIATION
 	moal_handle *handle = priv->phandle;
 	mlan_bss_info bss_info;
@@ -2438,6 +2482,37 @@ woal_set_essid(struct net_device *dev, struct iw_request_info *info,
 			goto setessid_ret;
 		}
 
+		priv->auto_assoc_priv.drv_assoc.status = MFALSE;
+		priv->auto_assoc_priv.drv_reconnect.status = MFALSE;
+#ifdef REASSOCIATION
+		if (priv->reassoc_on == MTRUE) {
+			if (priv->auto_assoc_priv.
+			    auto_assoc_type_on & (0x1 <<
+						  (AUTO_ASSOC_TYPE_DRV_ASSOC -
+						   1))) {
+				if (priv->scan_type == MLAN_SCAN_TYPE_PASSIVE)
+					woal_set_scan_type(priv,
+							   MLAN_SCAN_TYPE_PASSIVE);
+				MOAL_REL_SEMAPHORE(&handle->reassoc_sem);
+				memcpy(&priv->prev_ssid_bssid.ssid, &req_ssid,
+				       sizeof(mlan_802_11_ssid));
+				priv->auto_assoc_priv.auto_assoc_trigger_flag =
+					AUTO_ASSOC_TYPE_DRV_ASSOC;
+				priv->auto_assoc_priv.drv_assoc.status = MTRUE;
+				priv->reassoc_required = MTRUE;
+				priv->phandle->is_reassoc_timer_set = MTRUE;
+				PRINTM(MINFO,
+				       " auto assoc: trigger driver auto assoc\n");
+				woal_mod_timer(&priv->phandle->reassoc_timer,
+					       0);
+				ret = MLAN_STATUS_SUCCESS;
+
+				LEAVE();
+				return ret;
+			}
+		}
+#endif
+
 		if (dwrq->flags != 0xFFFF) {
 			if (MLAN_STATUS_SUCCESS !=
 			    woal_find_essid(priv, &ssid_bssid,
@@ -2466,6 +2541,22 @@ woal_set_essid(struct net_device *dev, struct iw_request_info *info,
 					   &ssid_bssid)) {
 			ret = -EFAULT;
 			goto setessid_ret;
+		}
+		if (ssid_bssid.trans_ssid.ssid_len &&
+		    (ssid_bssid.owe_transition_mode == OWE_TRANS_MODE_OPEN)) {
+			//We need scan for OWE AP
+			woal_owe_specific_scan(priv, &ssid_bssid);
+			memset(&owe_ssid_bssid, 0, sizeof(owe_ssid_bssid));
+			memcpy(&owe_ssid_bssid.ssid, &ssid_bssid.trans_ssid,
+			       sizeof(mlan_802_11_ssid));
+			memcpy(&owe_ssid_bssid.bssid, &ssid_bssid.trans_bssid,
+			       sizeof(mlan_802_11_mac_addr));
+			if (MLAN_STATUS_SUCCESS ==
+			    woal_find_essid(priv, &owe_ssid_bssid,
+					    MOAL_IOCTL_WAIT))
+				memcpy(&ssid_bssid, &owe_ssid_bssid,
+				       sizeof(mlan_ssid_bssid));
+
 		}
 		if (MLAN_STATUS_SUCCESS !=
 		    woal_11d_check_ap_channel(priv, MOAL_IOCTL_WAIT,

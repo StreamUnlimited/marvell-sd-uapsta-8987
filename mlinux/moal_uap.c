@@ -3,11 +3,12 @@
   * @brief This file contains the major functions in UAP
   * driver.
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -1667,6 +1668,118 @@ done:
  * @return           0 --success, otherwise fail
  */
 static int
+woal_uap_dfs_repeater(struct net_device *dev, struct ifreq *req)
+{
+	moal_private *priv = (moal_private *)netdev_priv(dev);
+	int ret = 0;
+	dfs_repeater_mode param;
+	mlan_ds_misc_cfg *misc = NULL;
+	mlan_ioctl_req *mreq = NULL;
+	mlan_status status = MLAN_STATUS_SUCCESS;
+
+	ENTER();
+
+	/* Sanity check */
+	if (req->ifr_data == NULL) {
+		PRINTM(MERROR, "uap_antenna_cfg() corrupt data\n");
+		ret = -EFAULT;
+		goto done;
+	}
+
+	memset(&param, 0, sizeof(dfs_repeater_mode));
+	/* Get user data */
+	if (copy_from_user(&param, req->ifr_data, sizeof(dfs_repeater_mode))) {
+		PRINTM(MERROR, "Copy from user failed\n");
+		ret = -EFAULT;
+		goto done;
+	}
+	mreq = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
+	if (mreq == NULL) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	misc = (mlan_ds_misc_cfg *)mreq->pbuf;
+	misc->sub_command = MLAN_OID_MISC_DFS_REAPTER_MODE;
+	mreq->req_id = MLAN_IOCTL_MISC_CFG;
+	mreq->action = MLAN_ACT_GET;
+
+	status = woal_request_ioctl(priv, mreq, MOAL_IOCTL_WAIT);
+	if (status != MLAN_STATUS_SUCCESS) {
+		ret = -EFAULT;
+		goto done;
+	}
+	param.mode = misc->param.dfs_repeater.mode;
+
+	if (copy_to_user(req->ifr_data, &param, sizeof(dfs_repeater_mode))) {
+		PRINTM(MERROR, "Copy to user failed\n");
+		ret = -EFAULT;
+	}
+done:
+	if (status != MLAN_STATUS_PENDING)
+		kfree(mreq);
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief Set/Get skip CAC mode
+ *
+ *  @param dev      A pointer to net_device structure
+ *  @param req      A pointer to ifreq structure
+ *
+ * @return           0 --success, otherwise fail
+ */
+static int
+woal_uap_skip_cac(struct net_device *dev, struct ifreq *req)
+{
+	moal_private *priv = (moal_private *)netdev_priv(dev);
+	int ret = 0;
+	skip_cac_para param;
+
+	ENTER();
+
+	/* Sanity check */
+	if (req->ifr_data == NULL) {
+		PRINTM(MERROR, "skip_cac() corrupt data\n");
+		ret = -EFAULT;
+		goto done;
+	}
+
+	memset(&param, 0, sizeof(skip_cac_para));
+
+	/* Get user data */
+	if (copy_from_user(&param, req->ifr_data, sizeof(skip_cac_para))) {
+		PRINTM(MERROR, "Copy from user failed\n");
+		ret = -EFAULT;
+		goto done;
+	}
+
+	/* Currently default action is get */
+	if (param.action == 0) {
+		param.skip_cac = (t_u16)priv->skip_cac;
+	} else {
+		priv->skip_cac = param.skip_cac;
+	}
+
+	if (copy_to_user(req->ifr_data, &param, sizeof(skip_cac_para))) {
+		PRINTM(MERROR, "Copy to user failed\n");
+		ret = -EFAULT;
+	}
+done:
+
+	LEAVE();
+	return ret;
+}
+
+/**
+ * @brief Get DFS_REPEATER mode
+ *
+ *  @param dev      A pointer to net_device structure
+ *  @param req      A pointer to ifreq structure
+ *
+ * @return           0 --success, otherwise fail
+ */
+static int
 woal_uap_cac_timer_status(struct net_device *dev, struct ifreq *req)
 {
 	moal_private *priv = (moal_private *)netdev_priv(dev);
@@ -1887,8 +2000,14 @@ woal_uap_ioctl(struct net_device *dev, struct ifreq *req)
 	case UAP_TX_RATE_CFG:
 		ret = woal_uap_tx_rate_cfg(dev, req);
 		break;
+	case UAP_DFS_REPEATER_MODE:
+		ret = woal_uap_dfs_repeater(dev, req);
+		break;
 	case UAP_CAC_TIMER_STATUS:
 		ret = woal_uap_cac_timer_status(dev, req);
+		break;
+	case UAP_SKIP_CAC:
+		ret = woal_uap_skip_cac(dev, req);
 		break;
 	case UAP_OPERATION_CTRL:
 		ret = woal_uap_operation_ctrl(dev, req);
@@ -2752,7 +2871,8 @@ woal_uap_set_11n_status(moal_private *priv, mlan_uap_bss_param *sys_cfg,
 	if (action == MLAN_ACT_ENABLE) {
 		woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
 		sys_cfg->supported_mcs_set[0] = 0xFF;
-		sys_cfg->supported_mcs_set[4] = 0x01;
+		if (sys_cfg->bandcfg.chan2Offset)
+			sys_cfg->supported_mcs_set[4] = 0x01;
 	}
 
 done:

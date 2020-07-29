@@ -1,54 +1,49 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2008-2019, Marvell International Ltd.
- All Rights Reserved
+ Copyright 2014-2020 NXP
+
 
 1) FOR DRIVER BUILD
 
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
+	The driver code supports Linux kernel from 2.6.32 to 5.5.2.
 
 2) FOR DRIVER INSTALL
 
 	a) Copy firmware image sd8786_uapsta.bin | sd8787_uapsta.bin | ... to
-	   /lib/firmware/mrvl/ directory, create the directory if it doesn't exist.
+	   /lib/firmware/nxp/ directory, create the directory if it doesn't exist.
 	b) Install WLAN driver,
 	   There are drv_mode, max_sta_bss, max_uap_bss etc. module parameters.
 		The bit settings of drv_mode are,
 			Bit 0 :  STA
 			Bit 1 :  uAP
-			Bit 2 :  WIFIDIRECT
-		The default drv_mode is 7.
+		The default drv_mode is 3.
 			Bit 4 :  NAN
 
 		max_sta_bss: Maximum number of STA BSS (default 1, max 1)
 		sta_name: Name of the STA interface (default: "mlan")
-		max_uap_bss: Maximum number of uAP BSS (default 1, max 2)
+		max_uap_bss: Maximum number of uAP BSS (default 1, max 1)
 		uap_name: Name of the uAP interface (default: "uap")
 		uap_max_sta: Maximum number of STA for UAP/GO (default 0, max 10)
-		max_wfd_bss: Maximum number of WIFIDIRECT BSS (default 1, max 1)
-		wfd_name: Name of the WIFIDIRECT interface (default: "wfd")
-		max_vir_bss: Number of Virtual interfaces (default 0)
 		nan_name: Name of the NAN interface (default: "nan")
 		max_nan_bss: Number of NAN interfaces (default 1)
 	   For example, to install SD8787 driver,
 		insmod mlan.ko
-		insmod sd8787.ko [drv_mode=3] [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko [drv_mode=3] [fw_name=nxp/sd8787_uapsta.bin]
 	   To load driver in STA only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=1 [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko drv_mode=1 [fw_name=nxp/sd8787_uapsta.bin]
 	   To load driver in uAP only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=2 [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko drv_mode=2 [fw_name=nxp/sd8787_uapsta.bin]
 
 	   To switch mode between STA only, uAP only and uAPSTA etc. in run time,
 		echo drv_mode=1 > /proc/mwlan/config		// STA mode
 		echo drv_mode=2 > /proc/mwlan/config		// uAP mode
 		echo drv_mode=3 > /proc/mwlan/config		// STA+uAP mode
-		echo drv_mode=7 > /proc/mwlan/config		// STA+uAP+WIFIDIRECT mode
 	c) Uninstall WLAN driver,
 		ifconfig mlanX down
 		ifconfig uapX down
@@ -78,14 +73,15 @@
 	  hw_test=0|1 <Disable hardware test (default) | Enable hardware test>
 	  fw_serial=0|1 <support parallel download FW | support serial download FW (default)>
 	  req_fw_nowait=0|1 <use request_firmware API (default) | use request_firmware_nowait API>
+	  slew_rate=0|1|2|3 <0 is the slowest slew rate and 03 has the highest slew rate (default)>
 	  init_cfg=<init config (MAC addresses, registers etc.) file name>
-		e.g. copy init_cfg.conf to firmware directory, init_cfg=mrvl/init_cfg.conf
+		e.g. copy init_cfg.conf to firmware directory, init_cfg=nxp/init_cfg.conf
 	  cal_data_cfg=<CAL data config file name>
-		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=mrvl/cal_data.conf
+		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=nxp/cal_data.conf
 	  txpwrlimit_cfg=<Tx power limit config file name>
-		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=mrvl/txpwrlimit_cfg_set.conf
+		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=nxp/txpwrlimit_cfg_set.conf
 	  init_hostcmd_cfg=<init hostcmd config file name>
-		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=mrvl/init_hostcmd_cfg.conf
+		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=nxp/init_hostcmd_cfg.conf
 	  cfg80211_wext=<bit mask of CFG80211 and WEXT control>
 		Bit 0: STA WEXT
 		Bit 1: uAP WEXT
@@ -100,9 +96,6 @@
 		as module parameters. If wq_sched_policy is (0, 3 or 5), then wq_sched_prio
 		must be 0. wq_sched_prio should be 1 to 99 otherwise.
 	  rx_work=0|1|2 <default | Enable rx_work_queue | Disable rx_work_queue>
-	  low_power_mode_enable=0|1 <disable low power mode (default)| enable low power mode>
-	  When low power mode is enabled, the output power will be clipped at ~+10dBm and the
-	  expected PA current is expected to be in the 80-90 mA range for b/g/n modes
       indrstcfg=<2-byte IR configuration>
       gpio pin (high byte): GPIO pin no to be used as trigger for out band reset
         (0xFF: default pin configuration)
@@ -248,7 +241,7 @@
 4) FOR IWPRIV COMMAND
 
 NAME
-	This manual describes the usage of private commands used in Marvell MLAN
+	This manual describes the usage of private commands used in NXP MLAN
 	Linux Driver.
 
 	To use parameters as hex format, a '0x' must precede it for the parameters to
@@ -317,7 +310,7 @@ SYNOPSIS
     iwpriv mlanX indrstcfg <ir_mode> [gpio_pin]
 
 DESCRIPTION
-	Those commands are used to send additional commands to the Marvell MLAN
+	Those commands are used to send additional commands to the NXP MLAN
 	card via the Linux device driver.
 
 	The mlanX parameter specifies the network device that is to be used to
@@ -454,12 +447,17 @@ passphrase
 	Where <n>
 		ASCII string for ssid/passphrase/psk.
 
+	This passphrase is used as password if WPA3 SAE protocol is configured, so please
+	use extremely difficult to guess password to protect from attacks.
+
+	Also setting psk for WPA3 SAE protocol is not possible, as new psk gets generated
+	everytime in protocol flow.
 
 	1) "0;<ssid=valid ssid>" - This will get the passphrase, AKMP
 	   for specified ssid, if none specified then it will get all.
 
 	Example:
-		iwpriv mlan0 passphrase "0;ssid=marvell"
+		iwpriv mlan0 passphrase "0;ssid=nxp"
 
 	2) "1;<psk=64 byte hexpsk>;<passphrase=1-63 byte passphare>
 	   <ssid=valid ssid>" - Passphrase and psk cannot be provided for the same SSID.
@@ -471,11 +469,11 @@ passphrase
 	   to ';' or '/' as a escape.
 
 	Examples:
-		iwpriv mlan0 passphrase "1;ssid=mrvlAP;passphrase=abcdefgd"
-		iwpriv mlan0 passphrase "1;ssid=mrvl AP;psk=<64 bytes hexpsk>"
+		iwpriv mlan0 passphrase "1;ssid=nxpAP;passphrase=abcdefgd"
+		iwpriv mlan0 passphrase "1;ssid=nxp AP;psk=<64 bytes hexpsk>"
 
-		If user wants to input the ssid as "mrvl; AP" then command has to be
-		iwpriv mlan0 passphrase "1;ssid=mrvl/; AP;passphrase=abcdefgh"
+		If user wants to input the ssid as "nxp; AP" then command has to be
+		iwpriv mlan0 passphrase "1;ssid=nxp/; AP;passphrase=abcdefgh"
 
 		If user wants to input the ssid as "//;" then command has to be
 		iwpriv mlan0 passphrase "1;ssid=/////;;passphrase=abcdefgh"
@@ -484,7 +482,7 @@ passphrase
 	   for specified ssid, if none specified then it will clear all.
 
 	Examples:
-		iwpriv mlan0 passphrase "2;ssid=marvell"
+		iwpriv mlan0 passphrase "2;ssid=nxp"
 		iwpriv mlan0 passphrase "2"     : Clear all profiles and disable embedded supplicant
 
 httxcfg
@@ -1651,7 +1649,7 @@ indrstcfg
 		U S E R  M A N U A L  F O R  M L A N C O N F I G
 
 NAME
-mlanconfig - configure the additional parameters available for the Marvell mdriver.
+mlanconfig - configure the additional parameters available for the NXP mdriver.
 
 SYNOPSIS
 mlanconfig -v
@@ -1706,32 +1704,12 @@ mlanconfig mlanX ts_status
 mlanconfig mlanX regrdwr <type> <offset> [value]
 mlanconfig mlanX memrdwr <address> [value]
 mlanconfig mlanX customie <index> <mask> <IE buffer>
-mlanconfig mlanX tdls_config <0/1>
-mlanconfig mlanX tdls_setinfo <tdls.conf>
-mlanconfig mlanX tdls_setup <tdls.conf>
-mlanconfig mlanX tdls_discovery <tdls.conf>
-mlanconfig mlanX tdls_teardown <tdls.conf>
-mlanconfig mlanX tdls_powermode <tdls.conf>
-mlanconfig mlanX tdls_channel_switch <tdls.conf>
-mlanconfig mlanX tdls_stop_channel_switch <tdls.conf>
-mlanconfig mlanX tdls_cs_params <tdls.conf>
-mlanconfig mlanX tdls_disable_cs <0/1>
-mlanconfig mlanX tdls_link_status
-mlanconfig mlanX tdls_debug "wrong_bss" <0/1>
-mlanconfig mlanX tdls_debug "setup_existing_link" <0/1>
-mlanconfig mlanX tdls_debug "fail_setup_confirm" <0/1>
-mlanconfig mlanX tdls_debug "setup_with_prohibited" <0/1>
-mlanconfig mlanX tdls_debug "higher_lower_mac" <0/1>
-mlanconfig mlanX tdls_debug "ignore_key_expiry" <0/1>
-mlanconfig mlanX tdls_debug "allow_weak_security" <0/1>
-mlanconfig mlanX tdls_debug "stop_rx" <0/1>
-mlanconfig mlanX tdls_debug "cs_im_return" <0/1>
 mlanconfig mlanX mgmtframetx <mgmt_frame.conf>
 
 
 DESCRIPTION
 
-Those commands are used in Marvell specific application called mlanconfig.
+Those commands are used in NXP specific application called mlanconfig.
 
 ===========
 -v
@@ -1980,11 +1958,11 @@ setuserscan
 	   BSSID/SSID matches with the new scan data:
 		setuserscan chan=6g type=1 probes=2 keep=1
 
-	7) Scan channel 1 and 6, for all networks matching the Mrvl*AP
-	   or AP*Mrvl? patterns and for MrvlTst SSID.  Generate 3 broadcast
-	   probes for the patterns and 3 SSID specific probes for MrvlTst on
+	7) Scan channel 1 and 6, for all networks matching the NXP*AP
+	   or AP*NXP? patterns and for NXPTst SSID.  Generate 3 broadcast
+	   probes for the patterns and 3 SSID specific probes for NXPTst on
 	   both channel 1 and channel 6.
-		setuserscan chan=1g,6g probes=3 wc="Mrvl*AP" wc="AP*Mrvl?" ssid="MrvlTst"
+		setuserscan chan=1g,6g probes=3 wc="NXP*AP" wc="AP*NXP?" ssid="NXPTst"
 
 	8) Scan all the channels for specified band.
 		setuserscan chan=0g
@@ -2157,66 +2135,6 @@ customie
 	./mlanconfig mlan0 customie 2 0 0xdd051234567890
 		Delete the specified IEBuffer from the IEs at index 2.
 
-tdls_config
-	This command is used to enable/disable TDLS on device.
-
-	Usage : tdls_config <0/1>
-		1: Enable TDLS
-		0: Disable TDLS
-tdls_setinfo
-	This command is used for setting the capabilities of the TDLS station.
-
-        Usage : tdls_setinfo <tdls.conf>
-		Set capabilities of TDLS station.
-tdls_setup
-	This command is used to send TDLS setup request.
-
-	Usage: tdls_setup <tdls.conf>
-                Send TDLS setup request.
-tdls_discovery
-	This command is used to request TDLS discovery.
-
-	Usage : tdls_discovery <tdls.conf>
-        	Request TDLS discovery.
-tdls_teardown
-	This command is used to send TDLS teardown request.
-
-	Usage : tdls_teardown <tdls.conf>
-		Request teardown of TDLS link.
-tdls_powermode
-	This command is used to send TDLS powermode request.
-
-	Usage : tdls_powermode <tdls.conf>
-		Send TDLS powermode (either 0:Active, 1:PowerSave) command.
-tdls_channel_switch
-	This command is used to send TDLS channel switch request.
-
-	Usage : tdls_channel_switch <tdls.conf>
-		Send TDLS channel switch command.
-tdls_stop_channel_switch
-	This command is used to send stop TDLS channel switch request.
-
-	Usage : tdls_stop_channel_switch <tdls.conf>
-		Send stop TDLS channel switch command.
-tdls_cs_params
-	This command is used to set TDLS channel switch params
-
-	Usage : tdls_cs_params <tdls.conf>
-		Set TDLS channel switch params.
-tdls_disable_cs
-	This command is used to disable TDLS channel switch
-
-	Usage : tdls_disable_cs <0/1>
-		Disable TDLS channel switch.
-tdls_link_status [peer_mac_address]
-	This command is used to get link information about TDLS links or
-    a TDLS link correponding to peer mac address.
-
-	Usage : tdls_link_status
-		Send TDLS command to get current link status.
-tdls_debug
-	This command is used for FW debug functionality and tests.
-
 mgmtframetx
 	This command is used to send mgmt frame
 
@@ -2229,7 +2147,7 @@ mgmtframetx
 
 NAME
 mlan2040coex - This application handles the 11n 20/40 coexistence operation for
-               the Marvell mdriver
+               the NXP mdriver
 
 SYNOPSIS
 mlan2040coex [-d <n>] [-i <intfname>] [hvB]

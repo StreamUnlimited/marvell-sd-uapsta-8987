@@ -2,11 +2,12 @@
   *
   * @brief This file contains the functions for CFG80211.
   *
-  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -121,9 +122,6 @@ extern const struct net_device_ops woal_uap_netdev_ops;
 extern const struct net_device_ops woal_netdev_ops;
 #endif
 #endif
-
-/** gtk rekey offload mode */
-extern int gtk_rekey_offload;
 
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 extern int host_mlme;
@@ -334,13 +332,6 @@ woal_cfg80211_set_key(moal_private *priv, t_u8 is_enable_wep,
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
 		    cipher != WLAN_CIPHER_SUITE_CCMP_256 &&
 #endif
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3,6,0)
-		    cipher != WLAN_CIPHER_SUITE_GCMP &&
-#endif
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
-		    cipher != WLAN_CIPHER_SUITE_BIP_GMAC_256 &&
-		    cipher != WLAN_CIPHER_SUITE_GCMP_256 &&
-#endif
 		    cipher != WLAN_CIPHER_SUITE_CCMP) {
 			PRINTM(MERROR, "Invalid cipher suite specified\n");
 			ret = MLAN_STATUS_FAILURE;
@@ -382,24 +373,12 @@ woal_cfg80211_set_key(moal_private *priv, t_u8 is_enable_wep,
 			sec->param.encrypt_key.key_flags |=
 				KEY_FLAG_RX_SEQ_VALID;
 		}
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3,6,0)
-		if (cipher == WLAN_CIPHER_SUITE_GCMP)
-			sec->param.encrypt_key.key_flags |= KEY_FLAG_GCMP;
-#endif
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
-		else if (cipher == WLAN_CIPHER_SUITE_GCMP_256)
-			sec->param.encrypt_key.key_flags |= KEY_FLAG_GCMP_256;
-#endif
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
 		else if (cipher == WLAN_CIPHER_SUITE_CCMP_256)
 			sec->param.encrypt_key.key_flags |= KEY_FLAG_CCMP_256;
 #endif
 
-		if (cipher == WLAN_CIPHER_SUITE_AES_CMAC
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4,0,0)
-		    || cipher == WLAN_CIPHER_SUITE_BIP_GMAC_256
-#endif
-			) {
+		if (cipher == WLAN_CIPHER_SUITE_AES_CMAC) {
 
 			sec->param.encrypt_key.key_flags |=
 				KEY_FLAG_AES_MCAST_IGTK;
@@ -567,348 +546,6 @@ done:
 }
 #endif
 
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-/**
- *  @brief This function display P2P public action frame type
- *
- *  @param  buf      A buffer to a management frame
- *  @param  len      buffer len
- *  @param chan      the channel
- *  @param flag      Tx/Rx flag. Tx:flag = 1;Rx:flag = 0;
- *
- *  @return          N/A
- */
-void
-woal_cfg80211_display_p2p_actframe(const t_u8 *buf, int len,
-				   struct ieee80211_channel *chan,
-				   const t_u8 flag)
-{
-	const t_u8 p2p_oui[] = { 0x50, 0x6f, 0x9a, 0x09 };
-	t_u8 subtype;
-
-	ENTER();
-
-	if (!buf || len < (P2P_ACT_FRAME_OUI_SUBTYPE_OFFSET + 1)) {
-		LEAVE();
-		return;
-	}
-
-	if (((struct ieee80211_mgmt *)buf)->u.action.category ==
-	    P2P_ACT_FRAME_CATEGORY &&
-	    !memcmp(buf + P2P_ACT_FRAME_OUI_OFFSET, p2p_oui, sizeof(p2p_oui))) {
-		subtype = *(buf + P2P_ACT_FRAME_OUI_SUBTYPE_OFFSET);
-		switch (subtype) {
-		case P2P_GO_NEG_REQ:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Group Owner Negotiation Req Frame, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_GO_NEG_RSP:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Group Owner Negotiation Rsp Frame, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_GO_NEG_CONF:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Group Owner Negotiation Confirm Frame, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_INVITE_REQ:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Invitation Request, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_INVITE_RSP:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Invitation Response, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_DEVDIS_REQ:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Device Discoverability Request, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_DEVDIS_RSP:
-			PRINTM(MIOCTL,
-			       "wlan: %s P2P Device Discoverability Response, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_PROVDIS_REQ:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Provision Discovery Request, channel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		case P2P_PROVDIS_RSP:
-			PRINTM(MMSG,
-			       "wlan: %s P2P Provision Discovery Response, channnel=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0);
-			break;
-		default:
-			PRINTM(MMSG,
-			       "wlan: %s Unknow P2P Action Frame, channel=%d, subtype=%d\n",
-			       (flag) ? "TX" : "RX",
-			       (chan) ? chan->hw_value : 0, subtype);
-			break;
-		}
-	}
-
-	LEAVE();
-	return;
-}
-
-/**
- * @brief initialize p2p client for wpa_supplicant
- *
- * @param priv			A pointer to moal private structure
- *
- * @return              0 -- success, otherwise fail
- */
-int
-woal_cfg80211_init_p2p_client(moal_private *priv)
-{
-	int ret = MLAN_STATUS_SUCCESS;
-	t_u16 wifi_direct_mode = WIFI_DIRECT_MODE_DISABLE;
-	t_u8 bss_role;
-
-	ENTER();
-
-	/* bss type check */
-	if (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT) {
-		PRINTM(MERROR, "Unexpected bss type when init p2p client\n");
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* get the bss role */
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_cfg80211_bss_role_cfg(priv, MLAN_ACT_GET, &bss_role)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	if (bss_role != MLAN_BSS_ROLE_STA) {
-		bss_role = MLAN_BSS_ROLE_STA;
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_cfg80211_bss_role_cfg(priv, MLAN_ACT_SET, &bss_role)) {
-			ret = -EFAULT;
-			goto done;
-		}
-	}
-
-	wifi_direct_mode = WIFI_DIRECT_MODE_DISABLE;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* first, init wifi direct to listen mode */
-	wifi_direct_mode = WIFI_DIRECT_MODE_LISTEN;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* second, init wifi direct client  */
-	wifi_direct_mode = WIFI_DIRECT_MODE_CLIENT;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-done:
-	LEAVE();
-	return ret;
-}
-
-/**
- * @brief initialize p2p GO for wpa_supplicant
- *
- * @param priv			A pointer to moal private structure
- *
- * @return              0 -- success, otherwise fail
- */
-int
-woal_cfg80211_init_p2p_go(moal_private *priv)
-{
-	int ret = MLAN_STATUS_SUCCESS;
-	t_u16 wifi_direct_mode;
-	t_u8 bss_role;
-
-	ENTER();
-
-	/* bss type check */
-	if (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT) {
-		PRINTM(MERROR, "Unexpected bss type when init p2p GO\n");
-		ret = -EFAULT;
-		goto done;
-	}
-
-	wifi_direct_mode = WIFI_DIRECT_MODE_DISABLE;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* first, init wifi direct to listen mode */
-	wifi_direct_mode = WIFI_DIRECT_MODE_LISTEN;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* second, init wifi direct to GO mode  */
-	wifi_direct_mode = WIFI_DIRECT_MODE_GO;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* get the bss role, and set it to uAP */
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_cfg80211_bss_role_cfg(priv, MLAN_ACT_GET, &bss_role)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	if (bss_role != MLAN_BSS_ROLE_UAP) {
-		bss_role = MLAN_BSS_ROLE_UAP;
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_cfg80211_bss_role_cfg(priv, MLAN_ACT_SET, &bss_role)) {
-			ret = -EFAULT;
-			goto done;
-		}
-	}
-done:
-	LEAVE();
-	return ret;
-}
-
-/**
- * @brief reset bss role and wifi direct mode for wpa_supplicant
- *
- * @param priv			A pointer to moal private structure
- *
- * @return              0 -- success, otherwise fail
- */
-int
-woal_cfg80211_deinit_p2p(moal_private *priv)
-{
-	int ret = MLAN_STATUS_SUCCESS;
-	t_u16 wifi_direct_mode;
-	t_u8 bss_role;
-	t_u8 channel_status;
-	moal_private *remain_priv = NULL;
-
-	ENTER();
-
-	/* bss type check */
-	if (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT) {
-		PRINTM(MERROR, "Unexpected bss type when deinit p2p\n");
-		ret = -EFAULT;
-		goto done;
-	}
-	/* unregister mgmt frame from FW */
-	if (priv->mgmt_subtype_mask) {
-		priv->mgmt_subtype_mask = 0;
-		if (woal_reg_rx_mgmt_ind(priv, MLAN_ACT_SET,
-					 &priv->mgmt_subtype_mask,
-					 MOAL_IOCTL_WAIT)) {
-			PRINTM(MERROR,
-			       "deinit_p2p: fail to unregister mgmt frame\n");
-			ret = -EFAULT;
-			goto done;
-		}
-	}
-	/* cancel previous remain on channel */
-	if (priv->phandle->remain_on_channel) {
-		remain_priv =
-			priv->phandle->priv[priv->phandle->remain_bss_index];
-		if (!remain_priv) {
-			PRINTM(MERROR,
-			       "deinit_p2p: wrong remain_bss_index=%d\n",
-			       priv->phandle->remain_bss_index);
-			ret = -EFAULT;
-			goto done;
-		}
-		if (woal_cfg80211_remain_on_channel_cfg
-		    (remain_priv, MOAL_IOCTL_WAIT, MTRUE, &channel_status, NULL,
-		     0, 0)) {
-			PRINTM(MERROR,
-			       "deinit_p2p: Fail to cancel remain on channel\n");
-			ret = -EFAULT;
-			goto done;
-		}
-		if (priv->phandle->cookie) {
-			cfg80211_remain_on_channel_expired(
-#if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
-								  remain_priv->
-								  netdev,
-#else
-								  remain_priv->
-								  wdev,
-#endif
-								  priv->
-								  phandle->
-								  cookie,
-								  &priv->
-								  phandle->chan,
-#if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-								  priv->
-								  phandle->
-								  channel_type,
-#endif
-								  GFP_ATOMIC);
-			priv->phandle->cookie = 0;
-		}
-		priv->phandle->remain_on_channel = MFALSE;
-	}
-
-	/* get the bss role */
-	if (MLAN_STATUS_SUCCESS != woal_cfg80211_bss_role_cfg(priv,
-							      MLAN_ACT_GET,
-							      &bss_role)) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* reset bss role */
-	if (bss_role != MLAN_BSS_ROLE_STA) {
-		bss_role = MLAN_BSS_ROLE_STA;
-		if (MLAN_STATUS_SUCCESS !=
-		    woal_cfg80211_bss_role_cfg(priv, MLAN_ACT_SET, &bss_role)) {
-			ret = -EFAULT;
-			goto done;
-		}
-	}
-
-	wifi_direct_mode = WIFI_DIRECT_MODE_DISABLE;
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_wifi_direct_mode_cfg(priv, MLAN_ACT_SET, &wifi_direct_mode)) {
-		ret = -EFAULT;
-		goto done;
-	}
-done:
-	LEAVE();
-	return ret;
-}
-#endif /* KERNEL_VERSION */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
-
 /**
  * @brief Request the driver to change the interface type
  *
@@ -1021,31 +658,6 @@ woal_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-		if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT
-		    && (priv->wdev->iftype == NL80211_IFTYPE_AP
-			|| priv->wdev->iftype == NL80211_IFTYPE_P2P_GO
-			|| priv->wdev->iftype == NL80211_IFTYPE_P2P_CLIENT)) {
-			if (priv->phandle->is_go_timer_set) {
-				woal_cancel_timer(&priv->phandle->go_timer);
-				priv->phandle->is_go_timer_set = MFALSE;
-			}
-			/* if we support wifi direct && priv->bss_type == wifi_direct,
-			 * and currently the interface type is AP or GO or client,
-			 * that means wpa_supplicant deinit() wifi direct interface,
-			 * so we should deinit bss_role and wifi direct mode,
-			 * for other bss_type, we should not update bss_role
-			 * and wifi direct mode */
-
-			if (MLAN_STATUS_SUCCESS !=
-			    woal_cfg80211_deinit_p2p(priv)) {
-				ret = -EFAULT;
-				goto done;
-			}
-		}
-#endif /* KERNEL_VERSION */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 		if (priv->bss_type == MLAN_BSS_TYPE_UAP) {
 			woal_cfg80211_del_beacon(wiphy, dev);
@@ -1059,44 +671,7 @@ woal_cfg80211_change_virtual_intf(struct wiphy *wiphy,
 		priv->wdev->iftype = NL80211_IFTYPE_STATION;
 		PRINTM(MINFO, "Setting interface type to managed\n");
 		break;
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-	case NL80211_IFTYPE_P2P_CLIENT:
-		if (priv->phandle->is_go_timer_set) {
-			woal_cancel_timer(&priv->phandle->go_timer);
-			priv->phandle->is_go_timer_set = MFALSE;
-		}
-
-		if (MLAN_STATUS_SUCCESS != woal_cfg80211_init_p2p_client(priv)) {
-			ret = -EFAULT;
-			goto done;
-		}
-
-		bss->param.bss_mode = MLAN_BSS_MODE_INFRA;
-		priv->wdev->iftype = NL80211_IFTYPE_P2P_CLIENT;
-		PRINTM(MINFO, "Setting interface type to P2P client\n");
-
-		break;
-#endif /* KERNEL_VERSION */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
 	case NL80211_IFTYPE_AP:
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-	case NL80211_IFTYPE_P2P_GO:
-		if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT) {
-			if (MLAN_STATUS_SUCCESS !=
-			    woal_cfg80211_init_p2p_go(priv)) {
-				ret = -EFAULT;
-				goto done;
-			}
-			priv->phandle->is_go_timer_set = MTRUE;
-			woal_mod_timer(&priv->phandle->go_timer,
-				       MOAL_TIMER_10S);
-		}
-		if (type == NL80211_IFTYPE_P2P_GO)
-			priv->wdev->iftype = NL80211_IFTYPE_P2P_GO;
-#endif
-#endif
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 		if (priv->bss_type == MLAN_BSS_TYPE_STA) {
 #ifdef STA_CFG80211
@@ -1418,107 +993,6 @@ woal_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 	PRINTM(MINFO, "set default mgmt key, key index=%d\n", key_index);
 
 	return 0;
-}
-#endif
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
-/**
- *  @brief  Set GTK rekey data to driver
- *
- *  @param priv         A pointer to moal_private structure
- *  @param gtk_rekey     A pointer to mlan_ds_misc_gtk_rekey_data structure
- *  @param action           MLAN_ACT_SET or MLAN_ACT_GET
- *
- *  @return             0 --success, otherwise fail
- */
-mlan_status
-woal_set_rekey_data(moal_private *priv, mlan_ds_misc_gtk_rekey_data * gtk_rekey,
-		    t_u8 action)
-{
-	mlan_ioctl_req *req;
-	mlan_ds_misc_cfg *misc_cfg;
-	int ret = 0;
-	mlan_status status;
-
-	ENTER();
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
-
-	if (NULL == req) {
-		ret = -ENOMEM;
-	} else {
-		misc_cfg = (mlan_ds_misc_cfg *)req->pbuf;
-		misc_cfg->sub_command = MLAN_OID_MISC_GTK_REKEY_OFFLOAD;
-		req->req_id = MLAN_IOCTL_MISC_CFG;
-
-		req->action = action;
-		if (action == MLAN_ACT_SET)
-			memcpy(&misc_cfg->param.gtk_rekey, gtk_rekey,
-			       sizeof(mlan_ds_misc_gtk_rekey_data));
-
-		status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-		if (MLAN_STATUS_SUCCESS != status)
-			ret = -EFAULT;
-		if (status != MLAN_STATUS_PENDING)
-			kfree(req);
-	}
-
-	LEAVE();
-	return ret;
-}
-
-/**
- * @brief Give the data necessary for GTK rekeying to the driver
- *
- * @param wiphy         A pointer to wiphy structure
- * @param dev           A pointer to net_device structure
- * @param data        A pointer to cfg80211_gtk_rekey_data structure
- *
- * @return              0 -- success, otherwise fail
- */
-int
-woal_cfg80211_set_rekey_data(struct wiphy *wiphy, struct net_device *dev,
-			     struct cfg80211_gtk_rekey_data *data)
-{
-	int ret = 0;
-	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
-	mlan_ds_misc_gtk_rekey_data rekey;
-	mlan_fw_info fw_info;
-
-	ENTER();
-
-	if (gtk_rekey_offload == GTK_REKEY_OFFLOAD_DISABLE) {
-		PRINTM(MMSG,
-		       "woal_cfg80211_set_rekey_data return: gtk_rekey_offload is DISABLE\n");
-		LEAVE();
-		return ret;
-	}
-
-	woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
-	if (!fw_info.fw_supplicant_support) {
-		LEAVE();
-		return -1;
-	}
-
-	memcpy(rekey.kek, data->kek, MLAN_KEK_LEN);
-	memcpy(rekey.kck, data->kck, MLAN_KCK_LEN);
-	memcpy(rekey.replay_ctr, data->replay_ctr, MLAN_REPLAY_CTR_LEN);
-
-	memcpy(&priv->gtk_rekey_data, &rekey,
-	       sizeof(mlan_ds_misc_gtk_rekey_data));
-	if (gtk_rekey_offload == GTK_REKEY_OFFLOAD_SUSPEND) {
-		priv->gtk_data_ready = MTRUE;
-		LEAVE();
-		return ret;
-	}
-
-	if (MLAN_STATUS_SUCCESS !=
-	    woal_set_rekey_data(priv, &rekey, MLAN_ACT_SET)) {
-		ret = -EFAULT;
-	}
-
-	LEAVE();
-	return ret;
 }
 #endif
 
@@ -2218,6 +1692,58 @@ done:
 }
 #endif
 
+/**
+ * @brief register/unregister mgmt frame forwarding
+ *
+ * @param priv             A pointer to moal_private structure
+ * @param frame_type      Bit mask for mgmt frame type
+ * @param reg             Register or unregister
+ *
+ * @return                0 -- success, otherwise fail
+ */
+void
+woal_mgmt_frame_register(moal_private *priv, u16 frame_type, bool reg)
+{
+	mlan_status status = MLAN_STATUS_SUCCESS;
+	t_u32 mgmt_subtype_mask = 0x0;
+	t_u32 last_mgmt_subtype_mask = priv->mgmt_subtype_mask;
+
+	ENTER();
+
+#ifdef SDIO_SUSPEND_RESUME
+	if (priv->phandle->shutdown_hs_in_process) {
+		LEAVE();
+		return;
+	}
+#endif
+
+	if (reg == MTRUE) {
+		/* set mgmt_subtype_mask based on origin value */
+		mgmt_subtype_mask =
+			last_mgmt_subtype_mask | BIT(frame_type >> 4);
+	} else {
+		/* clear mgmt_subtype_mask */
+		mgmt_subtype_mask =
+			last_mgmt_subtype_mask & ~BIT(frame_type >> 4);
+	}
+	PRINTM(MIOCTL,
+	       "%s: frame_type=0x%x mgmt_subtype_mask=0x%x last_mgmt_subtype_mask=0x%x\n",
+	       priv->netdev->name, frame_type, mgmt_subtype_mask,
+	       last_mgmt_subtype_mask);
+	if (mgmt_subtype_mask != last_mgmt_subtype_mask) {
+
+		last_mgmt_subtype_mask = mgmt_subtype_mask;
+		/* Notify driver that a mgmt frame type was registered.
+		 * Note that this callback may not sleep, and cannot run
+		 * concurrently with itself. */
+		status = woal_reg_rx_mgmt_ind(priv, MLAN_ACT_SET,
+					      &mgmt_subtype_mask, MOAL_NO_WAIT);
+		priv->mgmt_subtype_mask = last_mgmt_subtype_mask;
+	}
+
+	LEAVE();
+}
+
 #if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
 /**
  * @brief register/unregister mgmt frame forwarding
@@ -2254,63 +1780,19 @@ woal_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 	struct net_device *dev = wdev->netdev;
 #endif
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
-	mlan_status status = MLAN_STATUS_SUCCESS;
-	t_u32 mgmt_subtype_mask = 0x0;
-	t_u32 last_mgmt_subtype_mask = priv->mgmt_subtype_mask;
 
 	ENTER();
-#ifdef SDIO_SUSPEND_RESUME
-	if (priv->phandle->shutdown_hs_in_process) {
-		LEAVE();
-		return;
-	}
-#endif
-	if (frame_type == IEEE80211_STYPE_PROBE_REQ
-#ifdef WIFI_DIRECT_SUPPORT
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
-	    /* FW will handle the probereq, no need forward to host */
-	    && (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT)
-#endif
-#endif
-		) {
-		LEAVE();
-		return;
-	}
 
 	if (frame_type == IEEE80211_STYPE_AUTH
-#ifdef UAP_CFG80211
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
-	    /** FW will handle auth when host_mlme=0 */
+	    /** Supplicant 2.8 always register auth, FW will handle auth when host_mlme=0 */
 	    && !host_mlme
-#endif
 #endif
 		) {
 		LEAVE();
 		return;
 	}
-	if (reg == MTRUE) {
-		/* set mgmt_subtype_mask based on origin value */
-		mgmt_subtype_mask =
-			last_mgmt_subtype_mask | BIT(frame_type >> 4);
-	} else {
-		/* clear mgmt_subtype_mask */
-		mgmt_subtype_mask =
-			last_mgmt_subtype_mask & ~BIT(frame_type >> 4);
-	}
-	PRINTM(MIOCTL,
-	       "%s: frame_type=0x%x mgmt_subtype_mask=0x%x last_mgmt_subtype_mask=0x%x\n",
-	       dev->name, frame_type, mgmt_subtype_mask,
-	       last_mgmt_subtype_mask);
-	if (mgmt_subtype_mask != last_mgmt_subtype_mask) {
-
-		last_mgmt_subtype_mask = mgmt_subtype_mask;
-		/* Notify driver that a mgmt frame type was registered.
-		 * Note that this callback may not sleep, and cannot run
-		 * concurrently with itself. */
-		status = woal_reg_rx_mgmt_ind(priv, MLAN_ACT_SET,
-					      &mgmt_subtype_mask, MOAL_NO_WAIT);
-		priv->mgmt_subtype_mask = last_mgmt_subtype_mask;
-	}
+	woal_mgmt_frame_register(priv, frame_type, reg);
 
 	LEAVE();
 }
@@ -2502,15 +1984,6 @@ woal_cfg80211_mgmt_tx(struct wiphy *wiphy,
 	     || host_mlme
 #endif
 	    )) {
-#ifdef WIFI_DIRECT_SUPPORT
-		if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT)
-			woal_cfg80211_display_p2p_actframe(buf, len, chan,
-							   MTRUE);
-		if (priv->phandle->is_go_timer_set) {
-			woal_cancel_timer(&priv->phandle->go_timer);
-			priv->phandle->is_go_timer_set = MFALSE;
-		}
-#endif
 		if (priv->phandle->is_remain_timer_set) {
 			woal_cancel_timer(&priv->phandle->remain_timer);
 			woal_remain_timer_func(priv->phandle);
@@ -2637,7 +2110,7 @@ woal_cfg80211_mgmt_tx(struct wiphy *wiphy,
 		ret = -ENOMEM;
 		goto done;
 	}
-#if CFG80211_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
 	*cookie = random32() | 1;
 #else
 	*cookie = prandom_u32() | 1;
@@ -3271,88 +2744,6 @@ woal_filter_beacon_ies(moal_private *priv, const t_u8 *ie, int len,
 	return out_len;
 }
 
-#ifdef WIFI_DIRECT_SUPPORT
-/**
- * @brief Check if selected_registrar_on in wps_ie
- *
- * @param ie              Pointer to IEs
- * @param len             Total length of ie
- *
- * @return                MTRUE/MFALSE
- */
-t_u8
-is_selected_registrar_on(const t_u8 *ie, int len)
-{
-#define WPS_IE_FIX_LEN		6
-#define TLV_ID_SELECTED_REGISTRAR 0x1041
-	int left_len = len - WPS_IE_FIX_LEN;
-	TLV_Generic_t *tlv = (TLV_Generic_t *)(ie + WPS_IE_FIX_LEN);
-	u16 tlv_type, tlv_len;
-	u8 *pos = NULL;
-	while (left_len > sizeof(TLV_Generic_t)) {
-		tlv_type = ntohs(tlv->type);
-		tlv_len = ntohs(tlv->len);
-		if (tlv_type == TLV_ID_SELECTED_REGISTRAR) {
-			PRINTM(MIOCTL, "Selected Registrar found !");
-			pos = (u8 *)tlv + sizeof(TLV_Generic_t);
-			if (*pos == 1)
-				return MTRUE;
-			else
-				return MFALSE;
-		}
-		tlv = (TLV_Generic_t *)((u8 *)tlv + tlv_len +
-					sizeof(TLV_Generic_t));
-		left_len -= tlv_len + sizeof(TLV_Generic_t);
-	}
-	return MFALSE;
-}
-
-/**
- * @brief Check if selected_registrar_on in ies
- *
- * @param ie              Pointer to IEs
- * @param len             Total length of ie
- *
- *
- * @return                MTRUE/MFALSE
- */
-static t_u16
-woal_is_selected_registrar_on(const t_u8 *ie, int len)
-{
-	int left_len = len;
-	const t_u8 *pos = ie;
-	int length;
-	t_u8 id = 0;
-	IEEEtypes_VendorSpecific_t *pvendor_ie = NULL;
-	const u8 wps_oui[4] = { 0x00, 0x50, 0xf2, 0x04 };
-
-	while (left_len >= 2) {
-		length = *(pos + 1);
-		id = *pos;
-		if ((length + 2) > left_len)
-			break;
-		switch (id) {
-		case VENDOR_SPECIFIC_221:
-			pvendor_ie = (IEEEtypes_VendorSpecific_t *)pos;
-			if (!memcmp
-			    (pvendor_ie->vend_hdr.oui, wps_oui,
-			     sizeof(pvendor_ie->vend_hdr.oui)) &&
-			    pvendor_ie->vend_hdr.oui_type == wps_oui[3]) {
-				PRINTM(MIOCTL, "Find WPS ie\n");
-				return is_selected_registrar_on(pos,
-								length + 2);
-			}
-			break;
-		default:
-			break;
-		}
-		pos += (length + 2);
-		left_len -= (length + 2);
-	}
-	return MFALSE;
-}
-#endif
-
 /**
  * @brief config AP or GO for mgmt frame ies.
  *
@@ -3405,16 +2796,6 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			goto done;
 		}
 		if (beacon_ies && beacon_ies_len) {
-#ifdef WIFI_DIRECT_SUPPORT
-			if (woal_is_selected_registrar_on
-			    (beacon_ies, beacon_ies_len)) {
-				PRINTM(MIOCTL, "selected_registrar is on\n");
-				priv->phandle->is_go_timer_set = MTRUE;
-				woal_mod_timer(&priv->phandle->go_timer,
-					       MOAL_TIMER_10S);
-			} else
-				PRINTM(MIOCTL, "selected_registrar is off\n");
-#endif
 			beacon_ies_data->ie_index = beacon_wps_index;
 			beacon_ies_data->mgmt_subtype_mask = MGMT_MASK_BEACON;
 			beacon_ies_data->ie_length =
@@ -3779,37 +3160,15 @@ woal_cfg80211_mgmt_frame_ie(moal_private *priv,
 			probereq_ies_data->ie_index = probereq_index;
 			probereq_ies_data->mgmt_subtype_mask =
 				MGMT_MASK_PROBE_REQ;
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
-			if (priv->bss_type != MLAN_BSS_TYPE_WIFIDIRECT) {
-				/* filter out P2P/WFD ie/EXT_CAP ie */
-				probereq_ies_data->ie_length =
-					woal_filter_beacon_ies(priv,
-							       probereq_ies,
-							       probereq_ies_len,
-							       probereq_ies_data->
-							       ie_buffer,
-							       IE_MASK_P2P |
-							       IE_MASK_WFD |
-							       IE_MASK_EXTCAP,
-							       NULL, 0);
-			} else {
-#endif /* KERNEL_VERSION */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
-				if (probereq_ies_len > MAX_IE_SIZE) {
-					PRINTM(MERROR,
-					       "IE too big, probereq_ies_len=%d\n",
-					       (int)probereq_ies_len);
-					goto done;
-				}
-				probereq_ies_data->ie_length = probereq_ies_len;
-				pos = probereq_ies_data->ie_buffer;
-				memcpy(pos, probereq_ies, probereq_ies_len);
-#if defined(WIFI_DIRECT_SUPPORT)
-#if CFG80211_VERSION_CODE >= WIFI_DIRECT_KERNEL_VERSION
+			if (probereq_ies_len > MAX_IE_SIZE) {
+				PRINTM(MERROR,
+				       "IE too big, probereq_ies_len=%d\n",
+				       (int)probereq_ies_len);
+				goto done;
 			}
-#endif /* KERNEL_VERSION */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
+			probereq_ies_data->ie_length = probereq_ies_len;
+			pos = probereq_ies_data->ie_buffer;
+			memcpy(pos, probereq_ies, probereq_ies_len);
 			if (probereq_ies_data->ie_length)
 				DBG_HEXDUMP(MCMD_D, "probereq ie",
 					    probereq_ies_data->ie_buffer,

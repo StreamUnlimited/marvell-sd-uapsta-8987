@@ -3,11 +3,12 @@
   * @brief This file contains declaration referring to
   * functions defined in moal module
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -98,9 +99,6 @@ t_void moal_hist_data_add(IN t_void *pmoal_handle, IN t_u32 bss_index,
 			  IN t_u8 rx_rate, IN t_s8 snr, IN t_s8 nflr,
 			  IN t_u8 antenna);
 
-t_void moal_updata_peer_signal(IN t_void *pmoal_handle, IN t_u32 bss_index,
-			       IN t_u8 *peer_addr, IN t_s8 snr, IN t_s8 nflr);
-mlan_status moal_get_host_time_ns(OUT t_u64 *time);
 t_u64 moal_do_div(IN t_u64 num, IN t_u32 base);
 
 mlan_status moal_init_timer(IN t_void *pmoal_handle,
