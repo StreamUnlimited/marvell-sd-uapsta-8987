@@ -2,11 +2,12 @@
  *
  *  @brief This file contains functions for 802.11D.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -1519,12 +1520,6 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 
 	ENTER();
 
-	if (pmadapter->otp_region && pmadapter->otp_region->force_reg) {
-		PRINTM(MERROR,
-		       "ForceRegionRule is set in the on-chip OTP memory\n");
-		ret = MLAN_STATUS_FAILURE;
-		goto done;
-	}
 	if (!wlan_fw_11d_is_enabled(pmpriv))
 		wlan_11d_enable(pmpriv, MNULL, ENABLE_11D);
 

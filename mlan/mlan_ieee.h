@@ -3,11 +3,12 @@
  *  @brief This file contains IEEE information element related
  *  definitions used in MLAN and MOAL module.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -17,6 +18,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /******************************************************
@@ -92,7 +94,6 @@ typedef MLAN_PACK_START enum _IEEEtypes_ElementId_e {
 	BSSCO_2040 = 72,
 	OVERLAPBSSSCANPARAM = 74,
 	EXT_CAPABILITY = 127,
-	LINK_ID = 101,
 	/*IEEE802.11r */
 	MOBILITY_DOMAIN = 54,
 	FAST_BSS_TRANSITION = 55,
@@ -955,20 +956,6 @@ typedef MLAN_PACK_START struct _IEEEtypes_CountryInfoFullSet_t {
 
 #endif /* STA_SUPPORT */
 
-/** Data structure for Link ID */
-typedef MLAN_PACK_START struct _IEEEtypes_LinkIDElement_t {
-    /** Element ID */
-	t_u8 element_id;
-    /** Length */
-	t_u8 len;
-	/** bssid */
-	t_u8 bssid[MLAN_MAC_ADDR_LENGTH];
-	/** initial sta address */
-	t_u8 init_sta[MLAN_MAC_ADDR_LENGTH];
-	/** respose sta address */
-	t_u8 resp_sta[MLAN_MAC_ADDR_LENGTH];
-} MLAN_PACK_END IEEEtypes_LinkIDElement_t, *pIEEEtypes_LinkIDElement_t;
-
 /** HT Capabilities Data */
 typedef struct MLAN_PACK_START _HTCap_t {
     /** HT Capabilities Info field */
@@ -1475,50 +1462,6 @@ typedef struct {
 
 } wlan_11h_bss_info_t;
 
-/** Ethernet packet type for TDLS */
-#define MLAN_ETHER_PKT_TYPE_TDLS_ACTION (0x890D)
-
-/*802.11z  TDLS action frame type and strcuct */
-typedef MLAN_PACK_START struct {
-	/*link indentifier ie =101 */
-	t_u8 element_id;
-	/*len = 18 */
-	t_u8 len;
-   /** bssid */
-	t_u8 bssid[MLAN_MAC_ADDR_LENGTH];
-   /** init sta mac address */
-	t_u8 init_sta[MLAN_MAC_ADDR_LENGTH];
-   /** resp sta mac address */
-	t_u8 resp_sta[MLAN_MAC_ADDR_LENGTH];
-} MLAN_PACK_END IEEEtypes_tdls_linkie;
-
-/** action code for tdls setup request */
-#define TDLS_SETUP_REQUEST 0
-/** action code for tdls setup response */
-#define TDLS_SETUP_RESPONSE 1
-/** action code for tdls setup confirm */
-#define TDLS_SETUP_CONFIRM 2
-/** action code for tdls tear down */
-#define TDLS_TEARDOWN 3
-/** action code for tdls traffic indication */
-#define TDLS_PEER_TRAFFIC_INDICATION 4
-/** action code for tdls channel switch request */
-#define TDLS_CHANNEL_SWITCH_REQUEST 5
-/** action code for tdls channel switch response */
-#define TDLS_CHANNEL_SWITCH_RESPONSE 6
-/** action code for tdls psm request */
-#define TDLS_PEER_PSM_REQUEST 7
-/** action code for tdls psm response */
-#define TDLS_PEER_PSM_RESPONSE 8
-/** action code for tdls traffic response */
-#define TDLS_PEER_TRAFFIC_RESPONSE 9
-/** action code for tdls discovery request */
-#define TDLS_DISCOVERY_REQUEST 10
-/** action code for TDLS discovery response */
-#define TDLS_DISCOVERY_RESPONSE 14
-/** category public */
-#define CATEGORY_PUBLIC         4
-
 /** action code for 20/40 BSS Coexsitence Management frame */
 #define BSS_20_40_COEX 0
 
@@ -1766,6 +1709,11 @@ typedef MLAN_PACK_START struct _ChanStatistics_t {
 	t_u16 cca_busy_duration;
 } MLAN_PACK_END ChanStatistics_t;
 
+/** The open AP in OWE transmition Mode */
+#define OWE_TRANS_MODE_OPEN 		1
+/** The security AP in OWE trsnsition Mode */
+#define OWE_TRANS_MODE_OWE			2
+
 #ifdef PRAGMA_PACK
 #pragma pack(pop)
 #endif
@@ -1779,6 +1727,15 @@ typedef struct _BSSDescriptor_t {
 
     /** SSID */
 	mlan_802_11_ssid ssid;
+
+    /** Transition MAC address */
+	mlan_802_11_mac_addr trans_mac_address;
+
+    /** Transition SSID */
+	mlan_802_11_ssid trans_ssid;
+
+    /** OWE Transition mode */
+	t_u8 owe_transition_mode;
 
     /** WEP encryption requirement */
 	t_u32 privacy;

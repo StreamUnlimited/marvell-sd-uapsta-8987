@@ -3,11 +3,12 @@
  *  @brief This file contains the initialization for FW
  *  and HW.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -17,6 +18,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -377,8 +379,6 @@ wlan_init_priv(pmlan_private priv)
 
 	priv->beacon_period = MLAN_BEACON_INTERVAL;
 	priv->pattempted_bss_desc = MNULL;
-	memset(pmadapter, &priv->gtk_rekey, 0,
-	       sizeof(mlan_ds_misc_gtk_rekey_data));
 	memset(pmadapter, &priv->curr_bss_params, 0,
 	       sizeof(priv->curr_bss_params));
 	priv->listen_interval = MLAN_DEFAULT_LISTEN_INTERVAL;
@@ -388,6 +388,7 @@ wlan_init_priv(pmlan_private priv)
 
 	wlan_11d_priv_init(priv);
 	wlan_11h_priv_init(priv);
+	priv->enable_11k = MFALSE;
 
 #ifdef UAP_SUPPORT
 	priv->uap_bss_started = MFALSE;
@@ -410,7 +411,6 @@ wlan_init_priv(pmlan_private priv)
 	priv->min_tx_power_level = 0;
 	priv->tx_rate = 0;
 	priv->rxpd_rate_info = 0;
-	priv->rx_pkt_info = MFALSE;
 	/* refer to V15 CMD_TX_RATE_QUERY */
 	priv->rxpd_vhtinfo = 0;
 	priv->rxpd_rate = 0;
@@ -446,21 +446,12 @@ wlan_init_priv(pmlan_private priv)
 	priv->wmm_required = MTRUE;
 	priv->wmm_enabled = MFALSE;
 	priv->wmm_qosinfo = 0;
-	priv->saved_wmm_qosinfo = 0;
-	priv->host_tdls_cs_support = MTRUE;
-	priv->host_tdls_uapsd_support = MTRUE;
-	priv->tdls_cs_channel = 0;
-	priv->supp_regulatory_class_len = 0;
-	priv->chan_supp_len = 0;
-	priv->tdls_idle_time = TDLS_IDLE_TIMEOUT;
-	priv->txaggrctrl = MTRUE;
 #ifdef STA_SUPPORT
 	priv->pcurr_bcn_buf = MNULL;
 	priv->curr_bcn_size = 0;
 	memset(pmadapter, &priv->ext_cap, 0, sizeof(priv->ext_cap));
 
 	SET_EXTCAP_OPERMODENTF(priv->ext_cap);
-	SET_EXTCAP_TDLS(priv->ext_cap);
 	SET_EXTCAP_QOS_MAP(priv->ext_cap);
 	/* Save default Extended Capability */
 	memcpy(priv->adapter, &priv->def_ext_cap, &priv->ext_cap,
@@ -478,12 +469,6 @@ wlan_init_priv(pmlan_private priv)
 	if (priv->bss_type == MLAN_BSS_TYPE_STA) {
 		priv->add_ba_param.tx_win_size = MLAN_STA_AMPDU_DEF_TXWINSIZE;
 		priv->add_ba_param.rx_win_size = MLAN_STA_AMPDU_DEF_RXWINSIZE;
-	}
-#endif
-#ifdef WIFI_DIRECT_SUPPORT
-	if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT) {
-		priv->add_ba_param.tx_win_size = MLAN_WFD_AMPDU_DEF_TXRXWINSIZE;
-		priv->add_ba_param.rx_win_size = MLAN_WFD_AMPDU_DEF_TXRXWINSIZE;
 	}
 #endif
 #ifdef UAP_SUPPORT
@@ -678,7 +663,6 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	pmadapter->coex_rx_winsize = 1;
 #ifdef STA_SUPPORT
 	pmadapter->chan_bandwidth = 0;
-	pmadapter->tdls_status = TDLS_NOT_SETUP;
 #endif /* STA_SUPPORT */
 
 	pmadapter->hw_dot_11ac_dev_cap = 0;
@@ -711,8 +695,6 @@ wlan_init_adapter(pmlan_adapter pmadapter)
 	       sizeof(pmadapter->sleep_params));
 	memset(pmadapter, &pmadapter->sleep_period, 0,
 	       sizeof(pmadapter->sleep_period));
-	memset(pmadapter, &pmadapter->saved_sleep_period, 0,
-	       sizeof(pmadapter->saved_sleep_period));
 	pmadapter->tx_lock_flag = MFALSE;
 	pmadapter->null_pkt_interval = 0;
 	pmadapter->fw_bands = 0;
@@ -827,11 +809,6 @@ wlan_init_priv_lock_list(IN pmlan_adapter pmadapter, t_u8 start_index)
 					 pmadapter->callbacks.moal_init_lock);
 			util_init_list_head((t_void *)pmadapter->pmoal_handle,
 					    &priv->sta_list, MTRUE,
-					    pmadapter->callbacks.
-					    moal_init_lock);
-			/* Initialize tdls_pending_txq */
-			util_init_list_head((t_void *)pmadapter->pmoal_handle,
-					    &priv->tdls_pending_txq, MTRUE,
 					    pmadapter->callbacks.
 					    moal_init_lock);
 			/* Initialize bypass_txq */
@@ -1005,10 +982,6 @@ wlan_free_lock_list(IN pmlan_adapter pmadapter)
 			util_free_list_head((t_void *)pmadapter->pmoal_handle,
 					    &priv->sta_list,
 					    priv->adapter->callbacks.
-					    moal_free_lock);
-			util_free_list_head((t_void *)pmadapter->pmoal_handle,
-					    &priv->tdls_pending_txq,
-					    pmadapter->callbacks.
 					    moal_free_lock);
 			util_free_list_head((t_void *)pmadapter->pmoal_handle,
 					    &priv->bypass_txq,
@@ -1350,7 +1323,6 @@ wlan_free_adapter(pmlan_adapter pmadapter)
 				     pmadapter->pwakeup_fw_timer);
 		pmadapter->wakeup_fw_timer_is_set = MFALSE;
 	}
-	wlan_free_fw_cfp_tables(pmadapter);
 #ifdef STA_SUPPORT
 	PRINTM(MINFO, "Free ScanTable\n");
 	if (pmadapter->pscan_table) {
@@ -1504,15 +1476,6 @@ wlan_init_interface(IN pmlan_adapter pmadapter)
 				 MLAN_BSS_TYPE_UAP)
 				pmadapter->priv[i]->bss_role =
 					MLAN_BSS_ROLE_UAP;
-#ifdef WIFI_DIRECT_SUPPORT
-			else if (pmadapter->bss_attr[i].bss_type ==
-				 MLAN_BSS_TYPE_WIFIDIRECT) {
-				pmadapter->priv[i]->bss_role =
-					MLAN_BSS_ROLE_STA;
-				if (pmadapter->bss_attr[i].bss_virtual)
-					pmadapter->priv[i]->bss_virtual = MTRUE;
-			}
-#endif
 			/* Save bss_index and bss_num */
 			pmadapter->priv[i]->bss_index = i;
 			pmadapter->priv[i]->bss_num =

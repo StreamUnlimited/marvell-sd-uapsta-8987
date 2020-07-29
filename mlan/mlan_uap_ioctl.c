@@ -2,11 +2,12 @@
  *
  *  @brief This file contains the handling of AP mode ioctls
  *
- *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -130,6 +132,33 @@ wlan_uap_callback_bss_ioctl_start(IN t_void *priv)
 	    !wlan_can_radar_det_skip(pmpriv) &&
 	    wlan_11h_radar_detect_required(pmpriv,
 					   puap_state_chan_cb->channel)) {
+		/* If DFS repeater mode is on then before starting the uAP
+		 * make sure that mlan0 is connected to some external AP
+		 * for DFS channel operations.
+		 */
+		if (pmpriv->adapter->dfs_repeater) {
+			pmlan_private tmpriv = MNULL;
+			tmpriv = wlan_get_priv(pmpriv->adapter,
+					       MLAN_BSS_ROLE_STA);
+
+			if (tmpriv && !tmpriv->media_connected) {
+				PRINTM(MERROR,
+				       "BSS start is blocked when DFS-repeater\n"
+				       "mode is on and STA is not connected\n");
+				pcb->moal_ioctl_complete(pmpriv->adapter->
+							 pmoal_handle,
+							 puap_state_chan_cb->
+							 pioctl_req_curr,
+							 MLAN_STATUS_FAILURE);
+				goto done;
+			} else {
+				/* STA is connected.
+				 * Skip DFS check for bss_start since its a repeater
+				 * mode
+				 */
+				goto prep_bss_start;
+			}
+		}
 
 		/* first check if channel is under NOP */
 		if (wlan_11h_is_channel_under_nop(pmpriv->adapter,
@@ -238,6 +267,7 @@ wlan_uap_callback_bss_ioctl_start(IN t_void *priv)
 		}
 	}
 
+prep_bss_start:
 	/* else okay to send command:  not DFS channel or no radar */
 	ret = wlan_prepare_cmd(pmpriv,
 			       HOST_CMD_APCMD_BSS_START,
@@ -1752,11 +1782,6 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 			status = MLAN_STATUS_PENDING;
 		}
 #endif
-#ifdef WIFI_DIRECT_SUPPORT
-		else if (bss->sub_command == MLAN_OID_WIFI_DIRECT_MODE)
-			status = wlan_bss_ioctl_wifi_direct_mode(pmadapter,
-								 pioctl_req);
-#endif
 		else if (bss->sub_command == MLAN_OID_BSS_REMOVE)
 			status = wlan_bss_ioctl_bss_remove(pmadapter,
 							   pioctl_req);
@@ -1901,26 +1926,29 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 			status = wlan_misc_ioctl_rx_pkt_coalesce_config
 				(pmadapter, pioctl_req);
 #endif
-#ifdef WIFI_DIRECT_SUPPORT
-		if (misc->sub_command == MLAN_OID_MISC_WIFI_DIRECT_CONFIG)
-			status = wlan_misc_p2p_config(pmadapter, pioctl_req);
-#endif
 
+		if (misc->sub_command == MLAN_OID_MISC_DFS_REAPTER_MODE) {
+			mlan_ds_misc_cfg *misc_cfg = MNULL;
+
+			misc_cfg = (mlan_ds_misc_cfg *)pioctl_req->pbuf;
+			misc_cfg->param.dfs_repeater.mode =
+				pmadapter->dfs_repeater;
+			pioctl_req->data_read_written =
+				sizeof(mlan_ds_misc_dfs_repeater);
+
+			status = MLAN_STATUS_SUCCESS;
+		}
 		if (misc->sub_command == MLAN_OID_MISC_IND_RST_CFG)
 			status = wlan_misc_ioctl_ind_rst_cfg(pmadapter,
 							     pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_GET_TSF)
 			status = wlan_misc_ioctl_get_tsf(pmadapter, pioctl_req);
-		if (misc->sub_command == MLAN_OID_MISC_GET_CHAN_REGION_CFG)
-			status = wlan_misc_chan_reg_cfg(pmadapter, pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_OPER_CLASS_CHECK)
 			status = wlan_misc_ioctl_operclass_validation(pmadapter,
 								      pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_OPER_CLASS)
 			status = wlan_misc_ioctl_oper_class(pmadapter,
 							    pioctl_req);
-		if (misc->sub_command == MLAN_OID_MISC_PER_PKT_CFG)
-			status = wlan_misc_per_pkt_cfg(pmadapter, pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_NET_MONITOR)
 			status = wlan_misc_ioctl_net_monitor(pmadapter,
 							     pioctl_req);
@@ -1933,9 +1961,6 @@ wlan_ops_uap_ioctl(t_void *adapter, pmlan_ioctl_req pioctl_req)
 								    pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_ROBUSTCOEX)
 			status = wlan_misc_robustcoex(pmadapter, pioctl_req);
-		if (misc->sub_command == MLAN_OID_MISC_GET_CORRELATED_TIME)
-			status = wlan_misc_get_correlated_time(pmadapter,
-							       pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_CFP_INFO)
 			status = wlan_get_cfpinfo(pmadapter, pioctl_req);
 		if (misc->sub_command == MLAN_OID_MISC_BOOT_SLEEP)

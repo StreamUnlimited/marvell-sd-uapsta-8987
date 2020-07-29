@@ -2,11 +2,12 @@
  *
  *  @brief This file contains functions for 11n handling.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -330,85 +331,6 @@ wlan_11n_ioctl_coex_rx_winsize(IN pmlan_adapter pmadapter,
 	else if (pioctl_req->action == MLAN_ACT_SET)
 		pmadapter->coex_rx_winsize = (t_u8)cfg->param.coex_rx_winsize;
 
-	LEAVE();
-	return ret;
-}
-
-/**
- *  @brief This function will send delba request to
- *          the peer in the TxBAStreamTbl
- *
- *  @param priv     A pointer to mlan_private
- *  @param ra       MAC Address to send DELBA
- *
- *  @return         N/A
- */
-void
-wlan_11n_send_delba_to_peer(mlan_private *priv, t_u8 *ra)
-{
-
-	TxBAStreamTbl *ptx_tbl;
-
-	ENTER();
-	wlan_request_ralist_lock(priv);
-	ptx_tbl = (TxBAStreamTbl *)util_peek_list(priv->adapter->pmoal_handle,
-						  &priv->tx_ba_stream_tbl_ptr,
-						  MNULL, MNULL);
-	if (!ptx_tbl) {
-		wlan_release_ralist_lock(priv);
-		LEAVE();
-		return;
-	}
-
-	while (ptx_tbl != (TxBAStreamTbl *)&priv->tx_ba_stream_tbl_ptr) {
-		if (!memcmp
-		    (priv->adapter, ptx_tbl->ra, ra, MLAN_MAC_ADDR_LENGTH)) {
-			PRINTM(MIOCTL, "Tx:Send delba to tid=%d, " MACSTR "\n",
-			       ptx_tbl->tid, MAC2STR(ptx_tbl->ra));
-			wlan_send_delba(priv, MNULL, ptx_tbl->tid, ptx_tbl->ra,
-					1);
-		}
-		ptx_tbl = ptx_tbl->pnext;
-	}
-	wlan_release_ralist_lock(priv);
-	/* Signal MOAL to trigger mlan_main_process */
-	wlan_recv_event(priv, MLAN_EVENT_ID_DRV_DEFER_HANDLING, MNULL);
-	LEAVE();
-	return;
-}
-
-/**
- *  @brief Set/Get control to TX AMPDU configuration on infra link
- *
- *  @param pmadapter    A pointer to mlan_adapter structure
- *  @param pioctl_req   A pointer to ioctl request buffer
- *
- *  @return             MLAN_STATUS_SUCCESS --success, otherwise fail
- */
-static mlan_status
-wlan_11n_ioctl_txaggrctrl(IN pmlan_adapter pmadapter,
-			  IN pmlan_ioctl_req pioctl_req)
-{
-	mlan_status ret = MLAN_STATUS_SUCCESS;
-	mlan_ds_11n_cfg *cfg = MNULL;
-	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
-
-	ENTER();
-
-	cfg = (mlan_ds_11n_cfg *)pioctl_req->pbuf;
-	if (pioctl_req->action == MLAN_ACT_GET)
-		cfg->param.txaggrctrl = pmpriv->txaggrctrl;
-	else if (pioctl_req->action == MLAN_ACT_SET)
-		pmpriv->txaggrctrl = (t_u8)cfg->param.txaggrctrl;
-
-	if (pmpriv->media_connected == MTRUE) {
-		if (pioctl_req->action == MLAN_ACT_SET
-		    && !pmpriv->txaggrctrl
-		    && pmpriv->adapter->tdls_status != TDLS_NOT_SETUP)
-			wlan_11n_send_delba_to_peer(pmpriv,
-						    pmpriv->curr_bss_params.
-						    bss_descriptor.mac_address);
-	}
 	LEAVE();
 	return ret;
 }
@@ -1166,11 +1088,6 @@ wlan_update_ampdu_txwinsize(pmlan_adapter pmadapter)
 				priv->add_ba_param.tx_win_size =
 					MLAN_STA_AMPDU_DEF_TXWINSIZE;
 #endif
-#ifdef WIFI_DIRECT_SUPPORT
-			if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT)
-				priv->add_ba_param.tx_win_size =
-					MLAN_WFD_AMPDU_DEF_TXRXWINSIZE;
-#endif
 #ifdef UAP_SUPPORT
 			if (priv->bss_type == MLAN_BSS_TYPE_UAP)
 				priv->add_ba_param.tx_win_size =
@@ -1822,10 +1739,6 @@ wlan_ret_11n_addba_req(mlan_private *priv, HostCmd_DS_COMMAND *resp)
 						      padd_ba_rsp->
 						      peer_mac_addr);
 #endif /* UAP_SUPPORT */
-			if (ra_list && ra_list->is_tdls_link)
-				disable_station_ampdu(priv, tid,
-						      padd_ba_rsp->
-						      peer_mac_addr);
 			priv->aggr_prio_tbl[tid].ampdu_ap =
 				BA_STREAM_NOT_ALLOWED;
 
@@ -2406,11 +2319,17 @@ wlan_check_chan_width_ht40_by_region(IN mlan_private *pmpriv,
 	pri_chan = pbss_desc->pht_info->ht_info.pri_chan;
 	chan_offset = GET_SECONDARYCHAN(pbss_desc->pht_info->ht_info.field2);
 	if ((chan_offset == SEC_CHAN_ABOVE) &&
-	    (pmpriv->curr_chan_flags & CHAN_FLAGS_NO_HT40PLUS))
+	    (pmpriv->curr_chan_flags & CHAN_FLAGS_NO_HT40PLUS)) {
+		pmpriv->curr_chan_flags |=
+			CHAN_FLAGS_NO_HT40MINUS | CHAN_FLAGS_NO_80MHZ;
 		return MFALSE;
+	}
 	if ((chan_offset == SEC_CHAN_BELOW) &&
-	    (pmpriv->curr_chan_flags & CHAN_FLAGS_NO_HT40MINUS))
+	    (pmpriv->curr_chan_flags & CHAN_FLAGS_NO_HT40MINUS)) {
+		pmpriv->curr_chan_flags |=
+			CHAN_FLAGS_NO_HT40PLUS | CHAN_FLAGS_NO_80MHZ;
 		return MFALSE;
+	}
 	if (pmpriv->curr_chan_flags & CHAN_FLAGS_MAX)
 		return MTRUE;
 
@@ -2700,9 +2619,6 @@ wlan_11n_cfg_ioctl(IN pmlan_adapter pmadapter, IN pmlan_ioctl_req pioctl_req)
 		break;
 	case MLAN_OID_11N_CFG_COEX_RX_WINSIZE:
 		status = wlan_11n_ioctl_coex_rx_winsize(pmadapter, pioctl_req);
-		break;
-	case MLAN_OID_11N_CFG_TX_AGGR_CTRL:
-		status = wlan_11n_ioctl_txaggrctrl(pmadapter, pioctl_req);
 		break;
 	case MLAN_OID_11N_CFG_IBSS_AMPDU_PARAM:
 		status = wlan_11n_ioctl_ibss_ampdu_param(pmadapter, pioctl_req);

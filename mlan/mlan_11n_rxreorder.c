@@ -3,11 +3,12 @@
  *  @brief This file contains the handling of RxReordering in wlan
  *  driver.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -17,6 +18,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -532,11 +534,7 @@ wlan_11n_create_rxreorder_tbl(mlan_private *priv, t_u8 *ta, int tid,
 		PRINTM(MINFO, "UAP/ADHOC:last_seq=%d start_win=%d\n", last_seq,
 		       new_node->start_win);
 	} else {
-		sta_ptr = wlan_get_station_entry(priv, ta);
-		if (sta_ptr)
-			last_seq = sta_ptr->rx_seq[tid];
-		else
-			last_seq = priv->rx_seq[tid];
+		last_seq = priv->rx_seq[tid];
 	}
 	new_node->last_seq = last_seq;
 	new_node->win_size = win_size;
@@ -1573,11 +1571,6 @@ wlan_update_ampdu_rxwinsize(pmlan_adapter pmadapter, t_u8 coex_flag)
 				if (priv->bss_type == MLAN_BSS_TYPE_STA)
 					priv->add_ba_param.rx_win_size =
 						MLAN_STA_COEX_AMPDU_DEF_RXWINSIZE;
-#endif
-#ifdef WIFI_DIRECT_SUPPORT
-				if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT)
-					priv->add_ba_param.rx_win_size =
-						MLAN_WFD_COEX_AMPDU_DEF_RXWINSIZE;
 #endif
 				if (priv->bss_type == MLAN_BSS_TYPE_NAN)
 					priv->add_ba_param.rx_win_size =

@@ -2,11 +2,12 @@
  *
  *  @brief This file contains functions for 11n Aggregation.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -130,8 +131,6 @@ wlan_11n_form_amsdu_txpd(mlan_private *priv, mlan_buffer *mbuf)
 	/* Always zero as the data is followed by TxPD */
 	ptx_pd->tx_pkt_offset = sizeof(TxPD);
 	ptx_pd->tx_pkt_type = PKT_TYPE_AMSDU;
-	if (mbuf->flags & MLAN_BUF_FLAG_TDLS)
-		ptx_pd->flags = MRVDRV_TxPD_FLAGS_TDLS_PACKET;
 	if (ptx_pd->tx_control == 0)
 		/* TxCtrl set by user or default */
 		ptx_pd->tx_control = priv->pkt_tx_ctrl;
@@ -234,7 +233,6 @@ wlan_11n_deaggregate_pkt(mlan_private *priv, pmlan_buffer pmbuf)
 	};
 	t_u8 hdr_len = sizeof(Eth803Hdr_t);
 	t_u8 eapol_type[2] = { 0x88, 0x8e };
-	t_u8 tdls_action_type[2] = { 0x89, 0x0d };
 
 	ENTER();
 
@@ -321,22 +319,6 @@ wlan_11n_deaggregate_pkt(mlan_private *priv, pmlan_buffer pmbuf)
 				wlan_free_mlan_buffer(pmadapter, daggr_mbuf);
 				data += pkt_len + pad;
 				continue;
-			}
-	/**process tdls packet*/
-			if (!memcmp
-			    (pmadapter,
-			     daggr_mbuf->pbuf + daggr_mbuf->data_offset +
-			     MLAN_ETHER_PKT_TYPE_OFFSET, tdls_action_type,
-			     sizeof(tdls_action_type))) {
-				PRINTM(MEVENT,
-				       "Recevie AMSDU TDLS action frame\n");
-				wlan_process_tdls_action_frame(priv,
-							       daggr_mbuf->
-							       pbuf +
-							       daggr_mbuf->
-							       data_offset,
-							       daggr_mbuf->
-							       data_len);
 			}
 
 			ret = pmadapter->callbacks.moal_recv_packet(pmadapter->
@@ -429,8 +411,6 @@ wlan_11n_aggregate_pkt(mlan_private *priv, raListTbl *pra_list,
 		pmbuf_aggr->data_offset = 0;
 		pmbuf_aggr->in_ts_sec = pmbuf_src->in_ts_sec;
 		pmbuf_aggr->in_ts_usec = pmbuf_src->in_ts_usec;
-		if (pmbuf_src->flags & MLAN_BUF_FLAG_TDLS)
-			pmbuf_aggr->flags |= MLAN_BUF_FLAG_TDLS;
 		if (pmbuf_src->flags & MLAN_BUF_FLAG_TCP_ACK)
 			pmbuf_aggr->flags |= MLAN_BUF_FLAG_TCP_ACK;
 

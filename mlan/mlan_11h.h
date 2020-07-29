@@ -3,11 +3,12 @@
  *  @brief This header file contains data structures and
  *  function declarations of 802.11h
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -164,6 +165,12 @@ extern t_bool wlan_11h_radar_detected_tx_blocked(mlan_adapter *pmadapter);
 
 /** Callback for RADAR_DETECTED (for UAP cmdresp) */
 extern mlan_status wlan_11h_radar_detected_callback(t_void *priv);
+
+/** BW_change event Handler for dfs_repeater */
+void wlan_dfs_rep_bw_change(mlan_adapter *pmadapter);
+
+/** disconnect event Handler for dfs_repeater */
+void wlan_dfs_rep_disconnect(mlan_adapter *pmadapter);
 
 /** Handler for RADAR_DETECTED */
 extern mlan_status wlan_11h_radar_detected_handling(mlan_adapter *pmadapter,

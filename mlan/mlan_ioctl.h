@@ -2,11 +2,12 @@
  *
  *  @brief This file declares the IOCTL data structures and APIs.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /******************************************************
@@ -58,9 +60,6 @@ enum _mlan_ioctl_req_id {
 #endif
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 	MLAN_OID_BSS_ROLE = 0x0002000F,
-#endif
-#ifdef WIFI_DIRECT_SUPPORT
-	MLAN_OID_WIFI_DIRECT_MODE = 0x00020010,
 #endif
 #ifdef STA_SUPPORT
 	MLAN_OID_BSS_LISTEN_INTERVAL = 0x00020011,
@@ -155,6 +154,7 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_PM_HS_WAKEUP_REASON = 0x0009000B,
 	MLAN_OID_PM_MGMT_FILTER = 0x0009000C,
 	MLAN_OID_PM_CFG_BCN_TIMEOUT = 0x0009000D,
+	MLAN_OID_PM_WNM_PS_CFG = 0x0009000E,
 
 	/* WMM Configuration Group */
 	MLAN_IOCTL_WMM_CFG = 0x000A0000,
@@ -186,7 +186,6 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_11N_CFG_DELBA = 0x000C000C,
 	MLAN_OID_11N_CFG_REJECT_ADDBA_REQ = 0x000C000D,
 	MLAN_OID_11N_CFG_COEX_RX_WINSIZE = 0x000C000E,
-	MLAN_OID_11N_CFG_TX_AGGR_CTRL = 0x000C000F,
 	MLAN_OID_11N_CFG_IBSS_AMPDU_PARAM = 0x000C0010,
 
 	/* 802.11d Configuration Group */
@@ -228,6 +227,10 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_11AC_CFG_SUPPORTED_MCS_SET = 0x00120002,
 	MLAN_OID_11AC_OPERMODE_CFG = 0x00120003,
 
+	MLAN_IOCTL_11K_CFG = 0x00130000,
+	MLAN_OID_11K_CFG_ENABLE = 0x00130001,
+	MLAN_OID_11K_GET_NLIST = 0x00130002,
+
 	/* Miscellaneous Configuration Group */
 	MLAN_IOCTL_MISC_CFG = 0x00200000,
 	MLAN_OID_MISC_GEN_IE = 0x00200001,
@@ -243,7 +246,6 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_MISC_ASSOC_RSP = 0x0020000C,
 	MLAN_OID_MISC_INIT_SHUTDOWN = 0x0020000D,
 	MLAN_OID_MISC_CUSTOM_IE = 0x0020000F,
-	MLAN_OID_MISC_TDLS_CONFIG = 0x00200010,
 	MLAN_OID_MISC_NET_MONITOR = 0x00200011,
 	MLAN_OID_MISC_TX_DATAPAUSE = 0x00200012,
 	MLAN_OID_MISC_IP_ADDR = 0x00200013,
@@ -258,6 +260,7 @@ enum _mlan_ioctl_req_id {
 	MLAN_OID_MISC_DRVDBG = 0x0020001B,
 #endif
 	MLAN_OID_MISC_OTP_USER_DATA = 0x0020001D,
+	MLAN_OID_MISC_AUTO_ASSOC = 0x0020001E,
 	MLAN_OID_MISC_TXCONTROL = 0x00200020,
 #ifdef STA_SUPPORT
 	MLAN_OID_MISC_EXT_CAP_CFG = 0x00200021,
@@ -267,34 +270,24 @@ enum _mlan_ioctl_req_id {
 #endif
 	MLAN_OID_MISC_MULTI_CHAN_CFG = 0x00200023,
 	MLAN_OID_MISC_MULTI_CHAN_POLICY = 0x00200024,
-#ifdef WIFI_DIRECT_SUPPORT
-	MLAN_OID_MISC_WIFI_DIRECT_CONFIG = 0x00200025,
-#endif
-	MLAN_OID_MISC_TDLS_OPER = 0x00200026,
-	MLAN_OID_MISC_GET_TDLS_IES = 0x00200027,
-	MLAN_OID_MISC_LOW_PWR_MODE = 0x00200029,
+	MLAN_OID_MISC_DFS_REAPTER_MODE = 0x0020002B,
 #ifdef RX_PACKET_COALESCE
 	MLAN_OID_MISC_RX_PACKET_COALESCE = 0x0020002C,
 #endif
-	MLAN_OID_MISC_TDLS_CS_CHANNEL = 0x0020002D,
 	MLAN_OID_MISC_COALESCE_CFG = 0x0020002E,
-	MLAN_OID_MISC_TDLS_IDLE_TIME = 0x0020002F,
 	MLAN_OID_MISC_GET_SENSOR_TEMP = 0x00200030,
-	MLAN_OID_MISC_GTK_REKEY_OFFLOAD = 0x00200037,
 	MLAN_OID_MISC_OPER_CLASS = 0x00200038,
 	MLAN_OID_MISC_PMIC_CFG = 0x00200039,
 	MLAN_OID_MISC_IND_RST_CFG = 0x00200040,
+	MLAN_OID_MISC_SMC = 0x00200041,
 	MLAN_OID_MISC_GET_TSF = 0x00200045,
-	MLAN_OID_MISC_GET_CHAN_REGION_CFG = 0x00200046,
 	MLAN_OID_MISC_OPER_CLASS_CHECK = 0x00200049,
 	MLAN_OID_MISC_DRCS_CFG = 0x00200050,
 
 	MLAN_OID_MISC_CWMODE_CTRL = 0x00200051,
 	MLAN_OID_MISC_DYN_BW = 0x00200053,
 	MLAN_OID_MISC_FW_DUMP_EVENT = 0x00200054,
-	MLAN_OID_MISC_PER_PKT_CFG = 0x00200055,
 	MLAN_OID_MISC_ROBUSTCOEX = 0x00200056,
-	MLAN_OID_MISC_GET_CORRELATED_TIME = 0x00200058,
 	MLAN_OID_MISC_CFP_INFO = 0x00200060,
 	MLAN_OID_MISC_BOOT_SLEEP = 0x00200061,
 	MLAN_OID_MISC_ACS = 0x00200063,
@@ -397,16 +390,6 @@ typedef MLAN_PACK_START struct _tx_status_event {
 	t_u8 tx_token_id;
     /** 0--success, 1--fail, 2--watchdogtimeout */
 	t_u8 status;
-	/** t1 time stamp */
-	t_u64 t1_tstamp;
-	/** t4 time stamp */
-	t_u64 t4_tstamp;
-	/** t1 error */
-	t_u64 t1_error;
-	/** t4 error */
-	t_u64 t4_error;
-	/** egress time */
-	t_u64 egress_time;
 } MLAN_PACK_END tx_status_event;
 
 /**
@@ -674,6 +657,11 @@ typedef struct _mlan_ssid_bssid {
 	t_u8 host_mlme;
     /** assoicate resp frame/ie from firmware */
 	mlan_ds_misc_assoc_rsp assoc_rsp;
+	t_u8 owe_transition_mode;
+    /** Transition SSID */
+	mlan_802_11_ssid trans_ssid;
+    /** Transition BSSID */
+	mlan_802_11_mac_addr trans_bssid;
 } mlan_ssid_bssid;
 
 /** Data structure of WMM ECW */
@@ -817,6 +805,10 @@ typedef struct _mlan_deauth_param {
 #define PROTOCOL_EAP                0x40
 /** WAPI */
 #define PROTOCOL_WAPI               0x80
+/** WPA3 SAE */
+#define PROTOCOL_WPA3_SAE          0x100
+/** OWE */
+#define PROTOCOL_OWE               0x200
 
 /** Key_mgmt_psk */
 #define KEY_MGMT_NONE   0x04
@@ -1050,10 +1042,6 @@ typedef struct _mlan_uap_bss_param {
 	t_u16 key_mgmt_operation;
     /** BSS status */
 	t_u16 bss_status;
-#ifdef WIFI_DIRECT_SUPPORT
-	/* pre shared key */
-	t_u8 psk[MLAN_MAX_KEY_LENGTH];
-#endif				/* WIFI_DIRECT_SUPPORT */
     /** Number of channels in scan_channel_list */
 	t_u32 num_of_chan;
     /** scan channel list in ACS mode */
@@ -1129,21 +1117,6 @@ typedef struct _mlan_ds_sta_info {
 } mlan_ds_sta_info;
 #endif
 
-#ifdef WIFI_DIRECT_SUPPORT
-/** mode: disable wifi direct */
-#define WIFI_DIRECT_MODE_DISABLE		0
-/** mode: listen */
-#define WIFI_DIRECT_MODE_LISTEN			1
-/** mode: GO */
-#define WIFI_DIRECT_MODE_GO             2
-/** mode: client */
-#define WIFI_DIRECT_MODE_CLIENT			3
-/** mode: find */
-#define WIFI_DIRECT_MODE_FIND			4
-/** mode: stop find */
-#define WIFI_DIRECT_MODE_STOP_FIND		5
-#endif
-
 /** Type definition of mlan_ds_bss for MLAN_IOCTL_BSS */
 typedef struct _mlan_ds_bss {
     /** Sub-command */
@@ -1188,10 +1161,6 @@ typedef struct _mlan_ds_bss {
 	/** BSS role for MLAN_OID_BSS_ROLE */
 		t_u8 bss_role;
 #endif
-#ifdef WIFI_DIRECT_SUPPORT
-	/** wifi direct mode for MLAN_OID_WIFI_DIRECT_MODE */
-		t_u16 wfd_mode;
-#endif
 #ifdef STA_SUPPORT
 	/** Listen interval for MLAN_OID_BSS_LISTEN_INTERVAL */
 		t_u16 listen_interval;
@@ -1205,11 +1174,6 @@ typedef struct _mlan_ds_bss {
 	} param;
 } mlan_ds_bss, *pmlan_ds_bss;
 
-/** Type definition of mlan_ds_custom_reg_domain */
-typedef struct _mlan_ds_custom_reg_domain {
-	t_u16 cfg_len;
-	t_u8 cfg_buf[0];
-} mlan_ds_custom_reg_domain;
 /*-----------------------------------------------------------------*/
 /** Radio Control Group */
 /*-----------------------------------------------------------------*/
@@ -1532,14 +1496,6 @@ typedef struct _mlan_ds_get_stats {
     /** ampdu delimiter CRC error count */
 	t_u32 ampdu_delimiter_crc_error_cnt;
 } mlan_ds_get_stats, *pmlan_ds_get_stats;
-
-/** Type definition of mlan_ds_get_stats for MLAN_OID_GET_STATS */
-typedef struct _mlan_ds_get_correlated_time {
-   /** System time */
-	t_u64 sys_time;
-   /** FW time */
-	t_u64 hw_time;
-} mlan_ds_get_correlated_time, *pmlan_ds_get_correlated_time;
 
 /** Type definition of mlan_ds_uap_stats for MLAN_OID_GET_STATS */
 typedef struct _mlan_ds_uap_stats {
@@ -1997,24 +1953,6 @@ typedef struct {
 /** Maximum size of IEEE Information Elements */
 #define IEEE_MAX_IE_SIZE      256
 
-/** support up to 8 TDLS peer */
-#define MLAN_MAX_TDLS_PEER_SUPPORTED     8
-/** TDLS peer info */
-typedef struct _tdls_peer_info {
-    /** station mac address */
-	t_u8 mac_addr[MLAN_MAC_ADDR_LENGTH];
-    /** SNR */
-	t_s8 snr;
-    /** Noise Floor */
-	t_s8 nf;
-	/** Extended Capabilities IE */
-	t_u8 ext_cap[IEEE_MAX_IE_SIZE];
-    /** HT Capabilities IE */
-	t_u8 ht_cap[IEEE_MAX_IE_SIZE];
-    /** VHT Capabilities IE */
-	t_u8 vht_cap[IEEE_MAX_IE_SIZE];
-} tdls_peer_info;
-
 /** max ralist num */
 #define MLAN_MAX_RALIST_NUM  8
 /** ralist info */
@@ -2053,10 +1991,6 @@ typedef struct _mlan_debug_info {
 	t_u32 rx_tbl_num;
     /** Rx reorder table*/
 	rx_reorder_tbl rx_tbl[MLAN_MAX_RX_BASTREAM_SUPPORTED];
-    /** TDLS peer number */
-	t_u32 tdls_peer_num;
-    /** TDLS peer list*/
-	tdls_peer_info tdls_peer_list[MLAN_MAX_TDLS_PEER_SUPPORTED];
     /** ralist num */
 	t_u32 ralist_num;
     /** ralist info */
@@ -2171,6 +2105,8 @@ typedef struct _mlan_debug_info {
 	t_u32 num_cmd_assoc_success;
     /** Number of association command failures */
 	t_u32 num_cmd_assoc_failure;
+    /** Number of consecutive association failures */
+	t_u32 num_cons_assoc_failure;
     /** Number of Tx timeouts */
 	t_u32 num_tx_timeout;
     /** Number of command timeouts */
@@ -2306,6 +2242,8 @@ enum _mlan_auth_mode {
 	MLAN_AUTH_MODE_OPEN = 0x00,
 	MLAN_AUTH_MODE_SHARED = 0x01,
 	MLAN_AUTH_MODE_FT = 0x02,
+	MLAN_AUTH_MODE_SAE = 0x03,
+	MLAN_AUTH_MODE_OWE = 0x04,
 	MLAN_AUTH_MODE_NETWORKEAP = 0x80,
 	MLAN_AUTH_MODE_AUTO = 0xFF,
 };
@@ -2317,6 +2255,8 @@ typedef enum {
 	AssocAgentAuth_FastBss,
 	AssocAgentAuth_FastBss_Skip,
 	AssocAgentAuth_Network_EAP,
+	AssocAgentAuth_Wpa3Sae,
+	AssocAgentAuth_Owe,
 	AssocAgentAuth_Auto,
 } AssocAgentAuthType_e;
 
@@ -2327,8 +2267,6 @@ enum _mlan_encryption_mode {
 	MLAN_ENCRYPTION_MODE_TKIP = 2,
 	MLAN_ENCRYPTION_MODE_CCMP = 3,
 	MLAN_ENCRYPTION_MODE_WEP104 = 4,
-	MLAN_ENCRYPTION_MODE_GCMP = 5,
-	MLAN_ENCRYPTION_MODE_GCMP_256 = 6,
 	MLAN_ENCRYPTION_MODE_CCMP_256 = 7,
 };
 
@@ -2374,10 +2312,6 @@ enum _mlan_psk_type {
 #define KEY_FLAG_AES_MCAST_IGTK 0x00000010
 /** key flag for remove key */
 #define KEY_FLAG_REMOVE_KEY     0x80000000
-/** key flag for GCMP */
-#define KEY_FLAG_GCMP           0x00000020
-/** key flag for GCMP_256 */
-#define KEY_FLAG_GCMP_256           0x00000040
 /** key flag for CCMP_256 */
 #define KEY_FLAG_CCMP_256           0x00000080
 /** Type definition of mlan_ds_encrypt_key for MLAN_OID_SEC_CFG_ENCRYPT_KEY */
@@ -2973,6 +2907,101 @@ typedef struct _mlan_ds_bcn_timeout {
 	t_u16 bcn_rq_tmo_period;
 } mlan_ds_bcn_timeout, *pmlan_ds_bcn_timeout;
 
+/**
+ *  Structure for BSS Max Idle feature
+ *
+ *  Structure from the application layer relayed to firmware to
+ *    configure the BSS Max Idle feature.
+ *
+ */
+typedef struct MLAN_PACK_START _mlan_ds_wnm_ps_bss_max_idle_cfg {
+    /** Action: Get/Set */
+	t_u16 bss_max_idle_action;
+    /** Enable/Disable */
+	t_u8 bss_max_idle_enable;
+} MLAN_PACK_END mlan_ds_wnm_ps_bss_max_idle_cfg_t;
+
+/**
+ *  Structure for BSSMaxIdle feature TLV
+ *
+ *  Structure TLV from the application layer relayed to firmware to
+ *    configure the BSS Max Idle feature
+ *
+ */
+typedef struct MLAN_PACK_START _mlan_ds_wnm_ps_bss_max_idle_tlv {
+    /** Type */
+	t_u16 type;
+    /** Length of TLV */
+	t_u16 len;
+    /** BSSMaxIdle configuration */
+	mlan_ds_wnm_ps_bss_max_idle_cfg_t bss_max_idle_cfg;
+} MLAN_PACK_END mlan_ds_wnm_ps_bss_max_idle_tlv_t;
+
+/**
+ *  Structure for DMS feature
+ *
+ *  Structure from the application layer relayed to firmware to
+ *    configure the DMS feature
+ *
+ */
+typedef struct MLAN_PACK_START _mlan_ds_wnm_ps_dms_cfg {
+    /** Action: Get/Set */
+	t_u16 dms_action;
+    /** Enable/Disable */
+	t_u8 dms_enable;
+} MLAN_PACK_END mlan_ds_wnm_ps_dms_cfg_t;
+
+/**
+ *  Structure for DMS request
+ *
+ *  Structure from the application layer relayed to firmware to
+ *    instigate an DMS Request management frame with an appropriate
+ *    TCLAS IE
+ *
+ */
+typedef struct MLAN_PACK_START _mlan_ds_wnm_ps_dms_req {
+    /** For DMS request type */
+	t_u16 dms_req_type;
+    /** No of elements in DMS descriptor */
+	t_u16 dms_desc_elements;
+    /** Total length of the data following */
+	t_u16 dms_total_data_len;
+    /** TLV buffer for DMS descriptoir */
+	t_u8 dms_desc_tlv[0];
+} MLAN_PACK_END mlan_ds_wnm_ps_dms_req_t;
+
+/**
+ *  Structure for DMS feature TLV
+ *
+ *  Structure TLV from the application layer relayed to firmware to
+ *    configure the DMS feature
+ *
+ */
+typedef struct MLAN_PACK_START _mlan_ds_wnm_ps_dms_tlv {
+    /** Type */
+	t_u16 type;
+    /** Length of TLV */
+	t_u16 len;
+    /** Configure DMS feature */
+	mlan_ds_wnm_ps_dms_cfg_t dms_cfg;
+    /** Configure DMS request */
+	mlan_ds_wnm_ps_dms_req_t dms_req;
+} MLAN_PACK_END mlan_ds_wnm_ps_dms_tlv_t;
+
+/**
+ *  Structure for power save feature TLV data
+ *
+ *  Structure with the data in the form of TLVs for
+ *    power save features
+ *
+ */
+typedef struct MLAN_PACK_START _mlan_ds_wnm_ps_cfg_data {
+    /** WNM power save features configuration TLVs data len */
+	t_u16 tlv_data_len;
+    /** WNM power save features configuration TLVs */
+	t_u8 wnm_ps_tlv[0];
+} MLAN_PACK_END mlan_ds_wnm_ps_cfg_data, *pmlan_ds_wnm_ps_cfg_data;
+
 /** Type definition of mlan_ds_pm_cfg for MLAN_IOCTL_PM_CFG */
 typedef struct _mlan_ds_pm_cfg {
     /** Sub-command */
@@ -3005,6 +3034,8 @@ typedef struct _mlan_ds_pm_cfg {
 		mlan_mgmt_frame_wakeup mgmt_filter[MAX_MGMT_FRAME_FILTER];
 	/** Beacon timout parameters for MLAN_OID_PM_CFG_BCN_TIMEOUT */
 		mlan_ds_bcn_timeout bcn_timeout;
+	/** Configuration data for MLAN_OID_PM_WNM_PS_CFG */
+		mlan_ds_wnm_ps_cfg_data wnm_ps_cfg_data;
 	} param;
 } mlan_ds_pm_cfg, *pmlan_ds_pm_cfg;
 
@@ -3479,8 +3510,6 @@ typedef struct _mlan_ds_11n_cfg {
 		mlan_ds_reject_addba_req reject_addba_req;
 	/** Control coex RX window size configuration */
 		t_u32 coex_rx_winsize;
-	/** Control TX AMPDU configuration */
-		t_u32 txaggrctrl;
 	/** aggrprirotity table for MLAN_OID_11N_CFG_IBSS_AMPDU_PARAM */
 		mlan_ds_ibss_ampdu_param ibss_ampdu;
 	} param;
@@ -3612,6 +3641,14 @@ typedef struct _mlan_ds_11d_cfg {
 #endif				/* UAP_SUPPORT */
 	} param;
 } mlan_ds_11d_cfg, *pmlan_ds_11d_cfg;
+
+typedef struct _mlan_ds_11k_cfg {
+    /** Sub-command */
+	t_u32 sub_command;
+	union {
+		t_u32 enable_11k;
+	} param;
+} mlan_ds_11k_cfg;
 
 /*-----------------------------------------------------------------*/
 /** Register Memory Access Group */
@@ -3924,16 +3961,6 @@ typedef struct _mlan_ds_misc_country_code {
 	t_u8 country_code[COUNTRY_CODE_LEN];
 } mlan_ds_misc_country_code;
 
-/** Type definition of mlan_ds_host_clock  */
-typedef struct _mlan_ds_host_clock {
-    /** host time in secs */
-	t_u64 time;
-	/** fw time */
-	t_u64 fw_time;
-    /** host-bbu clock delta */
-	t_u64 host_bbu_clk_delta;
-} mlan_ds_host_clock;
-
 /** action for set */
 #define SUBSCRIBE_EVT_ACT_BITWISE_SET         0x0002
 /** action for clear */
@@ -4062,33 +4089,15 @@ typedef struct _mlan_ds_misc_otp_user_data {
 	t_u8 user_data[MAX_OTP_USER_DATA_LEN];
 } mlan_ds_misc_otp_user_data;
 
-#ifdef WIFI_DIRECT_SUPPORT
-/** flag for NOA */
-#define WIFI_DIRECT_NOA         1
-/** flag for OPP_PS */
-#define WIFI_DIRECT_OPP_PS      2
-/** Type definition of mlan_ds_wifi_direct_config
- *  for MLAN_OID_MISC_WIFI_DIRECT_CONFIG
- */
-typedef struct _mlan_ds_wifi_direct_config {
-    /** flags for NOA/OPP_PS */
-	t_u8 flags;
-     /** NoA enable/disable */
-	t_u8 noa_enable;
-    /** index */
-	t_u16 index;
-    /** NoA count */
-	t_u8 noa_count;
-    /** NoA duration */
-	t_u32 noa_duration;
-    /** NoA interval */
-	t_u32 noa_interval;
-    /** opp ps enable/disable */
-	t_u8 opp_ps_enable;
-    /** CT window value */
-	t_u8 ct_window;
-} mlan_ds_wifi_direct_config;
-#endif
+/** Type definition of mlan_ds_fw_reconnect for MLAN_OID_MISC_AUTO_ASSOC */
+typedef struct _mlan_ds_fw_reconnect {
+	/* fw auto re-connect counter */
+	t_u8 fw_reconn_counter;
+	/* fw auto re-connect interval */
+	t_u8 fw_reconn_interval;
+	/* fw auto re-connect flags */
+	t_u16 fw_reconn_flags;
+} mlan_ds_fw_reconnect;
 
 #if defined(STA_SUPPORT)
 /** mlan_ds_misc_pmfcfg structure */
@@ -4127,85 +4136,6 @@ typedef MLAN_PACK_START struct _mlan_ds_drcs_cfg {
 	t_u8 mode;
 } MLAN_PACK_END mlan_ds_drcs_cfg;
 
-/**Action ID for TDLS disable link*/
-#define WLAN_TDLS_DISABLE_LINK           0x00
-/**Action ID for TDLS enable link*/
-#define WLAN_TDLS_ENABLE_LINK            0x01
-/**Action ID for TDLS create link*/
-#define WLAN_TDLS_CREATE_LINK            0x02
-/**Action ID for TDLS config link*/
-#define WLAN_TDLS_CONFIG_LINK            0x03
-/*reason code*/
-#define MLAN_REASON_TDLS_TEARDOWN_UNSPECIFIED 26
-/** TDLS operation buffer */
-typedef struct _mlan_ds_misc_tdls_oper {
-    /** TDLS Action */
-	t_u16 tdls_action;
-    /** TDLS peer address */
-	t_u8 peer_mac[MLAN_MAC_ADDR_LENGTH];
-    /** peer capability */
-	t_u16 capability;
-	/** peer qos info */
-	t_u8 qos_info;
-	/** peer extend capability */
-	t_u8 *ext_capab;
-	/** extend capability len */
-	t_u8 ext_capab_len;
-	/** support rates */
-	t_u8 *supported_rates;
-	/** supported rates len */
-	t_u8 supported_rates_len;
-	/** peer ht_cap */
-	t_u8 *ht_capa;
-	/** peer vht capability */
-	t_u8 *vht_cap;
-} mlan_ds_misc_tdls_oper;
-
-/** flag for TDLS extcap */
-#define TDLS_IE_FLAGS_EXTCAP     0x0001
-/** flag for TDLS HTCAP */
-#define TDLS_IE_FLAGS_HTCAP      0x0002
-/** flag for TDLS HTINFO */
-#define TDLS_IE_FLAGS_HTINFO     0x0004
-/** flag for TDLS VHTCAP */
-#define TDLS_IE_FLAGS_VHTCAP     0x0008
-/** flag for TDLS VHTOPRAT */
-#define TDLS_IE_FLAGS_VHTOPRAT   0x0010
-/** flag for TDLS AID inof */
-#define TDLS_IE_FLAGS_AID        0x0020
-/** flag for TDLS Supported channels and regulatory class IE*/
-#define TDLS_IE_FLAGS_SUPP_CS_IE        0x0040
-/** flag for TDLS Qos info */
-#define TDLS_IE_FLAGS_QOS_INFO        0x0080
-/** flag for TDLS SETUP */
-#define TDLS_IE_FLAGS_SETUP        0x0100
-
-/** TDLS ie buffer */
-typedef struct _mlan_ds_misc_tdls_ies {
-    /** TDLS peer address */
-	t_u8 peer_mac[MLAN_MAC_ADDR_LENGTH];
-    /** flags for request IEs */
-	t_u16 flags;
-    /** Qos info */
-	t_u8 QosInfo;
-    /** Extended Capabilities IE */
-	t_u8 ext_cap[IEEE_MAX_IE_SIZE];
-    /** HT Capabilities IE */
-	t_u8 ht_cap[IEEE_MAX_IE_SIZE];
-    /** HT Information IE */
-	t_u8 ht_info[IEEE_MAX_IE_SIZE];
-    /** VHT Capabilities IE */
-	t_u8 vht_cap[IEEE_MAX_IE_SIZE];
-    /** VHT Operations IE */
-	t_u8 vht_oprat[IEEE_MAX_IE_SIZE];
-    /** aid Info */
-	t_u8 aid_info[IEEE_MAX_IE_SIZE];
-    /** supported channels */
-	t_u8 supp_chan[IEEE_MAX_IE_SIZE];
-    /** supported regulatory class */
-	t_u8 regulatory_class[IEEE_MAX_IE_SIZE];
-} mlan_ds_misc_tdls_ies;
-
 #ifdef RX_PACKET_COALESCE
 typedef struct _mlan_ds_misc_rx_packet_coalesce {
 	/** packet threshold */
@@ -4214,6 +4144,14 @@ typedef struct _mlan_ds_misc_rx_packet_coalesce {
 	t_u16 delay;
 } mlan_ds_misc_rx_packet_coalesce;
 #endif
+
+/** mlan_ds_misc_dfs_repeater structure */
+typedef struct _mlan_ds_misc_dfs_repeater {
+	/** Set or Get */
+	t_u16 action;
+	/** 1 on or 0 off */
+	t_u16 mode;
+} mlan_ds_misc_dfs_repeater;
 
 #define WOWLAN_MAX_PATTERN_LEN		20
 #define WOWLAN_MAX_OFFSET_LEN		50
@@ -4225,18 +4163,6 @@ typedef struct _mlan_ds_sensor_temp {
 	int temperature;
 } mlan_ds_sensor_temp;
 
-#define MLAN_KCK_LEN   16
-#define MLAN_KEK_LEN   16
-#define MLAN_REPLAY_CTR_LEN 8
-/** mlan_ds_misc_gtk_rekey_data */
-typedef struct _mlan_ds_misc_gtk_rekey_data {
-    /** key encryption key */
-	t_u8 kek[MLAN_KEK_LEN];
-    /** key confirmation key */
-	t_u8 kck[MLAN_KCK_LEN];
-    /** replay counter */
-	t_u8 replay_ctr[MLAN_REPLAY_CTR_LEN];
-} mlan_ds_misc_gtk_rekey_data;
 typedef struct _mlan_ds_bw_chan_oper {
 	/* bandwidth 20:20M 40:40M 80:80M */
 	t_u8 bandwidth;
@@ -4255,36 +4181,70 @@ typedef struct _mlan_ds_ind_rst_cfg {
 	t_u8 gpio_pin;
 } mlan_ds_ind_rst_cfg;
 
-/** mlan_ds_cw_mode_ctrl structure */
-typedef MLAN_PACK_START struct _mlan_ds_cw_mode_ctrl {
-    /** Mode of Operation 0: Disable 1: Tx Continuous Packet 2: Tx Continuous Wave */
-	t_u8 mode;
-	/*channel */
-	t_u8 channel;
-	/* channel info */
-	t_u8 chanInfo;
-    /** Tx Power level in dBm */
-	t_u16 txPower;
-    /** Packet Length */
-	t_u16 pktLength;
-    /** bit rate Info */
-	t_u32 rateInfo;
-} MLAN_PACK_END mlan_ds_cw_mode_ctrl;
-
-#define RX_PKT_INFO MBIT(1)
-/** Struct for per-packet configuration */
-typedef struct _mlan_per_pkt_cfg {
-   /** Type ID*/
-	t_u16 type;
-   /** Length of payload*/
-	t_u16 len;
-   /**  Tx/Rx per-packet control */
-	t_u8 tx_rx_control;
-   /** Number of ethernet types in ether_type array */
-	t_u8 proto_type_num;
-   /** Array of ether_type for per-packet control */
-	t_u16 ether_type[0];
-} mlan_per_pkt_cfg;
+#define MAX_CHANNEL_LIST 14
+#define MAX_ADDR_FILTER 5
+#define MAX_FRAME_FILTER 5
+#define SMC_GET  0
+#define SMC_SET  1
+#define SMC_START  2
+#define SMC_STOP 3
+/** mlan_ds_smc_chan_list structure */
+typedef struct _mlan_ds_smc_chan_list {
+	/** channel number*/
+	t_u8 chan_number;
+	/** channel width 0: 20M, 1: 10M, 2: 40M, 3: 80Mhz*/
+	t_u8 chanwidth;
+	/** min scan time */
+	t_u16 minScanTime;
+	/**max scan time */
+	t_u16 maxScanTime;
+} mlan_ds_smc_chan_list;
+/** mlan_ds_smc_frame_filter structure */
+typedef struct _mlan_ds_smc_frame_filter {
+	/** destination type */
+	t_u8 destType;
+	/** Frame type */
+	t_u8 frameType;
+} mlan_ds_smc_frame_filter;
+typedef struct _mlan_ds_smc_mac_addr {
+	/** start address */
+	t_u8 startaddr[MLAN_MAC_ADDR_LENGTH];
+	/**end address */
+	t_u8 endaddr[MLAN_MAC_ADDR_LENGTH];
+	/** filter type */
+	t_u16 filterType;
+} mlan_ds_smc_mac_addr;
+/** mlan_ds_smc structure */
+typedef struct _mlan_ds_smc {
+	/** smc action, 0: get, 1: set, 2: start, 3: stop */
+	t_u16 action;
+	/** channel list number*/
+	t_u8 chan_num;
+	/**channel list*/
+	mlan_ds_smc_chan_list chanlist[MAX_CHANNEL_LIST];
+	/** frame filter set*/
+	t_u8 filterCount;
+	/**frame filter */
+	mlan_ds_smc_frame_filter framefilter[MAX_FRAME_FILTER];
+	/** address range set */
+	t_u8 addrCount;
+	/** multi address */
+	mlan_ds_smc_mac_addr addr[MAX_ADDR_FILTER];
+	/** ssid length */
+	t_u8 ssid_len;
+	/** ssid */
+	t_u8 ssid[32];
+	/** beacon period */
+	t_u16 beaconPeriod;
+	/** beacon of channel */
+	t_u8 beaconOfChan;
+	/** probe of channel */
+	t_u8 probeOfChan;
+	/** customer ie */
+	t_u8 customer_ie[MAX_IE_SIZE];
+	/** IE len */
+	t_u8 ie_len;
+} mlan_ds_smc;
 
 /** Type definition of mlan_ds_misc_robustcoex_params for MLAN_IOCTL_MISC_CFG */
 typedef struct _mlan_ds_misc_robustcoex_params {
@@ -4356,17 +4316,8 @@ typedef struct _mlan_ds_misc_cfg {
 		t_u32 func_init_shutdown;
 	/** Custom IE for MLAN_OID_MISC_CUSTOM_IE */
 		mlan_ds_misc_custom_ie cust_ie;
-		t_u16 tdls_idle_time;
 	/** Config dynamic bandwidth*/
 		t_u16 dyn_bw;
-	/** TDLS configuration for MLAN_OID_MISC_TDLS_CONFIG */
-		mlan_ds_misc_tdls_config tdls_config;
-	/** TDLS operation for MLAN_OID_MISC_TDLS_OPER */
-		mlan_ds_misc_tdls_oper tdls_oper;
-	/** TDLS ies for  MLAN_OID_MISC_GET_TDLS_IES */
-		mlan_ds_misc_tdls_ies tdls_ies;
-	/**tdls cs off channel*/
-		t_u8 tdls_cs_channel;
 	/** Net monitor for MLAN_OID_MISC_NET_MONITOR */
 		mlan_ds_misc_net_monitor net_mon;
 	/** Tx data pause for MLAN_OID_MISC_TX_DATAPAUSE */
@@ -4396,6 +4347,8 @@ typedef struct _mlan_ds_misc_cfg {
 		ExtCap_t ext_cap;
 #endif
 		mlan_ds_misc_otp_user_data otp_user_data;
+	/** fw re-connect cfg param set */
+		mlan_ds_fw_reconnect fw_auto_reconnect;
 	/** Tx control */
 		t_u32 tx_control;
 #if defined(STA_SUPPORT)
@@ -4407,11 +4360,8 @@ typedef struct _mlan_ds_misc_cfg {
 		t_u16 multi_chan_policy;
 	/** channel drcs time slicing config for MLAN_OID_MISC_DRCS_CFG */
 		mlan_ds_drcs_cfg drcs_cfg[2];
-#ifdef WIFI_DIRECT_SUPPORT
-		mlan_ds_wifi_direct_config p2p_config;
-#endif
 		mlan_ds_coalesce_cfg coalesce_cfg;
-		t_u8 low_pwr_mode;
+		mlan_ds_misc_dfs_repeater dfs_repeater;
 #ifdef RX_PACKET_COALESCE
 		mlan_ds_misc_rx_packet_coalesce rx_coalesce;
 #endif
@@ -4419,22 +4369,15 @@ typedef struct _mlan_ds_misc_cfg {
 		t_u8 fw_reload;
 	/** Sensor temperature */
 		mlan_ds_sensor_temp sensor_temp;
-	/** GTK rekey data */
-		mlan_ds_misc_gtk_rekey_data gtk_rekey;
 	/** Bandwidth Channel operation */
 		mlan_ds_bw_chan_oper bw_chan_oper;
     /** Independent Reset Configuration */
 		mlan_ds_ind_rst_cfg ind_rst_cfg;
+    /** smc */
+		mlan_ds_smc smc;
     /** misc tsf */
 		t_u64 misc_tsf;
-    /** Custom regulatory domain */
-		mlan_ds_custom_reg_domain custom_reg_domain;
-    /** cwmmode */
-		mlan_ds_cw_mode_ctrl cwmode;
-   /**  Tx/Rx per-packet control */
-		t_u8 txrx_pkt_ctrl;
 		mlan_ds_misc_robustcoex_params robustcoexparams;
-		mlan_ds_host_clock host_clock;
     /** boot sleep enable or disable */
 		t_u16 boot_sleep;
     /** ACS */

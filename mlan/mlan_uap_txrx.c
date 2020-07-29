@@ -2,11 +2,12 @@
  *
  *  @brief This file contains AP mode transmit and receive functions
  *
- *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -159,7 +161,6 @@ wlan_ops_uap_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 	t_u8 *head_ptr = MNULL;
 	t_u32 pkt_type;
 	t_u32 tx_control;
-	t_u8 dst_mac[MLAN_MAC_ADDR_LENGTH];
 
 	ENTER();
 
@@ -239,31 +240,6 @@ wlan_ops_uap_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		plocal_tx_pd->tx_pkt_type = (t_u16)pkt_type;
 		plocal_tx_pd->tx_control = tx_control;
 	}
-	if (pmbuf->flags & MLAN_BUF_FLAG_TX_CTRL) {
-		if (pmbuf->u.tx_info.data_rate) {
-			memcpy(pmpriv->adapter, dst_mac,
-			       pmbuf->pbuf + pmbuf->data_offset,
-			       sizeof(dst_mac));
-			plocal_tx_pd->tx_control |=
-				(wlan_ieee_rateid_to_mrvl_rateid
-				 (pmpriv, pmbuf->u.tx_info.data_rate,
-				  dst_mac) << 16);
-			plocal_tx_pd->tx_control |= TXPD_TXRATE_ENABLE;
-		}
-		plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.channel << 21;
-		if (pmbuf->u.tx_info.bw) {
-			plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.bw << 16;
-			plocal_tx_pd->tx_control_1 |= TXPD_BW_ENABLE;
-		}
-		if (pmbuf->u.tx_info.tx_power.tp.hostctl)
-			plocal_tx_pd->tx_control |=
-				pmbuf->u.tx_info.tx_power.val;
-		if (pmbuf->u.tx_info.retry_limit) {
-			plocal_tx_pd->tx_control |=
-				pmbuf->u.tx_info.retry_limit << 8;
-			plocal_tx_pd->tx_control |= TXPD_RETRY_ENABLE;
-		}
-	}
 
 	uap_endian_convert_TxPD(plocal_tx_pd);
 
@@ -331,16 +307,6 @@ wlan_ops_uap_process_rx_packet(IN t_void *adapter, IN pmlan_buffer pmbuf)
 							adj_rx_rate,
 							prx_pd->snr, prx_pd->nf,
 							antenna);
-	}
-
-	if (priv->rx_pkt_info) {
-		pmbuf->u.rx_info.data_rate =
-			wlan_index_to_data_rate(priv->adapter, prx_pd->rx_rate,
-						prx_pd->rate_info);
-		pmbuf->u.rx_info.channel =
-			(prx_pd->rx_info & RXPD_CHAN_MASK) >> 5;
-		pmbuf->u.rx_info.antenna = prx_pd->antenna;
-		pmbuf->u.rx_info.rssi = prx_pd->snr - prx_pd->nf;
 	}
 
 	rx_pkt_type = prx_pd->rx_pkt_type;

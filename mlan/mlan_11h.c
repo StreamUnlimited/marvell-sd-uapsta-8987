@@ -2,11 +2,12 @@
  *
  *  @brief This file contains functions for 802.11H.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -152,12 +153,12 @@ wlan_11h_get_random_num(pmlan_adapter pmadapter)
 }
 
 /**
- *  @brief Convert an IEEE formatted IE to 16-bit ID/Len Marvell
+ *  @brief Convert an IEEE formatted IE to 16-bit ID/Len NXP
  *         proprietary format
  *
  *  @param pmadapter Pointer to mlan_adapter
- *  @param pout_buf Output parameter: Buffer to output Marvell formatted IE
- *  @param pin_ie   Pointer to IEEE IE to be converted to Marvell format
+ *  @param pout_buf Output parameter: Buffer to output NXP formatted IE
+ *  @param pin_ie   Pointer to IEEE IE to be converted to NXP format
  *
  *  @return         Number of bytes output to pout_buf parameter return
  */
@@ -169,7 +170,7 @@ wlan_11h_convert_ieee_to_mrvl_ie(mlan_adapter *pmadapter,
 	t_u8 *ptmp_buf = pout_buf;
 
 	ENTER();
-	/* Assign the Element Id and Len to the Marvell struct attributes */
+	/* Assign the Element Id and Len to the NXP struct attributes */
 	mrvl_ie_hdr.type = wlan_cpu_to_le16(pin_ie[0]);
 	mrvl_ie_hdr.len = wlan_cpu_to_le16(pin_ie[1]);
 
@@ -1338,7 +1339,7 @@ wlan_11h_is_chan_band_valid(chan_freq_power_t *pcfp, Band_Config_t bandcfg)
 	t_u8 start_ch = pcfp->channel;
 	t_bool ret = MTRUE;
 
-	if (pcfp->dynamic.flags & MARVELL_CHANNEL_DISABLED)
+	if (pcfp->dynamic.flags & NXP_CHANNEL_DISABLED)
 		return MFALSE;
 
 	/* if band width is not 20MHZ (either 40 or 80MHz)
@@ -1349,11 +1350,11 @@ wlan_11h_is_chan_band_valid(chan_freq_power_t *pcfp, Band_Config_t bandcfg)
 
 	switch (bandcfg.chanWidth) {
 	case CHAN_BW_80MHZ:
-		if (pcfp->dynamic.flags & MARVELL_CHANNEL_NOHT80)
+		if (pcfp->dynamic.flags & NXP_CHANNEL_NOHT80)
 			ret = MFALSE;
 		break;
 	case CHAN_BW_40MHZ:
-		if (pcfp->dynamic.flags & MARVELL_CHANNEL_NOHT40)
+		if (pcfp->dynamic.flags & NXP_CHANNEL_NOHT40)
 			ret = MFALSE;
 		break;
 	default:
@@ -1649,6 +1650,10 @@ wlan_11h_config_master_radar_det(mlan_private *priv, t_bool enable)
 {
 	mlan_status ret = MLAN_STATUS_FAILURE;
 
+	/* Force disable master radar detection on in-AP interfaces */
+	if (priv->adapter->dfs_repeater)
+		enable = MFALSE;
+
 	ENTER();
 	if (wlan_11h_is_dfs_master(priv) &&
 	    priv->adapter->init_para.dfs_master_radar_det_en) {
@@ -1677,6 +1682,10 @@ mlan_status
 wlan_11h_config_slave_radar_det(mlan_private *priv, t_bool enable)
 {
 	mlan_status ret = MLAN_STATUS_FAILURE;
+
+	/* Force disable radar detection on STA interfaces */
+	if (priv->adapter->dfs_repeater)
+		enable = MFALSE;
 
 	ENTER();
 	if (wlan_11h_is_dfs_slave(priv) &&
@@ -1816,6 +1825,14 @@ wlan_11h_activate(mlan_private *priv, t_void *pioctl_buf, t_bool flag)
 	ENTER();
 	/* add bits for master/slave radar detect into enable. */
 	enable |= wlan_11h_get_current_radar_detect_flags(priv->adapter);
+
+	/* Whenever repeater mode is on make sure
+	 * we do not enable master or slave radar det mode.
+	 * HW will not detect radar in dfs_repeater mode.
+	 */
+	if (priv->adapter->dfs_repeater) {
+		enable &= ~(MASTER_RADAR_DET_MASK | SLAVE_RADAR_DET_MASK);
+	}
 
 	/*
 	 * Send cmd to FW to enable/disable 11h function in firmware
@@ -2045,8 +2062,8 @@ wlan_11h_get_adhoc_start_channel(mlan_private *priv)
 							channel;
 					} while (((chn_tbl->pcfp[rand_entry].
 						   dynamic.
-						   flags &
-						   MARVELL_CHANNEL_DISABLED) ||
+						   flags & NXP_CHANNEL_DISABLED)
+						  ||
 						  wlan_11h_is_channel_under_nop
 						  (adapter, start_chn) ||
 						  ((adapter->state_rdh.stage ==
@@ -3240,6 +3257,95 @@ wlan_11h_radar_detected_callback(t_void *priv)
 					       adapter, (mlan_private *)priv);
 	LEAVE();
 	return ret;
+}
+
+/**
+ *  @brief Function for handling sta disconnect event in dfs_repeater mode
+ *
+ *  @param pmadapter	pointer to mlan_adapter
+ *
+ *  @return NONE
+ */
+void
+wlan_dfs_rep_disconnect(mlan_adapter *pmadapter)
+{
+	mlan_private *priv_list[MLAN_MAX_BSS_NUM];
+	mlan_private *pmpriv = MNULL;
+	t_u8 pcount, i;
+
+	memset(pmadapter, priv_list, 0x00, sizeof(priv_list));
+	pcount = wlan_get_privs_by_cond(pmadapter, wlan_is_intf_active,
+					priv_list);
+
+	/* Stop all the active BSSes */
+	for (i = 0; i < pcount; i++) {
+		pmpriv = priv_list[i];
+
+		if (GET_BSS_ROLE(pmpriv) != MLAN_BSS_ROLE_UAP)
+			continue;
+
+		if (wlan_11h_radar_detect_required(pmpriv,
+						   pmadapter->dfsr_channel)) {
+			wlan_prepare_cmd(pmpriv, HOST_CMD_APCMD_BSS_STOP,
+					 HostCmd_ACT_GEN_SET, 0, MNULL, MNULL);
+		}
+	}
+}
+
+/**
+ *  @brief Function for handling sta BW change event in dfs_repeater mode
+ *
+ *  @param pmadapter	pointer to mlan_adapter
+ *
+ *  @return NONE
+ */
+void
+wlan_dfs_rep_bw_change(mlan_adapter *pmadapter)
+{
+	mlan_private *priv_list[MLAN_MAX_BSS_NUM];
+	mlan_private *pmpriv = MNULL;
+	t_u8 pcount, i;
+
+	memset(pmadapter, priv_list, 0x00, sizeof(priv_list));
+	pcount = wlan_get_privs_by_cond(pmadapter, wlan_is_intf_active,
+					priv_list);
+	if (pcount == 1) {
+		pmpriv = priv_list[0];
+		if (GET_BSS_ROLE(pmpriv) == MLAN_BSS_ROLE_STA) {
+			PRINTM(MMSG, "dfs-repeater: BW change detected\n"
+			       "no active priv's, skip event handling.\n");
+			return;
+		}
+	}
+
+	/* Stop all the active BSSes */
+	for (i = 0; i < pcount; i++) {
+		pmpriv = priv_list[i];
+
+		if (GET_BSS_ROLE(pmpriv) == MLAN_BSS_ROLE_UAP) {
+
+			/* Check if uAPs running on non-dfs channel. If they do
+			 * then there is no need to restart the uAPs
+			 */
+			if (!wlan_11h_radar_detect_required(pmpriv,
+							    pmadapter->
+							    dfsr_channel))
+				return;
+
+			wlan_prepare_cmd(pmpriv, HOST_CMD_APCMD_BSS_STOP,
+					 HostCmd_ACT_GEN_SET, 0, MNULL, MNULL);
+		}
+	}
+
+	/* Start all old active BSSes */
+	for (i = 0; i < pcount; i++) {
+		pmpriv = priv_list[i];
+
+		if (GET_BSS_ROLE(pmpriv) == MLAN_BSS_ROLE_UAP) {
+			wlan_prepare_cmd(pmpriv, HOST_CMD_APCMD_BSS_START,
+					 HostCmd_ACT_GEN_SET, 0, MNULL, MNULL);
+		}
+	}
 }
 
 /**

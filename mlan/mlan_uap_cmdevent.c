@@ -2,11 +2,12 @@
  *
  *  @brief This file contains the handling of AP mode command and event
  *
- *  Copyright (C) 2009-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -56,8 +58,7 @@ uap_process_cmdresp_error(mlan_private *pmpriv, HostCmd_DS_COMMAND *resp,
 	mlan_status ret = MLAN_STATUS_FAILURE;
 
 	ENTER();
-	if (resp->command != HostCmd_CMD_WMM_PARAM_CONFIG
-	    || resp->command != HostCmd_CMD_CHAN_REGION_CFG)
+	if (resp->command != HostCmd_CMD_WMM_PARAM_CONFIG)
 		PRINTM(MERROR, "CMD_RESP: cmd %#x error, result=%#x\n",
 		       resp->command, resp->result);
 	if (pioctl_buf)
@@ -149,10 +150,6 @@ uap_process_cmdresp_error(mlan_private *pmpriv, HostCmd_DS_COMMAND *resp,
 				}
 			}
 		}
-		break;
-	case HostCmd_CMD_CHAN_REGION_CFG:
-		ret = MLAN_STATUS_SUCCESS;
-		PRINTM(MCMND, "FW don't support chan region cfg command!\n");
 		break;
 	default:
 		break;
@@ -655,6 +652,15 @@ wlan_uap_cmd_ap_config(pmlan_private pmpriv,
 		       &bss->param.bss_config.mac_addr, MLAN_MAC_ADDR_LENGTH);
 		cmd_size += sizeof(MrvlIEtypes_MacAddr_t);
 		tlv += sizeof(MrvlIEtypes_MacAddr_t);
+	}
+
+	if (bss->param.bss_config.bandcfg.scanMode == SCAN_MODE_ACS) {
+		/* ACS is not allowed when DFS repeater mode is on */
+		if (pmpriv->adapter->dfs_repeater) {
+			PRINTM(MERROR, "ACS is not allowed when"
+			       "DFS repeater mode is on.\n");
+			return MLAN_STATUS_FAILURE;
+		}
 	}
 
 	if (bss->param.bss_config.ssid.ssid_len) {
@@ -1846,9 +1852,6 @@ wlan_uap_ret_cmd_ap_config(IN pmlan_private pmpriv,
 	MrvlIEtypes_gwk_cipher_t *tlv_gwk_cipher = MNULL;
 	MrvlIEtypes_rsn_replay_prot_t *tlv_rsn_prot = MNULL;
 	MrvlIEtypes_passphrase_t *tlv_passphrase = MNULL;
-#ifdef WIFI_DIRECT_SUPPORT
-	MrvlIEtypes_psk_t *tlv_psk = MNULL;
-#endif /* WIFI_DIRECT_SUPPORT */
 	MrvlIEtypes_group_rekey_time_t *tlv_rekey_time = MNULL;
 	MrvlIEtypes_wep_key_t *tlv_wep_key = MNULL;
 	MrvlIEtypes_preamble_t *tlv_preamble = MNULL;
@@ -2095,6 +2098,16 @@ wlan_uap_ret_cmd_ap_config(IN pmlan_private pmpriv,
 				bss->param.bss_config.wpa_cfg.
 					pairwise_cipher_wpa2 =
 					tlv_pwk_cipher->pairwise_cipher;
+			if (wlan_le16_to_cpu(tlv_pwk_cipher->protocol) &
+			    PROTOCOL_OWE)
+				bss->param.bss_config.wpa_cfg.
+					pairwise_cipher_wpa2 =
+					tlv_pwk_cipher->pairwise_cipher;
+			if (wlan_le16_to_cpu(tlv_pwk_cipher->protocol) &
+			    PROTOCOL_WPA3_SAE)
+				bss->param.bss_config.wpa_cfg.
+					pairwise_cipher_wpa2 =
+					tlv_pwk_cipher->pairwise_cipher;
 			break;
 		case TLV_TYPE_GWK_CIPHER:
 			tlv_gwk_cipher = (MrvlIEtypes_gwk_cipher_t *)tlv;
@@ -2115,13 +2128,6 @@ wlan_uap_ret_cmd_ap_config(IN pmlan_private pmpriv,
 			       tlv_passphrase->passphrase,
 			       bss->param.bss_config.wpa_cfg.length);
 			break;
-#ifdef WIFI_DIRECT_SUPPORT
-		case TLV_TYPE_UAP_PSK:
-			tlv_psk = (MrvlIEtypes_psk_t *)tlv;
-			memcpy(pmpriv->adapter, bss->param.bss_config.psk,
-			       tlv_psk->psk, MIN(MLAN_MAX_KEY_LENGTH, tlv_len));
-			break;
-#endif /* WIFI_DIRECT_SUPPORT */
 		case TLV_TYPE_UAP_GRP_REKEY_TIME:
 			tlv_rekey_time = (MrvlIEtypes_group_rekey_time_t *)tlv;
 			bss->param.bss_config.wpa_cfg.gk_rekey_time =
@@ -3825,7 +3831,7 @@ wlan_uap_cmd_add_station(pmlan_private pmpriv,
 	t_u16 tlv_buf_left;
 	t_u8 *pos = MNULL;
 	t_u8 *tlv_buf = MNULL;
-	t_u16 travel_len = 0;
+	t_u16 travel_len = 0, i;
 	MrvlIEtypesHeader_t *tlv;
 	t_u16 tlv_len = 0;
 	t_u8 b_only = MFALSE;
@@ -3907,6 +3913,15 @@ wlan_uap_cmd_add_station(pmlan_private pmpriv,
 			PRINTM(MCMND, "STA supports 11n\n");
 			sta_ptr->is_11n_enabled = MTRUE;
 			phtcap = (MrvlIETypes_HTCap_t *)tlv;
+			if (sta_ptr->HTcap.ieee_hdr.element_id == HT_CAPABILITY) {
+				if (GETHT_40MHZ_INTOLARANT
+				    (sta_ptr->HTcap.ht_cap.ht_cap_info)) {
+					PRINTM(MCMND,
+					       "SETHT_40MHZ_INTOLARANT\n");
+					SETHT_40MHZ_INTOLARANT(phtcap->ht_cap.
+							       ht_cap_info);
+				}
+			}
 			if (GETHT_MAXAMSDU(phtcap->ht_cap.ht_cap_info))
 				sta_ptr->max_amsdu = MLAN_TX_DATA_BUF_SIZE_8K;
 			else
@@ -3947,7 +3962,20 @@ wlan_uap_cmd_add_station(pmlan_private pmpriv,
 			sta_ptr->bandmode = BAND_GAC;
 		else
 			sta_ptr->bandmode = BAND_AAC;
-	} else if (sta_ptr->is_11n_enabled) {
+	} else
+	 if (pmpriv->is_11n_enabled) {
+		for (i = 0; i < MAX_NUM_TID; i++) {
+			if (sta_ptr->is_11n_enabled)
+				sta_ptr->ampdu_sta[i] =
+					pmpriv->aggr_prio_tbl[i].ampdu_user;
+			else
+				sta_ptr->ampdu_sta[i] = BA_STREAM_NOT_ALLOWED;
+		}
+		memset(pmadapter, sta_ptr->rx_seq, 0xff,
+		       sizeof(sta_ptr->rx_seq));
+	}
+
+	if (sta_ptr->is_11n_enabled) {
 		if (pmpriv->uap_channel <= 14)
 			sta_ptr->bandmode = BAND_GN;
 		else
@@ -4112,20 +4140,6 @@ wlan_ops_uap_prepare_cmd(IN t_void *priv,
 		ret = wlan_cmd_tx_bf_cfg(pmpriv, cmd_ptr, cmd_action,
 					 pdata_buf);
 		break;
-#if defined(WIFI_DIRECT_SUPPORT)
-	case HostCmd_CMD_SET_BSS_MODE:
-		cmd_ptr->command = wlan_cpu_to_le16(cmd_no);
-		if (pdata_buf)
-			cmd_ptr->params.bss_mode.con_type = *(t_u8 *)pdata_buf;
-		else
-			cmd_ptr->params.bss_mode.con_type =
-				BSS_MODE_WIFIDIRECT_GO;
-		cmd_ptr->size =
-			wlan_cpu_to_le16(sizeof(HostCmd_DS_SET_BSS_MODE) +
-					 S_DS_GEN);
-		ret = MLAN_STATUS_SUCCESS;
-		break;
-#endif
 	case HostCmd_CMD_VERSION_EXT:
 		cmd_ptr->command = wlan_cpu_to_le16(cmd_no);
 		cmd_ptr->params.verext.version_str_sel =
@@ -4171,16 +4185,6 @@ wlan_ops_uap_prepare_cmd(IN t_void *priv,
 						 pdata_buf);
 		break;
 
-#ifdef WIFI_DIRECT_SUPPORT
-	case HOST_CMD_WIFI_DIRECT_MODE_CONFIG:
-		ret = wlan_cmd_wifi_direct_mode(pmpriv, cmd_ptr, cmd_action,
-						pdata_buf);
-		break;
-	case HOST_CMD_P2P_PARAMS_CONFIG:
-		ret = wlan_cmd_p2p_params_config(pmpriv, cmd_ptr, cmd_action,
-						 pdata_buf);
-		break;
-#endif
 	case HostCmd_CMD_11AC_CFG:
 		ret = wlan_cmd_11ac_cfg(pmpriv, cmd_ptr, cmd_action, pdata_buf);
 		break;
@@ -4231,21 +4235,11 @@ wlan_ops_uap_prepare_cmd(IN t_void *priv,
 						     cmd_action, pdata_buf);
 		break;
 
-	case HostCmd_CMD_HOST_CLOCK_CFG:
-		ret = wlan_cmd_host_clock_cfg(cmd_ptr, cmd_action, pdata_buf);
-		break;
 #ifdef STA_SUPPORT
 	case HostCmd_CMD_ACS:
 		ret = wlan_cmd_acs(pmpriv, cmd_ptr, cmd_action, pdata_buf);
 		break;
 #endif
-	case HostCmd_CMD_CHAN_REGION_CFG:
-		cmd_ptr->command = wlan_cpu_to_le16(cmd_no);
-		cmd_ptr->size =
-			wlan_cpu_to_le16(sizeof(HostCmd_DS_CHAN_REGION_CFG) +
-					 S_DS_GEN);
-		cmd_ptr->params.reg_cfg.action = wlan_cpu_to_le16(cmd_action);
-		break;
 	case HostCmd_CMD_802_11_NET_MONITOR:
 		ret = wlan_cmd_net_monitor(cmd_ptr, cmd_action, pdata_buf);
 		break;
@@ -4301,6 +4295,9 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 	mlan_ioctl_req *pioctl_buf = (mlan_ioctl_req *)pioctl;
 	mlan_adapter *pmadapter = pmpriv->adapter;
 	int ctr;
+	wlan_dfs_device_state_t *pstate_dfs = (wlan_dfs_device_state_t *)
+		&pmpriv->adapter->state_dfs;
+	t_u32 sec, usec;
 	ENTER();
 
 	/* If the command is not successful, cleanup and return failure */
@@ -4314,6 +4311,20 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 	switch (cmdresp_no) {
 	case HOST_CMD_APCMD_BSS_STOP:
 		pmpriv->uap_bss_started = MFALSE;
+		/* Timestamp update is required because bss_start after skip_cac
+		 * enabled should not select non-current channel just because
+		 * timestamp got expired
+		 */
+		if (!pmpriv->intf_state_11h.is_11h_host &&
+		    !pstate_dfs->dfs_check_pending &&
+		    pstate_dfs->dfs_check_channel) {
+			pmpriv->adapter->callbacks.moal_get_system_time(pmpriv->
+									adapter->
+									pmoal_handle,
+									&sec,
+									&usec);
+			pstate_dfs->dfs_report_time_sec = sec;
+		}
 		if (pmpriv->intf_state_11h.is_11h_host)
 			pmpriv->intf_state_11h.tx_disabled = MFALSE;
 		else {
@@ -4477,14 +4488,6 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 	case HostCmd_CMD_802_11_REMAIN_ON_CHANNEL:
 		ret = wlan_ret_remain_on_channel(pmpriv, resp, pioctl_buf);
 		break;
-#ifdef WIFI_DIRECT_SUPPORT
-	case HOST_CMD_WIFI_DIRECT_MODE_CONFIG:
-		ret = wlan_ret_wifi_direct_mode(pmpriv, resp, pioctl_buf);
-		break;
-	case HOST_CMD_P2P_PARAMS_CONFIG:
-		ret = wlan_ret_p2p_params_config(pmpriv, resp, pioctl_buf);
-		break;
-#endif
 	case HostCmd_CMD_11AC_CFG:
 		ret = wlan_ret_11ac_cfg(pmpriv, resp, pioctl_buf);
 		break;
@@ -4528,17 +4531,11 @@ wlan_ops_uap_process_cmdresp(IN t_void *priv,
 		ret = wlan_ret_get_tsf(pmpriv, resp, pioctl_buf);
 		break;
 
-	case HostCmd_CMD_HOST_CLOCK_CFG:
-		ret = wlan_ret_host_clock_cfg(pmpriv, resp, pioctl_buf);
-		break;
 #ifdef STA_SUPPORT
 	case HostCmd_CMD_ACS:
 		ret = wlan_ret_acs(pmpriv, resp, pioctl_buf);
 		break;
 #endif
-	case HostCmd_CMD_CHAN_REGION_CFG:
-		ret = wlan_ret_chan_region_cfg(pmpriv, resp, pioctl_buf);
-		break;
 	case HostCmd_CMD_BOOT_SLEEP:
 		ret = wlan_ret_boot_sleep(pmpriv, resp, pioctl_buf);
 		break;
@@ -4900,14 +4897,6 @@ wlan_ops_uap_process_event(IN t_void *priv)
 			pevent->event_id = 0;
 		}
 		break;
-#ifdef WIFI_DIRECT_SUPPORT
-	case EVENT_REMAIN_ON_CHANNEL_EXPIRED:
-		PRINTM(MEVENT, "EVENT: REMAIN_ON_CHANNEL_EXPIRED reason=%d\n",
-		       *(t_u16 *)pmadapter->event_body);
-		wlan_recv_event(pmpriv, MLAN_EVENT_ID_DRV_FLUSH_RX_WORK, MNULL);
-		pevent->event_id = MLAN_EVENT_ID_FW_REMAIN_ON_CHAN_EXPIRED;
-		break;
-#endif
 	case EVENT_MULTI_CHAN_INFO:
 		PRINTM(MEVENT, "EVENT: MULTI_CHAN_INFO\n");
 		wlan_handle_event_multi_chan_info(pmpriv, pmbuf);
