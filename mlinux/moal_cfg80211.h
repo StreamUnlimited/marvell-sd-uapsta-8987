@@ -2,11 +2,12 @@
   *
   * @brief This file contains the CFG80211 specific defines.
   *
-  * Copyright (C) 2011-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -52,6 +53,10 @@
 #endif
 #endif
 
+#ifndef WLAN_CIPHER_SUITE_FILS_PSK
+#define WLAN_CIPHER_SUITE_FILS_PSK 0x000FACFF
+#endif
+
 /* define for custom ie operation */
 #define MLAN_CUSTOM_IE_AUTO_IDX_MASK    0xffff
 #define MLAN_CUSTOM_IE_DELETE_MASK      0x0
@@ -63,6 +68,8 @@
 #define IE_MASK_EXTCAP                  0x0010
 
 #define MRVL_PKT_TYPE_MGMT_FRAME 0xE5
+
+t_u8 woal_check_fils_capability(const t_u8 *ie, int len);
 
 /**
  * If multiple wiphys are registered e.g. a regular netdev with
@@ -86,7 +93,10 @@ moal_private *woal_get_scan_interface(moal_handle *handle);
 #define HOST_MLME_AUTH_PENDING			MBIT(0)
 /** AUTH complete flag */
 #define HOST_MLME_AUTH_DONE			MBIT(1)
+#define HOST_MLME_ASSOC_PENDING                 MBIT(2)
+#define HOST_MLME_ASSOC_DONE                    MBIT(3)
 void woal_host_mlme_disconnect(moal_private *priv, t_u16 reason_code);
+void woal_host_mlme_work_queue(struct work_struct *work);
 #endif
 #endif
 
@@ -195,11 +205,7 @@ int woal_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 				       t_u8 key_index);
 #endif
 
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
-int woal_cfg80211_set_rekey_data(struct wiphy *wiphy, struct net_device *dev,
-				 struct cfg80211_gtk_rekey_data *data);
-#endif
-
+void woal_mgmt_frame_register(moal_private *priv, u16 frame_type, bool reg);
 void woal_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
 				       struct wireless_dev *wdev,
@@ -292,7 +298,6 @@ int woal_cfg80211_del_virtual_intf(struct wiphy *wiphy,
 int woal_cfg80211_del_virtual_intf(struct wiphy *wiphy, struct net_device *dev);
 #endif
 
-#if defined(WIFI_DIRECT_SUPPORT)
 /* Group Owner Negotiation Req */
 #define P2P_GO_NEG_REQ         0
 /* Group Owner Negotiation Rsp */
@@ -333,7 +338,6 @@ int woal_cfg80211_deinit_p2p(moal_private *priv);
 void woal_remove_virtual_interface(moal_handle *handle);
 
 #endif /* KERNEL_VERSION */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
 
 /** Define for remain on channel duration timer */
 #define MAX_REMAIN_ON_CHANNEL_DURATION      (1000)
@@ -428,6 +432,7 @@ void woal_csa_work_queue(struct work_struct *work);
 #if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
 void woal_cfg80211_notify_channel(moal_private *priv,
 				  chan_band_info * pchan_info);
+void woal_channel_switch_event(moal_private *priv, chan_band_info * pchan_info);
 #endif
 #endif
 #endif
@@ -459,17 +464,6 @@ void woal_cfg80211_setup_vht_cap(moal_private *priv,
 #endif
 int woal_cfg80211_assoc(moal_private *priv, void *sme, t_u8 wait_option,
 			mlan_ds_misc_assoc_rsp *assoc_rsp);
-
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
-#define REGULATORY_CFG_LEN  (NL80211_MAX_SUPP_REG_RULES << 1)
-enum marvell_channel_flags {
-	MARVELL_CHANNEL_PASSIVE = BIT(0),
-	MARVELL_CHANNEL_DFS = BIT(1),
-	MARVELL_CHANNEL_NOHT40 = BIT(2),
-	MARVELL_CHANNEL_NOHT80 = BIT(3),
-	MARVELL_CHANNEL_DISABLED = BIT(7),
-};
-#endif
 
 t_u8 woal_get_second_channel_offset(int chan);
 

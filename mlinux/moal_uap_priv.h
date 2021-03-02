@@ -2,11 +2,12 @@
   *
   * @brief This file contains definition for extended private IOCTL call.
   *
-  * Copyright (C) 2010-2019, Marvell International Lt.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -62,11 +63,9 @@ Change log:
 
 /** Private command ID to set one int/get one int */
 #define WOAL_UAP_SETONEINT_GETONEINT            (WOAL_UAP_IOCTL + 5)
-#if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 /** Private command ID for set/get BSS role */
 #define WOAL_UAP_SET_GET_BSS_ROLE       1
-#endif
 #endif
 
 /** Private command ID for hostcmd */
@@ -145,14 +144,12 @@ static const struct iw_priv_args woal_uap_priv_args[] = {
 	 IW_PRIV_TYPE_INT | 1,
 	 IW_PRIV_TYPE_INT | 1,
 	 ""},
-#if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 	{
 	 WOAL_UAP_SET_GET_BSS_ROLE,
 	 IW_PRIV_TYPE_INT | 1,
 	 IW_PRIV_TYPE_INT | 1,
 	 "bssrole"},
-#endif
 #endif
 	{
 	 WOAL_UAP_SET_GET_256_CHAR,

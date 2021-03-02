@@ -2,11 +2,12 @@
   *
   * @brief This file contains wireless extension standard ioctl functions
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -2021,6 +2022,8 @@ woal_set_priv(struct net_device *dev, struct iw_request_info *info,
 		ret = -EFAULT;
 		goto done;
 	}
+	buf[dwrq->length] = '\0';
+
 	PRINTM(MIOCTL, "SIOCSIWPRIV request = %s\n", buf);
 	if (strncmp(buf, "RSSILOW-THRESHOLD", strlen("RSSILOW-THRESHOLD")) == 0) {
 		if (dwrq->length > strlen("RSSILOW-THRESHOLD") + 1) {
@@ -3149,7 +3152,8 @@ woal_get_wireless_stats(struct net_device *dev)
 	PRINTM(MINFO, "Signal Level = %#x\n", priv->w_stats.qual.level);
 	PRINTM(MINFO, "Noise = %#x\n", priv->w_stats.qual.noise);
 	priv->w_stats.discard.code = 0;
-	woal_get_stats_info(priv, wait_option, NULL);
+	if (MLAN_STATUS_SUCCESS != woal_get_stats_info(priv, wait_option, NULL))
+		PRINTM(MERROR, "Error getting stats information\n");
 
 	LEAVE();
 	return &priv->w_stats;

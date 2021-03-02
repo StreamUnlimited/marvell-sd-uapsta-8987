@@ -1,10 +1,10 @@
 =================================================================================
         U S E R  M A N U A L  F O R  OpenWrt
 
-This section describes detailed steps to add Marvell Wireless NIC (sdio/usb/pcie)
+This section describes detailed steps to add NXP Wireless NIC (sdio/usb/pcie)
 driver to OpenWrt build system.
 
-Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
+Add nxp driver (sdio/usb/pcie) to OpenWrt build system.
 
 1. Go to the openwrt source code folder
 2. make menuconfig
@@ -23,17 +23,17 @@ Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
    network access as long as you need to compile openwrt BSP.
 6. Go to the openwrt source code folder: openwrt/dl/
 7. Find compat-wireless-xxxx-xx-xx.tar.bz2, and uncompress the package
-8. Go to compat-wireless-xxxx-xx-xx/drivers/net/wireless/marvell/
-9. Modify compat-wireless-xxxx-xx-xx/drivers/net/wireless/marvell/Kconfig
+8. Go to compat-wireless-xxxx-xx-xx/drivers/net/wireless/nxp/
+9. Modify compat-wireless-xxxx-xx-xx/drivers/net/wireless/nxp/Kconfig
 
-	source "drivers/net/wireless/marvell/libertas/Kconfig"
-	source "drivers/net/wireless/marvell/libertas_tf/Kconfig"
-	source "drivers/net/wireless/marvell/mwifiex/Kconfig"
-	+source "drivers/net/wireless/marvell/mrvl-pcie/Kconfig"
-	+source "drivers/net/wireless/marvell/mrvl-sd8xxx/Kconfig"
-	+source "drivers/net/wireless/marvell/mrvl-usb/Kconfig"
+	source "drivers/net/wireless/nxp/libertas/Kconfig"
+	source "drivers/net/wireless/nxp/libertas_tf/Kconfig"
+	source "drivers/net/wireless/nxp/mwifiex/Kconfig"
+	+source "drivers/net/wireless/nxp/mrvl-pcie/Kconfig"
+	+source "drivers/net/wireless/nxp/mrvl-sd8xxx/Kconfig"
+	+source "drivers/net/wireless/nxp/mrvl-usb/Kconfig"
 
-10. Modify compat-wireless-xxxx-xx-xx/drivers/net/wireless/marvell/Makefile
+10. Modify compat-wireless-xxxx-xx-xx/drivers/net/wireless/nxp/Makefile
 
 	obj-$(CPTCFG_LIBERTAS_THINFIRM)	+= libertas_tf/
 	obj-$(CPTCFG_MWIFIEX)	+= mwifiex/
@@ -41,7 +41,7 @@ Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
 	+obj-$(CPTCFG_MRVL_SD8XXX) += mrvl-sd8xxx/
 	+obj-$(CPTCFG_MRVL_USB) += mrvl-usb/
 
-11. Go to compat-wireless-xxxx-xx-xx/drivers/net/wireless/marvell/
+11. Go to compat-wireless-xxxx-xx-xx/drivers/net/wireless/nxp/
 12. mkdir (mrvl-pcie/mrvl-sd8xxx/mrvl-usb)
 13. copy (pcie/sdio/usb)/wlan_src/* to (mrvl-pcie/mrvl-sd8xxx/mrvl-usb)
 14. Go to mrvl-pcie/mrvl-sd8xxx/mrvl-usb
@@ -49,13 +49,13 @@ Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
 	mrvl-pcie/Kconfig
 
 	+config MRVL_PCIE
-	+	tristate "Marvell Wireless Driver for PCIE 8997"
+	+	tristate "NXP Wireless Driver for PCIE 8997"
 	+	depends on m
 	+	depends on PCI
 	+	depends on CFG80211
 	+	depends on WIRELESS_EXT
 	+	---help---
-	+	  This adds support for wireless adapters based on Marvell
+	+	  This adds support for wireless adapters based on NXP
 	+	  pcie 8997 chipsets with PCIe interface.
 	+
 	+	  If you choose to build it as a module, it will be called
@@ -64,24 +64,24 @@ Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
 	mrvl-sd8xxx/Kconfig
 
 	+config MRVL_SD8XXX
-	+	tristate "Marvell sdio 802.11n/802.11ac Wireless cards"
+	+	tristate "NXP sdio 802.11n/802.11ac Wireless cards"
 	+	depends on m
 	+	depends on MMC
 	+	depends on CFG80211
 	+	depends on WIRELESS_EXT
 	+	---help---
-	+	  A driver for Marvell sdio 802.11n/802.11ac Wireless cards.
+	+	  A driver for NXP sdio 802.11n/802.11ac Wireless cards.
 
 	mrvl-usb/Kconfig
 
 	+config MRVL_USB
-	+	tristate "Marvell sdio 802.11n/802.11ac Wireless cards"
+	+	tristate "NXP sdio 802.11n/802.11ac Wireless cards"
 	+	depends on m
 	+	depends on USB
 	+	depends on CFG80211
 	+	depends on WIRELESS_EXT
 	+	---help---
-	+	A driver for Marvell sdio 802.11n/802.11ac Wireless cards.
+	+	A driver for NXP sdio 802.11n/802.11ac Wireless cards.
 
 16. Open moal_main.h under (mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlinux/
 
@@ -108,15 +108,15 @@ Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
 
 	MODEXT = ko
 	-ccflags-y += -I$(M)/mlan
-	+ccflags-y += -I$(M)/drivers/net/wireless/marvell/(mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlan
+	+ccflags-y += -I$(M)/drivers/net/wireless/nxp/(mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlan
 	ccflags-y += -DLINUX
 
 
 	ifeq ($(CONFIG_EMBEDDED_SUPP_AUTH), y)
 	-ccflags-y += -I$(M)/mlan/esa
 	-ccflags-y += -I$(M)/mlan/esa/common
-	+ccflags-y += -I$(M)/drivers/net/wireless/marvell/(mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlan/esa
-	+ccflags-y += -I$(M)/drivers/net/wireless/marvell/(mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlan/esa/common
+	+ccflags-y += -I$(M)/drivers/net/wireless/nxp/(mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlan/esa
+	+ccflags-y += -I$(M)/drivers/net/wireless/nxp/(mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/mlan/esa/common
 	endif
 
 18. compress compat-wireless-xxxx-xx-xx to its original .tar.bz2 format
@@ -147,45 +147,45 @@ Add marvell driver (sdio/usb/pcie) to OpenWrt build system.
 
 	+define KernelPackage/mrvl-pcie
 	+  $(call KernelPackage/mac80211/Default)
-	+  TITLE:=Marvell pcie wireless driver
+	+  TITLE:=NXP pcie wireless driver
 	+  URL:=http://wireless.kernel.org/en/users/Drivers/mwifiex
 	+  DEPENDS+= @PCI_SUPPORT +kmod-mac80211 +@DRIVER_11N_SUPPORT
 	+  FILES:= \
-	+	$(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-pcie/mlan.ko \
-	+	$(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-pcie/pcie8xxx.ko
+	+	$(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-pcie/mlan.ko \
+	+	$(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-pcie/pcie8xxx.ko
 	+  AUTOLOAD:=$(call AutoProbe,mrvl-pcie)
 	+endef
 
 	+define KernelPackage/mrvl-pcie/description
-	+ Kernel modules for Marvell pcie 802.11n/802.11ac PCIe Wireless cards
+	+ Kernel modules for NXP pcie 802.11n/802.11ac PCIe Wireless cards
 	+endef
 
 	+define KernelPackage/mrvl-sd8xxx
 	+  $(call KernelPackage/mac80211/Default)
 	+  DEPENDS+= +kmod-cfg80211 +kmod-lib80211 +kmod-mmc +@DRIVER_WEXT_SUPPORT
-	+  TITLE:=Marvell sdio Wireless Driver
+	+  TITLE:=NXP sdio Wireless Driver
 	+  FILES:= \
-	+	$(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-sd8xxx/mlan.ko \
-	+	$(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-sd8xxx/sd8xxx.ko
+	+	$(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-sd8xxx/mlan.ko \
+	+	$(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-sd8xxx/sd8xxx.ko
 	+  AUTOLOAD:=$(call AutoProbe, mrvl-sd8xxx)
 	+endef
 
 	+define KernelPackage/mrvl-sd8xxx/description
-	+ Kernel modules for Marvell sdio 802.11n/802.11ac Wireless cards
+	+ Kernel modules for NXP sdio 802.11n/802.11ac Wireless cards
 	+endef
 
 	+define KernelPackage/mrvl-usb
 	+  $(call KernelPackage/mac80211/Default)
 	+  DEPENDS+= @USB_SUPPORT +kmod-cfg80211 +kmod-usb-core +kmod-lib80211 +@DRIVER_WEXT_SUPPORT
-	+  TITLE:=Marvell usb Wireless Driver
+	+  TITLE:=NXP usb Wireless Driver
 	+  FILES:= \
-	+	$(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-usb/mlan.ko \
-	+	$(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-usb/usb8xxx.ko
+	+	$(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-usb/mlan.ko \
+	+	$(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-usb/usb8xxx.ko
 	+  AUTOLOAD:=$(call AutoProbe, mrvl-usb)
 	+endef
 
 	+define KernelPackage/mrvl-usb/description
-	+ Kernel modules for Marvell usb 802.11n/802.11ac Wireless cards
+	+ Kernel modules for NXP usb 802.11n/802.11ac Wireless cards
 	+endef
 
 	...
@@ -211,7 +211,7 @@ OpenWrt configuration
 21. Go to OpenWrt srouce code folder
 22. Make menuconfig
 
-   select one of the newly added marvell driver
+   select one of the newly added nxp driver
 	│-> Kernel modules
 	│	-> Wireless Drivers
 	|		->mrvl-pcie
@@ -266,7 +266,7 @@ OpenWrt configuration
 
 	Compile OpenWrt using Make V=s, then write openwrt img to u-disk and boot up
 
-26. Bring up marvell wireless NIC on OpenWrt system
+26. Bring up nxp wireless NIC on OpenWrt system
 
 	copy pcie/sdio/usb firmware to /lib/firmware/mrvl folder
 	On OpenWrt running OS
@@ -274,42 +274,42 @@ OpenWrt configuration
 
 	Another way is to add firmware binary to OpenWrt source code
 
-27. load marvell pcie/sdio/usb driver modules
+27. load nxp pcie/sdio/usb driver modules
 
-    End with Marvell Wirelss NIC card bring up on OpenWrt
+    End with NXP Wirelss NIC card bring up on OpenWrt
 
 =======================================================================================================
 If firmware is copied to OpenWrt via scp, following steps could be ignored.
 28. Add firmware binary in OpenWrt
 	Copy pcie/usb/sdio firmware to folder:
-	openwrt/build_dir/target-x86_64_uClibc-0.9.33.2/linux-firmware-52442afee9907bc32a058f22bb3295d040677c26/mrvl/
+	openwrt/build_dir/target-x86_64_uClibc-0.9.33.2/linux-firmware-52442afee9907bc32a058f22bb3295d040677c26/nxp/
 29. Go to penwrt/package/firmware/linux-firmware
-	Modify marvell.mk as following
+	Modify nxp.mk as following
 
-	+Package/mrvl-pcie-firmware = $(call Package/firmware-default,Marvell PCIE8997 firmware)
+	+Package/mrvl-pcie-firmware = $(call Package/firmware-default,NXP PCIE8997 firmware)
 	+define Package/mrvl-pcie-firmware/install
 	+	$(INSTALL_DIR) $(1)/lib/firmware/mrvl
 	+	$(INSTALL_DATA) \
-	+		$(PKG_BUILD_DIR)/mrvl/pcieusb8997_combo_v4.bin \
-	+		$(1)/lib/firmware/mrvl/
+	+		$(PKG_BUILD_DIR)/nxp/pcieusb8997_combo_v4.bin \
+	+		$(1)/lib/firmware/nxp/
 	+endef
 	+$(eval $(call BuildPackage,mrvl-pcie-firmware))
 
-	+Package/mrvl-sd8xxx-firmware = $(call Package/firmware-default,Marvell SDIO8997 firmware)
+	+Package/mrvl-sd8xxx-firmware = $(call Package/firmware-default,NXP SDIO8997 firmware)
 	+define Package/mrvl-sd8xxx-firmware/install
 	+	$(INSTALL_DIR) $(1)/lib/firmware/mrvl
 	+	$(INSTALL_DATA) \
-	+		$(PKG_BUILD_DIR)/mrvl/sdsd8997_combo_v4.bin \
-	+		$(1)/lib/firmware/mrvl/
+	+		$(PKG_BUILD_DIR)/nxp/sdsd8997_combo_v4.bin \
+	+		$(1)/lib/firmware/nxp/
 	+endef
 	+$(eval $(call BuildPackage,mrvl-sd8xxx-firmware))
 
-	+Package/mrvl-usb-firmware = $(call Package/firmware-default,Marvell SDIO8997 firmware)
+	+Package/mrvl-usb-firmware = $(call Package/firmware-default,NXP SDIO8997 firmware)
 	+define Package/mrvl-usb-firmware/install
 	+	$(INSTALL_DIR) $(1)/lib/firmware/mrvl
 	+	$(INSTALL_DATA) \
-	+		$(PKG_BUILD_DIR)/mrvl/usbusb8997_combo_v4.bin \
-	+		$(1)/lib/firmware/mrvl/
+	+		$(PKG_BUILD_DIR)/nxp/usbusb8997_combo_v4.bin \
+	+		$(1)/lib/firmware/nxp/
 	+endef
 	+$(eval $(call BuildPackage,mrvl-usb-firmware))
 
@@ -327,11 +327,11 @@ To support SDIO, USB and PCIE in one OpenWrt BSP
 if no need to support multi bus types in one BSP, ignore the following steps
 32. Re-modify Modify openwrt/package/kernel/mac80211/Makefile.
 	for PCIE
-        +       $(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-pcie/mlan-pcie.ko \
+        +       $(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-pcie/mlan-pcie.ko \
 	for SDIO
-	+       $(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-sd8xxx/mlan-sdio.ko \
+	+       $(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-sd8xxx/mlan-sdio.ko \
 	for USB
-	+       $(PKG_BUILD_DIR)/drivers/net/wireless/marvell/mrvl-usb/mlan-usb.ko \
+	+       $(PKG_BUILD_DIR)/drivers/net/wireless/nxp/mrvl-usb/mlan-usb.ko \
 33. Re-modify (mrvl-pcie/mrvl-sd8xxx/mrvl-usb)/Makefile
 	for PCIE
 

@@ -2,11 +2,12 @@
   *
   * @brief This file contains functions for proc file.
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -143,14 +144,12 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 #endif
 	seq_printf(sfp, "driver_version = %s", fmt);
 	seq_printf(sfp, "\ninterface_name=\"%s\"\n", netdev->name);
-#if defined(WIFI_DIRECT_SUPPORT)
 	if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT) {
 		if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA)
 			seq_printf(sfp, "bss_mode = \"WIFIDIRECT-Client\"\n");
 		else
 			seq_printf(sfp, "bss_mode = \"WIFIDIRECT-GO\"\n");
 	}
-#endif
 #ifdef STA_SUPPORT
 	if (priv->bss_type == MLAN_BSS_TYPE_STA)
 		seq_printf(sfp, "bss_mode =\"%s\"\n", szModes[info.bss_mode]);
@@ -496,6 +495,75 @@ static const struct file_operations config_proc_fops = {
 	.write = woal_config_write,
 };
 
+static int
+woal_power_read(struct seq_file *sfp, void *data)
+{
+	moal_handle *handle = (moal_handle *)sfp->private;
+	moal_private *priv = NULL;
+	t_u64 nsec = 0;
+	t_u64 cumulate_on_time = 0;
+	int ret = 0;
+	mlan_ds_power_info power;
+
+	ENTER();
+
+	if (MODULE_GET == 0) {
+		LEAVE();
+		return ret;
+	}
+
+	priv = woal_get_priv(handle, MLAN_BSS_ROLE_ANY);
+	if (priv == NULL) {
+		PRINTM(MERROR, "priv is NULL\n");
+		ret = -EFAULT;
+		goto done;
+	}
+	memset(&power, 0, sizeof(mlan_ds_power_info));
+	ret = woal_get_power_info(priv, MOAL_IOCTL_WAIT, &power);
+	if ((t_u32)ret != MLAN_STATUS_SUCCESS) {
+		PRINTM(MERROR, "Failed to get power info\n");
+		ret = -EFAULT;
+		goto done;
+	}
+	moal_get_boot_ktime(handle, &nsec);
+	PRINTM(MINFO, "In proc, current time is %lu ms\n",
+	       (long unsigned int)moal_do_div(nsec, 1000000));
+	cumulate_on_time =
+		moal_do_div(nsec, 1000000) - moal_do_div(handle->on_time,
+							 1000000);
+	seq_printf(sfp, "cumulative_on_time_ms=%lu\n",
+		   (long unsigned int)cumulate_on_time);
+	seq_printf(sfp, "cumulative_sleep_time_ms=%lu\n",
+		   (long unsigned int)(power.cumulative_sleep_time_ms));
+	seq_printf(sfp, "deep_sleep_enter_counter=%d\n",
+		   power.deep_sleep_enter_counter);
+	seq_printf(sfp, "last_deep_sleep_tstamp_ms=%lu\n",
+		   (long unsigned int)power.last_deep_sleep_tstamp_ms);
+
+done:
+	MODULE_PUT;
+	LEAVE();
+	return ret;
+}
+
+static int
+woal_proc_power_open(struct inode *inode, struct file *file)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	return single_open(file, woal_power_read, PDE_DATA(inode));
+#else
+	return single_open(file, woal_power_read, PDE(inode)->data);
+#endif
+}
+
+static const struct file_operations power_fops = {
+	.owner = THIS_MODULE,
+	.open = woal_proc_power_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 /********************************************************
 		Global Functions
 ********************************************************/
@@ -552,6 +620,7 @@ woal_proc_init(moal_handle *handle)
 	struct proc_dir_entry *pde = PROC_DIR;
 #endif
 	char config_proc_dir[20];
+	char power_dir[20];
 
 	ENTER();
 
@@ -609,8 +678,27 @@ woal_proc_init(moal_handle *handle)
 				r->proc_fops = &config_proc_fops;
 			} else
 #endif
-				PRINTM(MMSG, "Fail to create proc config\n");
+				PRINTM(MERROR, "Fail to create proc config\n");
 			proc_dir_entry_use_count++;
+			if (handle->handle_idx)
+				sprintf(power_dir, "power%d",
+					handle->handle_idx);
+			else
+				strcpy(power_dir, "power");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
+			r = proc_create_data(power_dir, 0644,
+					     handle->proc_mwlan, &power_fops,
+					     handle);
+			if (r == NULL)
+#else
+			r = create_proc_entry(power_dir, 0644,
+					      handle->proc_mwlan);
+			if (r) {
+				r->data = handle;
+				r->proc_fops = &power_fops;
+			} else
+#endif
+				PRINTM(MERROR, "Failed to create proc power\n");
 		}
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 26)
 		proc_mwlan = handle->proc_mwlan;
@@ -635,6 +723,7 @@ woal_proc_exit(moal_handle *handle)
 	PRINTM(MINFO, "Remove Proc Interface\n");
 	if (handle->proc_mwlan) {
 		char config_proc_dir[20];
+		char power_dir[20];
 
 		if (handle->handle_idx)
 			sprintf(config_proc_dir, "config%d",
@@ -642,6 +731,11 @@ woal_proc_exit(moal_handle *handle)
 		else
 			strcpy(config_proc_dir, "config");
 		remove_proc_entry(config_proc_dir, handle->proc_mwlan);
+		if (handle->handle_idx)
+			sprintf(power_dir, "power%d", handle->handle_idx);
+		else
+			strcpy(power_dir, "power");
+		remove_proc_entry(power_dir, handle->proc_mwlan);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
 		/* Remove only if we are the only instance using this */
 		if (atomic_read(&(handle->proc_mwlan->count)) > 1) {
@@ -746,7 +840,7 @@ woal_create_proc_entry(moal_private *priv)
 				r->proc_fops = &info_proc_fops;
 			} else
 #endif
-				PRINTM(MMSG, "Fail to create proc info\n");
+				PRINTM(MERROR, "Fail to create proc info\n");
 		}
 	}
 

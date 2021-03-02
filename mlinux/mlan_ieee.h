@@ -3,11 +3,12 @@
  *  @brief This file contains IEEE information element related
  *  definitions used in MLAN and MOAL module.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -17,6 +18,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /******************************************************
@@ -85,6 +87,8 @@ typedef MLAN_PACK_START enum _IEEEtypes_ElementId_e {
 	QUIET = 40,
 	IBSS_DFS = 41,
 	SUPPORTED_CHANNELS = 36,
+	MEASUREMENT_REQUEST = 38,
+	MEASUREMENT_REPORT = 39,
 	REGULATORY_CLASS = 59,
 	HT_CAPABILITY = 45,
 	QOS_INFO = 46,
@@ -92,7 +96,6 @@ typedef MLAN_PACK_START enum _IEEEtypes_ElementId_e {
 	BSSCO_2040 = 72,
 	OVERLAPBSSSCANPARAM = 74,
 	EXT_CAPABILITY = 127,
-	LINK_ID = 101,
 	/*IEEE802.11r */
 	MOBILITY_DOMAIN = 54,
 	FAST_BSS_TRANSITION = 55,
@@ -108,6 +111,13 @@ typedef MLAN_PACK_START enum _IEEEtypes_ElementId_e {
 	AID_INFO = 197,
 	QUIET_CHAN = 198,
 	OPER_MODE_NTF = 199,
+	FILS_SESSION = 210,
+	FILS_PMKID_LIST = 211,
+	FILS_IP_REQ = 212,
+	FILS_IP_RESP = 213,
+	FILS_KEY_AUTH = 214,
+	FILS_KEY_DELIVERY = 215,
+	FILS_INDICATION = 240,
 
 	ERP_INFO = 42,
 
@@ -165,6 +175,33 @@ typedef MLAN_PACK_START struct _IEEEtypes_Generic_t {
     /** IE Max - size of previous fields */
 	t_u8 data[IEEE_MAX_IE_SIZE - sizeof(IEEEtypes_Header_t)];
 } MLAN_PACK_END IEEEtypes_Generic_t, *pIEEEtypes_Generic_t;
+
+#define MEASURE_TYPE_CLI 8
+#define MEASURE_TYPE_LOCATION_CIVIC 9
+
+/** Measurement Report IE */
+typedef MLAN_PACK_START struct _IEEEtypes_MeasurementReport_t {
+    /** Generic IE header */
+	IEEEtypes_Header_t ieee_hdr;
+    /** Measurement Token */
+	t_u8 ms_token;
+    /** Measurement Report Mode */
+	t_u8 ms_rp_mode;
+    /** Measurement Type, value in MEASURE_TYPE_XXX */
+	t_u8 ms_type;
+    /** variable */
+	t_u8 variable[0];
+} MLAN_PACK_END IEEEtypes_MeasurementReport_t;
+
+/** Report */
+typedef MLAN_PACK_START struct _IEEEtypes_Report_t {
+    /** Subelement ID */
+	t_u8 subelement_id;
+    /** length */
+	t_u8 length;
+    /** variable */
+	t_u8 variable[0];
+} MLAN_PACK_END IEEEtypes_Report_t;
 
 /**ft capability policy*/
 typedef MLAN_PACK_START struct _IEEEtypes_FtCapPolicy_t {
@@ -510,19 +547,6 @@ typedef t_u8 WLAN_802_11_RATES[WLAN_SUPPORTED_RATES];
 #define RSN_AKM_SAE	8
 /** AKM: PSK SHA256 */
 #define RSN_AKM_OWE	18
-
-#if defined(STA_SUPPORT)
-/** Pairwise Cipher Suite length */
-#define PAIRWISE_CIPHER_SUITE_LEN    4
-/** AKM Suite length */
-#define AKM_SUITE_LEN    4
-/** MFPC bit in RSN capability */
-#define MFPC_BIT    7
-/** MFPR bit in RSN capability */
-#define MFPR_BIT    6
-/** PMF ORing mask */
-#define PMF_MASK    0x00c0
-#endif
 
 /** wpa_suite_t */
 typedef MLAN_PACK_START struct _wpa_suite_t {
@@ -954,20 +978,6 @@ typedef MLAN_PACK_START struct _IEEEtypes_CountryInfoFullSet_t {
 	*pIEEEtypes_CountryInfoFullSet_t;
 
 #endif /* STA_SUPPORT */
-
-/** Data structure for Link ID */
-typedef MLAN_PACK_START struct _IEEEtypes_LinkIDElement_t {
-    /** Element ID */
-	t_u8 element_id;
-    /** Length */
-	t_u8 len;
-	/** bssid */
-	t_u8 bssid[MLAN_MAC_ADDR_LENGTH];
-	/** initial sta address */
-	t_u8 init_sta[MLAN_MAC_ADDR_LENGTH];
-	/** respose sta address */
-	t_u8 resp_sta[MLAN_MAC_ADDR_LENGTH];
-} MLAN_PACK_END IEEEtypes_LinkIDElement_t, *pIEEEtypes_LinkIDElement_t;
 
 /** HT Capabilities Data */
 typedef struct MLAN_PACK_START _HTCap_t {
@@ -1475,50 +1485,6 @@ typedef struct {
 
 } wlan_11h_bss_info_t;
 
-/** Ethernet packet type for TDLS */
-#define MLAN_ETHER_PKT_TYPE_TDLS_ACTION (0x890D)
-
-/*802.11z  TDLS action frame type and strcuct */
-typedef MLAN_PACK_START struct {
-	/*link indentifier ie =101 */
-	t_u8 element_id;
-	/*len = 18 */
-	t_u8 len;
-   /** bssid */
-	t_u8 bssid[MLAN_MAC_ADDR_LENGTH];
-   /** init sta mac address */
-	t_u8 init_sta[MLAN_MAC_ADDR_LENGTH];
-   /** resp sta mac address */
-	t_u8 resp_sta[MLAN_MAC_ADDR_LENGTH];
-} MLAN_PACK_END IEEEtypes_tdls_linkie;
-
-/** action code for tdls setup request */
-#define TDLS_SETUP_REQUEST 0
-/** action code for tdls setup response */
-#define TDLS_SETUP_RESPONSE 1
-/** action code for tdls setup confirm */
-#define TDLS_SETUP_CONFIRM 2
-/** action code for tdls tear down */
-#define TDLS_TEARDOWN 3
-/** action code for tdls traffic indication */
-#define TDLS_PEER_TRAFFIC_INDICATION 4
-/** action code for tdls channel switch request */
-#define TDLS_CHANNEL_SWITCH_REQUEST 5
-/** action code for tdls channel switch response */
-#define TDLS_CHANNEL_SWITCH_RESPONSE 6
-/** action code for tdls psm request */
-#define TDLS_PEER_PSM_REQUEST 7
-/** action code for tdls psm response */
-#define TDLS_PEER_PSM_RESPONSE 8
-/** action code for tdls traffic response */
-#define TDLS_PEER_TRAFFIC_RESPONSE 9
-/** action code for tdls discovery request */
-#define TDLS_DISCOVERY_REQUEST 10
-/** action code for TDLS discovery response */
-#define TDLS_DISCOVERY_RESPONSE 14
-/** category public */
-#define CATEGORY_PUBLIC         4
-
 /** action code for 20/40 BSS Coexsitence Management frame */
 #define BSS_20_40_COEX 0
 
@@ -1626,6 +1592,7 @@ typedef MLAN_PACK_START struct {
 	t_u8 ext_scan_type;
     /** flag to filer only probe response */
 	t_u8 proberesp_only;
+	t_u8 random_mac[MLAN_MAC_ADDR_LENGTH];
 } MLAN_PACK_END wlan_user_scan_cfg;
 
 /** Default scan interval in millisecond*/
@@ -1745,6 +1712,9 @@ typedef MLAN_PACK_START struct {
 	t_u8 black_list_exp;
     /** Array of ees config struct */
 	ees_ssid_config ees_ssid_cfg[EES_MAX_SSIDS];
+	t_u8 random_mac[MLAN_MAC_ADDR_LENGTH];
+    /** 11ai indication */
+	t_u8 dot11ai;
 } MLAN_PACK_END wlan_bgscan_cfg;
 #endif /* STA_SUPPORT */
 

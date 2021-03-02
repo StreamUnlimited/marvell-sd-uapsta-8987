@@ -355,62 +355,6 @@ wifidirect_cfg_wps_params
 		./wifidirectutl <iface> wifidirect_cfg_wps_params none
 		Indicates no operation
 
-===============================================================================
-        U S E R  M A N U A L  F O R  WIFIDISPLAY
-
-wifidisplay_mode
------------
-            "./wifidirectutl <iface> wifidisplay_mode [<action>]"
-            This command is used to enable or disable wifi-display. The possible values are either 1 or 0.
-		Example:
-		./wifidirectutl <iface> wifidisplay_mode 1
-		Indicates enable wifi_display
-
-		./wifidirectutl <iface> wifidisplay_mode 0
-		Indicates disable wifi_display
-
-wifidisplay_config
------------
-            "./wifidirectutl <iface> wifidisplay_config [*.conf]"
-
-            This command is used to set/get the wifidisplay configuration.
-
-             Example:
-             ./wifidirectutl <iface> wifidisplay_config wifidisplay.conf
-             Read configuration from wifidisplay.conf and apply it.
-             ./wifidirectutl <iface> wifidisplay_config
-             Read existing wifidisplay configuration and display it.
-
-wifidisplay_update_devinfo
-----------
-            "./wifidirectutl <iface> wifidisplay_update_devinfo [value]"
-
-            This command is used to set the device information of wifidisplay device information subelement.
-            This command will overwrite the new device information with user defined value.
-
-             Example:
-             ./wifidirectutl <iface> wifidisplay_update_devinfo 10
-             Update device information programmed with new value 10 by overwritting existing value.
-
-wifidisplay_discovery_request
-----------
-            "./wifidirectutl <iface> wifidisplay_discovery_request [*.config]"
-
-            This command is used to send wifi display service discovery request.
-
-            Example:
-            ./wifidirectutl <iface> wifidisplay_discovery_request wifidisplay.conf
-            Read discovery packet from wifidisplay.conf and send to peer.
-
-wifidisplay_discovery_response
-----------
-           "./wifidirectutl <iface> wifidisplay_discovery_response <*.conf>"
-
-           This command is used to send wifidisplay discovery response packet.
-
-           Example:
-           ./wifidirectutl <iface> wifidisplay_discovery_response wifidisplay.conf
-           Read discovery packet from wifidisplay.conf and send to peer.
 
 ===============================================================================
         U S E R  M A N U A L  F O R  MLANEVENT

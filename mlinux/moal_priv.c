@@ -2,11 +2,12 @@
   *
   * @brief This file contains standard ioctl functions
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -199,13 +200,11 @@ woal_warm_reset(moal_private *priv)
 	moal_handle *handle = priv->phandle;
 	mlan_ioctl_req *req = NULL;
 	mlan_ds_misc_cfg *misc = NULL;
-#if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 #if defined(STA_WEXT) || defined(UAP_WEXT)
 	t_u8 bss_role = MLAN_BSS_ROLE_STA;
 #endif
 #endif
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
 	mlan_status status = MLAN_STATUS_SUCCESS;
 
 	ENTER();
@@ -214,29 +213,6 @@ woal_warm_reset(moal_private *priv)
 
 	/* Reset all interfaces */
 	ret = woal_reset_intf(priv, MOAL_IOCTL_WAIT, MTRUE);
-
-	/* Initialize private structures */
-	for (intf_num = 0; intf_num < handle->priv_num; intf_num++) {
-		woal_init_priv(handle->priv[intf_num], MOAL_IOCTL_WAIT);
-#if defined(WIFI_DIRECT_SUPPORT)
-#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
-#if defined(STA_WEXT) || defined(UAP_WEXT)
-		if ((handle->priv[intf_num]->bss_type ==
-		     MLAN_BSS_TYPE_WIFIDIRECT) &&
-		    (GET_BSS_ROLE(handle->priv[intf_num]) ==
-		     MLAN_BSS_ROLE_UAP)) {
-			if (MLAN_STATUS_SUCCESS !=
-			    woal_bss_role_cfg(handle->priv[intf_num],
-					      MLAN_ACT_SET, MOAL_IOCTL_WAIT,
-					      &bss_role)) {
-				ret = -EFAULT;
-				goto done;
-			}
-		}
-#endif /* STA_WEXT || UAP_WEXT */
-#endif /* STA_SUPPORT && UAP_SUPPORT */
-#endif /* WIFI_DIRECT_SUPPORT && V14_FEATURE */
-	}
 
 	/* Restart the firmware */
 	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_misc_cfg));
@@ -253,6 +229,27 @@ woal_warm_reset(moal_private *priv)
 			goto done;
 		}
 		kfree(req);
+	}
+
+	/* Initialize private structures */
+	for (intf_num = 0; intf_num < handle->priv_num; intf_num++) {
+		woal_init_priv(handle->priv[intf_num], MOAL_IOCTL_WAIT);
+#if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
+#if defined(STA_WEXT) || defined(UAP_WEXT)
+		if ((handle->priv[intf_num]->bss_type ==
+		     MLAN_BSS_TYPE_WIFIDIRECT) &&
+		    (GET_BSS_ROLE(handle->priv[intf_num]) ==
+		     MLAN_BSS_ROLE_UAP)) {
+			if (MLAN_STATUS_SUCCESS !=
+			    woal_bss_role_cfg(handle->priv[intf_num],
+					      MLAN_ACT_SET, MOAL_IOCTL_WAIT,
+					      &bss_role)) {
+				ret = -EFAULT;
+				goto done;
+			}
+		}
+#endif /* STA_WEXT || UAP_WEXT */
+#endif /* STA_SUPPORT && UAP_SUPPORT */
 	}
 
 	/* Enable interfaces */
@@ -1910,9 +1907,8 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 
 			/* Supported filter flags */
 			if (!data[1] || data[1] &
-			    ~(MLAN_NETMON_DATA | MLAN_NETMON_MANAGEMENT |
-			      MLAN_NETMON_CONTROL | MLAN_NETMON_NOPROM |
-			      MLAN_NETMON_DECRYPTED)) {
+			    ~(MLAN_NETMON_DATA | MLAN_NETMON_MANAGEMENT
+			      | MLAN_NETMON_CONTROL)) {
 				PRINTM(MERROR,
 				       "NET_MON: Invalid filter flag\n");
 				ret = -EINVAL;
@@ -1920,10 +1916,10 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 			}
 			if (user_data_len > 2) {
 				/* Supported bands */
-				for (i = 0; i < sizeof(SupportedAdhocBand); i++)
-					if (data[2] == SupportedAdhocBand[i])
+				for (i = 0; i < sizeof(SupportedInfraBand); i++)
+					if (data[2] == SupportedInfraBand[i])
 						break;
-				if (i == sizeof(SupportedAdhocBand)) {
+				if (i == sizeof(SupportedInfraBand)) {
 					PRINTM(MERROR,
 					       "NET_MON: Invalid band\n");
 					ret = -EINVAL;
@@ -2006,6 +2002,7 @@ woal_net_monitor_ioctl(moal_private *priv, struct iwreq *wrq)
 				net_mon->channel;
 			handle->mon_if->band_chan_cfg.chan_bandwidth =
 				net_mon->chan_bandwidth;
+			handle->mon_if->flag = net_mon->filter_flag;
 		} else {
 			/* Disable sniffer mode */
 			if (handle->mon_if) {
@@ -2865,42 +2862,42 @@ woal_drv_dbg(moal_private *priv, struct iwreq *wrq)
 		goto drvdbgexit;
 	}
 
-	printk(KERN_ALERT "drvdbg = 0x%08x\n", drvdbg);
+	printk(KERN_DEBUG "drvdbg = 0x%08x\n", drvdbg);
 #ifdef DEBUG_LEVEL2
-	printk(KERN_ALERT "MINFO  (%08x) %s\n", MINFO,
+	printk(KERN_DEBUG "MINFO  (%08x) %s\n", MINFO,
 	       (drvdbg & MINFO) ? "X" : "");
-	printk(KERN_ALERT "MWARN  (%08x) %s\n", MWARN,
+	printk(KERN_DEBUG "MWARN  (%08x) %s\n", MWARN,
 	       (drvdbg & MWARN) ? "X" : "");
-	printk(KERN_ALERT "MENTRY (%08x) %s\n", MENTRY,
+	printk(KERN_DEBUG "MENTRY (%08x) %s\n", MENTRY,
 	       (drvdbg & MENTRY) ? "X" : "");
 #endif
-	printk(KERN_ALERT "MMPA_D (%08x) %s\n", MMPA_D,
+	printk(KERN_DEBUG "MMPA_D (%08x) %s\n", MMPA_D,
 	       (drvdbg & MMPA_D) ? "X" : "");
-	printk(KERN_ALERT "MIF_D  (%08x) %s\n", MIF_D,
+	printk(KERN_DEBUG "MIF_D  (%08x) %s\n", MIF_D,
 	       (drvdbg & MIF_D) ? "X" : "");
-	printk(KERN_ALERT "MFW_D  (%08x) %s\n", MFW_D,
+	printk(KERN_DEBUG "MFW_D  (%08x) %s\n", MFW_D,
 	       (drvdbg & MFW_D) ? "X" : "");
-	printk(KERN_ALERT "MEVT_D (%08x) %s\n", MEVT_D,
+	printk(KERN_DEBUG "MEVT_D (%08x) %s\n", MEVT_D,
 	       (drvdbg & MEVT_D) ? "X" : "");
-	printk(KERN_ALERT "MCMD_D (%08x) %s\n", MCMD_D,
+	printk(KERN_DEBUG "MCMD_D (%08x) %s\n", MCMD_D,
 	       (drvdbg & MCMD_D) ? "X" : "");
-	printk(KERN_ALERT "MDAT_D (%08x) %s\n", MDAT_D,
+	printk(KERN_DEBUG "MDAT_D (%08x) %s\n", MDAT_D,
 	       (drvdbg & MDAT_D) ? "X" : "");
-	printk(KERN_ALERT "MIOCTL (%08x) %s\n", MIOCTL,
+	printk(KERN_DEBUG "MIOCTL (%08x) %s\n", MIOCTL,
 	       (drvdbg & MIOCTL) ? "X" : "");
-	printk(KERN_ALERT "MINTR  (%08x) %s\n", MINTR,
+	printk(KERN_DEBUG "MINTR  (%08x) %s\n", MINTR,
 	       (drvdbg & MINTR) ? "X" : "");
-	printk(KERN_ALERT "MEVENT (%08x) %s\n", MEVENT,
+	printk(KERN_DEBUG "MEVENT (%08x) %s\n", MEVENT,
 	       (drvdbg & MEVENT) ? "X" : "");
-	printk(KERN_ALERT "MCMND  (%08x) %s\n", MCMND,
+	printk(KERN_DEBUG "MCMND  (%08x) %s\n", MCMND,
 	       (drvdbg & MCMND) ? "X" : "");
-	printk(KERN_ALERT "MDATA  (%08x) %s\n", MDATA,
+	printk(KERN_DEBUG "MDATA  (%08x) %s\n", MDATA,
 	       (drvdbg & MDATA) ? "X" : "");
-	printk(KERN_ALERT "MERROR (%08x) %s\n", MERROR,
+	printk(KERN_DEBUG "MERROR (%08x) %s\n", MERROR,
 	       (drvdbg & MERROR) ? "X" : "");
-	printk(KERN_ALERT "MFATAL (%08x) %s\n", MFATAL,
+	printk(KERN_DEBUG "MFATAL (%08x) %s\n", MFATAL,
 	       (drvdbg & MFATAL) ? "X" : "");
-	printk(KERN_ALERT "MMSG   (%08x) %s\n", MMSG,
+	printk(KERN_DEBUG "MMSG   (%08x) %s\n", MMSG,
 	       (drvdbg & MMSG) ? "X" : "");
 
 drvdbgexit:
@@ -3763,241 +3760,6 @@ woal_wps_cfg_ioctl(moal_private *priv, struct iwreq *wrq)
 		goto done;
 	}
 
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/**
- *  @brief Set WPA passphrase and SSID
- *
- *  @param priv     A pointer to moal_private structure
- *  @param wrq      Pointer to the iwreq structure
- *
- *  @return         0 --success, otherwise fail
- */
-static int
-woal_passphrase(moal_private *priv, struct iwreq *wrq)
-{
-	t_u16 len = 0;
-	char buf[256];
-	char *begin = NULL, *end = NULL, *opt = NULL;
-	int ret = 0, action = -1, i;
-	mlan_ds_sec_cfg *sec = NULL;
-	mlan_ioctl_req *req = NULL;
-	t_u8 zero_mac[] = { 0, 0, 0, 0, 0, 0 };
-	t_u8 *mac = NULL;
-	int data_length = wrq->u.data.length, copy_len;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	if (!data_length || data_length >= sizeof(buf)) {
-		PRINTM(MERROR,
-		       "Argument missing or too long for setpassphrase\n");
-		ret = -EINVAL;
-		goto done;
-	}
-	memset(buf, 0, sizeof(buf));
-	copy_len = data_length;
-
-	if (copy_from_user(buf, wrq->u.data.pointer, copy_len)) {
-		PRINTM(MERROR, "Copy from user failed\n");
-		ret = -EFAULT;
-		goto done;
-	}
-
-	/* Parse the buf to get the cmd_action */
-	begin = buf;
-	end = woal_strsep(&begin, ';', '/');
-	if (!end) {
-		PRINTM(MERROR, "Invalid option\n");
-		ret = -EINVAL;
-		goto done;
-	}
-	action = woal_atox(end);
-	if (action < 0 || action > 2 || end[1] != '\0') {
-		PRINTM(MERROR, "Invalid action argument %s\n", end);
-		ret = -EINVAL;
-		goto done;
-	}
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_sec_cfg));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	sec = (mlan_ds_sec_cfg *)req->pbuf;
-	sec->sub_command = MLAN_OID_SEC_CFG_PASSPHRASE;
-	req->req_id = MLAN_IOCTL_SEC_CFG;
-	if (action == 0)
-		req->action = MLAN_ACT_GET;
-	else
-		req->action = MLAN_ACT_SET;
-	while (begin) {
-		end = woal_strsep(&begin, ';', '/');
-		opt = woal_strsep(&end, '=', '/');
-		if (!opt || !end || !end[0]) {
-			PRINTM(MERROR, "Invalid option\n");
-			ret = -EINVAL;
-			break;
-		} else if (!strnicmp(opt, "ssid", strlen(opt))) {
-			if (strlen(end) > MLAN_MAX_SSID_LENGTH) {
-				PRINTM(MERROR,
-				       "SSID length exceeds max length\n");
-				ret = -EFAULT;
-				break;
-			}
-			sec->param.passphrase.ssid.ssid_len = strlen(end);
-			strncpy((char *)sec->param.passphrase.ssid.ssid, end,
-				MIN(strlen(end), MLAN_MAX_SSID_LENGTH));
-			PRINTM(MINFO, "ssid=%s, len=%d\n",
-			       sec->param.passphrase.ssid.ssid,
-			       (int)sec->param.passphrase.ssid.ssid_len);
-		} else if (!strnicmp(opt, "bssid", strlen(opt))) {
-			woal_mac2u8(sec->param.passphrase.bssid, end);
-		} else if (!strnicmp(opt, "psk", strlen(opt)) &&
-			   req->action == MLAN_ACT_SET) {
-			if (strlen(end) != MLAN_PMK_HEXSTR_LENGTH) {
-				PRINTM(MERROR, "Invalid PMK length\n");
-				ret = -EINVAL;
-				break;
-			}
-			woal_ascii2hex((t_u8 *)(sec->param.passphrase.psk.pmk.
-						pmk), end,
-				       MLAN_PMK_HEXSTR_LENGTH / 2);
-			sec->param.passphrase.psk_type = MLAN_PSK_PMK;
-		} else if (!strnicmp(opt, "passphrase", strlen(opt)) &&
-			   req->action == MLAN_ACT_SET) {
-			if (strlen(end) < MLAN_MIN_PASSPHRASE_LENGTH ||
-			    strlen(end) > MLAN_MAX_PASSPHRASE_LENGTH) {
-				PRINTM(MERROR,
-				       "Invalid length for passphrase\n");
-				ret = -EINVAL;
-				break;
-			}
-			sec->param.passphrase.psk_type = MLAN_PSK_PASSPHRASE;
-			memcpy(sec->param.passphrase.psk.passphrase.passphrase,
-			       end,
-			       sizeof(sec->param.passphrase.psk.passphrase.
-				      passphrase));
-			sec->param.passphrase.psk.passphrase.passphrase_len =
-				strlen(end);
-			PRINTM(MINFO, "passphrase=%s, len=%d\n",
-			       sec->param.passphrase.psk.passphrase.passphrase,
-			       (int)sec->param.passphrase.psk.passphrase.
-			       passphrase_len);
-		} else {
-			PRINTM(MERROR, "Invalid option %s\n", opt);
-			ret = -EINVAL;
-			break;
-		}
-	}
-	if (ret)
-		goto done;
-
-	if (action == 2)
-		sec->param.passphrase.psk_type = MLAN_PSK_CLEAR;
-	else if (action == 0)
-		sec->param.passphrase.psk_type = MLAN_PSK_QUERY;
-
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-	if (action == 0) {
-		memset(buf, 0, sizeof(buf));
-		if (sec->param.passphrase.ssid.ssid_len) {
-			len += sprintf(buf + len, "ssid:");
-			memcpy(buf + len, sec->param.passphrase.ssid.ssid,
-			       sec->param.passphrase.ssid.ssid_len);
-			len += sec->param.passphrase.ssid.ssid_len;
-			len += sprintf(buf + len, " ");
-		}
-		if (memcmp
-		    (&sec->param.passphrase.bssid, zero_mac,
-		     sizeof(zero_mac))) {
-			mac = (t_u8 *)&sec->param.passphrase.bssid;
-			len += sprintf(buf + len, "bssid:");
-			for (i = 0; i < ETH_ALEN - 1; ++i)
-				len += sprintf(buf + len, "%02x:", mac[i]);
-			len += sprintf(buf + len, "%02x ", mac[i]);
-		}
-		if (sec->param.passphrase.psk_type == MLAN_PSK_PMK) {
-			len += sprintf(buf + len, "psk:");
-			for (i = 0; i < MLAN_MAX_KEY_LENGTH; ++i)
-				len += sprintf(buf + len, "%02x",
-					       sec->param.passphrase.psk.pmk.
-					       pmk[i]);
-			len += sprintf(buf + len, "\n");
-		}
-		if (sec->param.passphrase.psk_type == MLAN_PSK_PASSPHRASE) {
-			len += sprintf(buf + len, "passphrase:%s\n",
-				       sec->param.passphrase.psk.passphrase.
-				       passphrase);
-		}
-		if (wrq->u.data.pointer) {
-			if (copy_to_user
-			    (wrq->u.data.pointer, buf, MIN(len, sizeof(buf)))) {
-				PRINTM(MERROR, "Copy to user failed, len %d\n",
-				       len);
-				ret = -EFAULT;
-				goto done;
-			}
-			wrq->u.data.length = len;
-		}
-
-	}
-done:
-	if (status != MLAN_STATUS_PENDING)
-		kfree(req);
-	LEAVE();
-	return ret;
-}
-
-/**
- *  @brief Get esupp mode
- *
- *  @param priv     A pointer to moal_private structure
- *  @param wrq      A pointer to iwreq structure
- *
- *  @return         0 --success, otherwise fail
- */
-static int
-woal_get_esupp_mode(moal_private *priv, struct iwreq *wrq)
-{
-	int ret = 0;
-	mlan_ds_sec_cfg *sec = NULL;
-	mlan_ioctl_req *req = NULL;
-	mlan_status status = MLAN_STATUS_SUCCESS;
-
-	ENTER();
-
-	req = woal_alloc_mlan_ioctl_req(sizeof(mlan_ds_sec_cfg));
-	if (req == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	sec = (mlan_ds_sec_cfg *)req->pbuf;
-	sec->sub_command = MLAN_OID_SEC_CFG_ESUPP_MODE;
-	req->req_id = MLAN_IOCTL_SEC_CFG;
-	req->action = MLAN_ACT_GET;
-
-	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status != MLAN_STATUS_SUCCESS) {
-		ret = -EFAULT;
-		goto done;
-	}
-
-	if (copy_to_user
-	    (wrq->u.data.pointer, (t_u8 *)&sec->param.esupp_mode,
-	     sizeof(int) * 3)) {
-		ret = -EFAULT;
-		goto done;
-	}
-	wrq->u.data.length = 3;
 done:
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
@@ -6535,12 +6297,10 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		case WOAL_PORT_CTRL:
 			ret = woal_port_ctrl(priv, wrq);
 			break;
-#if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 		case WOAL_SET_GET_BSS_ROLE:
 			ret = woal_set_get_bss_role(priv, wrq);
 			break;
-#endif
 #endif
 		case WOAL_SET_GET_11H_LOCAL_PWR_CONSTRAINT:
 			ret = woal_set_get_11h_local_pwr_constraint(priv, wrq);
@@ -6667,9 +6427,6 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 
 	case WOAL_SET_GET_256_CHAR:
 		switch (wrq->u.data.flags) {
-		case WOAL_PASSPHRASE:
-			ret = woal_passphrase(priv, wrq);
-			break;
 		case WOAL_ASSOCIATE:
 			ret = woal_associate_ssid_bssid(priv, wrq);
 			break;
@@ -6722,9 +6479,6 @@ woal_wext_do_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		switch ((int)wrq->u.data.flags) {
 		case WOAL_DATA_RATE:
 			ret = woal_get_txrx_rate(priv, wrq);
-			break;
-		case WOAL_ESUPP_MODE:
-			ret = woal_get_esupp_mode(priv, wrq);
 			break;
 		default:
 			ret = -EINVAL;

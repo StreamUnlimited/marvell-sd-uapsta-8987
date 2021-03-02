@@ -1,19 +1,19 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2009-2019, Marvell International Ltd.
- All Rights Reserved
+ Copyright 2014-2020 NXP
+
 
 1) FOR DRIVER BUILD
 
 	Goto source code directory wlan_src.
 		make [clean] build
 	The driver binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
+	The driver code supports Linux kernel from 2.6.32 to 5.5.2 .
 
 2) FOR DRIVER INSTALL
 
-	a) Copy sd8786_uapsta.bin | sd8787_uapsta.bin | ... to /lib/firmware/mrvl/ directory,
+	a) Copy sd8786_uapsta.bin | sd8787_uapsta.bin | ... to /lib/firmware/nxp/ directory,
 	   create the directory if it doesn't exist.
 	b) Install uAP driver,
 	   There are drv_mode, max_sta_bss, max_uap_bss etc. module parameters.
@@ -29,7 +29,7 @@
 	   For example, to install SD8787 driver,
 	   To load driver in uAP only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=2 [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko drv_mode=2 [fw_name=nxp/sd8787_uapsta.bin]
 	   To switch mode between STA only, uAP only and uAPSTA in run time,
 		echo drv_mode=1 > /proc/mwlan/config		// STA mode
 		echo drv_mode=2 > /proc/mwlan/config		// uAP mode
@@ -56,14 +56,15 @@
 	  hw_test=0|1 <Disable hardware test (default) | Enable hardware test>
 	  fw_serial=0|1 <support parallel download FW | support serial download FW (default)>
 	  req_fw_nowait=0|1 <use request_firmware API (default) | use request_firmware_nowait API>
+	  slew_rate=0|1|2|3 <0 is the slowest slew rate and 03 has the highest slew rate (default)>
 	  init_cfg=<init config (MAC addresses, registers etc.) file name>
-		e.g. copy init_cfg.conf to firmware directory, init_cfg=mrvl/init_cfg.conf
+		e.g. copy init_cfg.conf to firmware directory, init_cfg=nxp/init_cfg.conf
 	  cal_data_cfg=<CAL data config file name>
-		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=mrvl/cal_data.conf
+		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=nxp/cal_data.conf
 	  txpwrlimit_cfg=<Tx power limit config file name>
-		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=mrvl/txpwrlimit_cfg_set.conf
+		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=nxp/txpwrlimit_cfg_set.conf
 	  init_hostcmd_cfg=<init hostcmd config file name>
-		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=mrvl/init_hostcmd_cfg.conf
+		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=nxp/init_hostcmd_cfg.conf
 	  cfg80211_wext=<bit mask of CFG80211 and WEXT control>
 		Bit 0: STA WEXT
 		Bit 1: uAP WEXT
@@ -318,7 +319,6 @@ rdeeprom <offset> <byteCount>
 cfg_data <type> [*.conf]
 sys_cfg_80211d [state STATE] [country COUNTRY]
 uap_stats
-sys_cfg_tdls_ext_cap [CONFIG_FILE]
 sys_cfg_restrict_client_mode [<ENABLE> [MODE_CONFIG]]
 
 -------------------
@@ -1291,7 +1291,6 @@ sys_cfg_retry_limit
     "./uaputl.exe sys_cfg_retry_limit [RETRY_LIMIT]"
 
     This command is used to set or get the retry limit to use for packet transmissions.
-
     The maximum retry_limit allowed is 14.
 
     If no arguments are given, this command returns the current retry limit value.
@@ -2078,21 +2077,6 @@ addbareject
 
         Note:- This command should only be issued in disconnected state.
 
-sys_cfg_tdls_ext_cap
---------------------
-
-    "./uaputl.exe sys_cfg_tdls_ext_cap [CONFIG_FILE]"
-
-    This command is used to set/get TDLS extended capability settings.
-
-    If CONFIG_FILE is provided, a SET is performed , else a GET is performed.
-
-    Examples:
-        ./uaputl.exe sys_cfg_tdls_ext_cap config/tdls_ext_cap.conf
-        Set TDLS extended capability parameters in the config file.
-        ./uaputl.exe sys_cfg_tdls_ext_cap
-        Get TDLS extended capability parameters.
-
 httxbfcfg
 ---------
 	"./uaputl.exe httxbfcfg <ACTION> [ACT_DATA]"
@@ -2544,7 +2528,7 @@ BSS_ACTIVE
         U S E R  M A N U A L  F O R  IWPRIV
 
 NAME
-	This manual describes the usage of private commands used in Marvell MLAN
+	This manual describes the usage of private commands used in NXP MLAN
 	Linux UAP Driver.
 
 	To use parameters as hex format, a '0x' must precede it for the parameters to
@@ -2564,7 +2548,7 @@ SYNOPSIS
 	                   [CHANNEL,][PREAMBLE,][MAX_SCB,][END]"
 
 DESCRIPTION
-	Those commands are used to send additional commands to the Marvell MLAN
+	Those commands are used to send additional commands to the NXP MLAN
 	card via the Linux device driver.
 
 	The uapX parameter specifies the network device that is to be used to

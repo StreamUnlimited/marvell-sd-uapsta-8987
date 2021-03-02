@@ -3,11 +3,12 @@
   * @brief This file contains definitions for SDIO interface.
   * driver.
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -52,7 +53,7 @@ Change log:
 #ifdef STA_SUPPORT
 /** Default firmware name */
 
-#define DEFAULT_FW_NAME	"mrvl/sduart8987_combo.bin"
+#define DEFAULT_FW_NAME	"nxp/sduart8987_combo.bin"
 
 #ifndef DEFAULT_FW_NAME
 #define DEFAULT_FW_NAME ""
@@ -62,8 +63,8 @@ Change log:
 #ifdef UAP_SUPPORT
 /** Default firmware name */
 
-#define DEFAULT_AP_FW_NAME "mrvl/sduart8987_combo.bin"
-#define DEFAULT_WLAN_FW_NAME "mrvl/sd8987_wlan.bin"
+#define DEFAULT_AP_FW_NAME "nxp/sduart8987_combo.bin"
+#define DEFAULT_WLAN_FW_NAME "nxp/sd8987_wlan.bin"
 
 #ifndef DEFAULT_AP_FW_NAME
 #define DEFAULT_AP_FW_NAME ""
@@ -72,8 +73,8 @@ Change log:
 
 /** Default firmaware name */
 
-#define DEFAULT_AP_STA_FW_NAME "mrvl/sduart8987_combo.bin"
-#define DEFAULT_WLAN_FW_NAME "mrvl/sd8987_wlan.bin"
+#define DEFAULT_AP_STA_FW_NAME "nxp/sduart8987_combo.bin"
+#define DEFAULT_WLAN_FW_NAME "nxp/sd8987_wlan.bin"
 
 #ifndef DEFAULT_AP_STA_FW_NAME
 #define DEFAULT_AP_STA_FW_NAME ""

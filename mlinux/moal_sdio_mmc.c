@@ -3,22 +3,23 @@
  *  @brief This file contains SDIO MMC IF (interface) module
  *  related functions.
  *
- * Copyright (C) 2008-2019, Marvell International Ltd.
- *
- * This software file (the "File") is distributed by Marvell International
- * Ltd. under the terms of the GNU General Public License Version 2, June 1991
- * (the "License").  You may use, redistribute and/or modify this File in
- * accordance with the terms and conditions of the License, a copy of which
- * is available by writing to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
- *
- * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- * this warranty disclaimer.
- *
- */
+  *
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
+  * accordance with the terms and conditions of the License, a copy of which
+  * is available by writing to the Free Software Foundation, Inc.,
+  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+  * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+  *
+  * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
+  * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
+  * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
+  * this warranty disclaimer.
+  *
+  */
 /****************************************************
 Change log:
 	02/25/09: Initial creation -
@@ -29,8 +30,8 @@ Change log:
 
 #include "moal_sdio.h"
 
-/** define marvell vendor id */
-#define MARVELL_VENDOR_ID 0x02df
+/** define nxp vendor id */
+#define NXP_VENDOR_ID 0x02df
 
 /* The macros below are hardware platform dependent.
    The definition should match the actual platform */
@@ -49,9 +50,9 @@ Change log:
 		Global Variables
 ********************************************************/
 
-#ifdef SDIO_SUSPEND_RESUME
 /** PM keep power */
 extern int pm_keep_power;
+#ifdef SDIO_SUSPEND_RESUME
 extern int shutdown_hs;
 #endif
 
@@ -62,7 +63,7 @@ extern int disconnect_on_suspend;
 
 /** WLAN IDs */
 static const struct sdio_device_id wlan_ids[] = {
-	{SDIO_DEVICE(MARVELL_VENDOR_ID, SD_DEVICE_ID_8987)},
+	{SDIO_DEVICE(NXP_VENDOR_ID, SD_DEVICE_ID_8987)},
 	{},
 };
 
@@ -362,7 +363,7 @@ woal_sdio_shutdown(struct device *dev)
 		if (handle->hs_activated == MTRUE)
 			PRINTM(MMSG, "HS actived in shutdown\n");
 		else
-			PRINTM(MMSG, "Fail to enable HS in shutdown\n");
+			PRINTM(MERROR, "Fail to enable HS in shutdown\n");
 	} else {
 		for (i = 0; i < MIN(handle->priv_num, MLAN_MAX_BSS_NUM); i++) {
 			if (handle->priv[i]) {
@@ -487,7 +488,7 @@ woal_sdio_suspend(struct device *dev)
 			ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
 #endif
 		} else {
-			PRINTM(MMSG, "HS not actived, suspend fail!");
+			PRINTM(MERROR, "HS not actived, suspend fail!");
 			handle->suspend_fail = MTRUE;
 			for (i = 0; i < handle->priv_num; i++)
 				netif_device_attach(handle->priv[i]->netdev);

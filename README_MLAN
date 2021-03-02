@@ -1,20 +1,20 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright (C) 2008-2019, Marvell International Ltd.
- All Rights Reserved
+ Copyright 2014-2020 NXP
+
 
 1) FOR DRIVER BUILD
 
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel from 2.6.32 to 5.2.9.
+	The driver code supports Linux kernel from 2.6.32 to 5.5.2 .
 
 2) FOR DRIVER INSTALL
 
 	a) Copy firmware image sd8787_uapsta.bin | sd8797_uapsta.bin | ... to
-	   /lib/firmware/mrvl/ directory, create the directory if it doesn't exist.
+	   /lib/firmware/nxp/ directory, create the directory if it doesn't exist.
 	b) Install WLAN driver,
 	   There are drv_mode, max_sta_bss, max_uap_bss etc. module parameters.
 		The bit settings of drv_mode are,
@@ -33,15 +33,16 @@
 		max_vir_bss: Number of Virtual interfaces (default 0)
 		nan_name: Name of the NAN interface (default: "nan")
 		max_nan_bss: Number of NAN interfaces (default 1)
+                start_11ai_scan: Enable/disable 11ai bgscan (default 0, to enable:1, to disable:0)
 	   For example, to install SD8787 driver,
 		insmod mlan.ko
-		insmod sd8787.ko [drv_mode=3] [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko [drv_mode=3] [fw_name=nxp/sd8787_uapsta.bin]
 	   To load driver in STA only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=1 [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko drv_mode=1 [fw_name=nxp/sd8787_uapsta.bin]
 	   To load driver in uAP only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=2 [fw_name=mrvl/sd8787_uapsta.bin]
+		insmod sd8787.ko drv_mode=2 [fw_name=nxp/sd8787_uapsta.bin]
 
 	   To switch mode between STA only, uAP only and uAPSTA etc. in run time,
 		echo drv_mode=1 > /proc/mwlan/config		// STA mode
@@ -72,14 +73,19 @@
 	  hw_test=0|1 <Disable hardware test (default) | Enable hardware test>
 	  fw_serial=0|1 <support parallel download FW | support serial download FW (default)>
 	  req_fw_nowait=0|1 <use request_firmware API (default) | use request_firmware_nowait API>
+	  slew_rate=0|1|2|3 <0 is the slowest slew rate and 03 has the highest slew rate (default)>
 	  init_cfg=<init config (MAC addresses, registers etc.) file name>
-		e.g. copy init_cfg.conf to firmware directory, init_cfg=mrvl/init_cfg.conf
+		e.g. copy init_cfg.conf to firmware directory, init_cfg=nxp/init_cfg.conf
 	  cal_data_cfg=<CAL data config file name>
-		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=mrvl/cal_data.conf
+		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=nxp/cal_data.conf
 	  txpwrlimit_cfg=<Tx power limit config file name>
-		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=mrvl/txpwrlimit_cfg_set.conf
+		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=nxp/txpwrlimit_cfg_set.conf
+      cntry_txpwr=0|1|2
+                  0: Disable setting tx power table of country (default)
+                  1: Enable setting tx power table of country
+                  2: Enable setting tx power table of country and only allow use the channel in tx power table
 	  init_hostcmd_cfg=<init hostcmd config file name>
-		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=mrvl/init_hostcmd_cfg.conf
+		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=nxp/init_hostcmd_cfg.conf
 	  cfg80211_wext=<bit mask of CFG80211 and WEXT control>
 		Bit 0: STA WEXT
 		Bit 1: uAP WEXT
@@ -100,8 +106,8 @@
 	  indication_gpio=0xXY <GPIO to indicate wakeup source and its level; high four bits X:
                   level(0/1) for normal wakeup; low four bits Y: GPIO pin number. This parameter
                   only works with specific board and firmware.>
-	  gtk_rekey_offload=0|1|2 <disable gtk_rekey_offload|enable gtk_rekey_offload (default) | enable gtk_rekey_offload in suspend mode only>
       napi=0|1 <disable napi | enable napi>
+
 	Note: On some platforms (e.g. PXA910/920) double quotation marks ("") need to used
 	for module parameters.
 		insmod sd8xxx.ko "<para1> <para2> ..."
@@ -281,7 +287,7 @@
         U S E R  M A N U A L  F O R  MLANUTL
 
 NAME
-    mlanutl - configure the additional parameters available for Marvell mdriver.
+    mlanutl - configure the additional parameters available for NXP mdriver.
 
 SYNOPSIS
     mlanutl -v
@@ -303,9 +309,9 @@ SYNOPSIS
 	mlanutl mlanX assocessid_bssid <"[bssid] [essid]">
 	mlanutl mlanX associate "<bssid> <ssid>"
     mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
+    mlanutl mlanX comparetrpc <target_file> <src_file> [display]
+    mlanutl mlanX getcfgchanlist
 	mlanutl mlanX authtype [n]
-	mlanutl mlanX autotdls [n]
-        mlanutl mlanX tdls_idle_time [n]
         mlanutl uapX dfs_offload [n]
 	mlanutl mlanX bandcfg [l] [m] [n]
 	mlanutl mlanX bcninterval [n]
@@ -331,7 +337,6 @@ SYNOPSIS
 	mlanutl mlanX delts <filename.conf> <section# of tspec>
 	mlanutl mlanX dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num>]
 	mlanutl mlanX drvdbg [n]
-	mlanutl mlanX esuppmode [l] [m] [n]
 	mlanutl mlanX extcapcfg [<ext_cap>]
 	mlanutl mlanX fwmacaddr [mac_addr]
 	mlanutl mlanX getdatarate
@@ -400,12 +405,10 @@ SYNOPSIS
 	mlanutl uapX mgmtframectrl [<mask>]
 	mlanutl mlanX mgmtframetx <mgmt_frame.conf>
 	mlanutl mlanX mpactrl [tx_ena] [rx_ena] [tx_size] [rx_size] [tx_ports] [rx_ports]
-	mlanutl mlanX netmon [<act> [<filter> <band> <chan> [offset]]]
+    mlanutl mlanX netmon [<act> [<filter> <band> <chan> <opt>]]
 	mlanutl mlanX offchannel [<l> <m> <n> <bandwidth>]
 	mlanutl mlanX otpuserdata <l>
-	mlanutl mlanX passphrase [l]
 	mlanutl mlanX pb_bypass [data_1, data_2, ... data_n]
-	mlanutl mlanX pmfcfg <mfpc> <mfpr>
 	mlanutl mlanX port_ctrl [n]
 	mlanutl mlanX powercons [n]
 	mlanutl mlanX pscfg [k] [d] [l] ...
@@ -434,29 +437,8 @@ SYNOPSIS
 	mlanutl mlanX sleeppd [n]
 	mlanutl mlanX sysclock [clk1] [clk2] [clk3] [clk4]
 	mlanutl mlanX tcpackenh [l]
-	mlanutl mlanX tdls_channel_switch <tdls.conf>
-	mlanutl mlanX tdls_config <0/1>
-	mlanutl mlanX tdls_cs_params <tdls.conf>
-	mlanutl mlanX tdls_debug "allow_weak_security" <0/1>
-	mlanutl mlanX tdls_debug "cs_im_return" <0/1>
-	mlanutl mlanX tdls_debug "fail_setup_confirm" <0/1>
-	mlanutl mlanX tdls_debug "higher_lower_mac" <0/1>
-	mlanutl mlanX tdls_debug "ignore_key_expiry" <0/1>
-	mlanutl mlanX tdls_debug "setup_existing_link" <0/1>
-	mlanutl mlanX tdls_debug "setup_with_prohibited" <0/1>
-	mlanutl mlanX tdls_debug "stop_rx" <0/1>
-	mlanutl mlanX tdls_debug "wrong_bss" <0/1>
-	mlanutl mlanX tdls_disable_cs <0/1>
-	mlanutl mlanX tdls_discovery <tdls.conf>
-	mlanutl mlanX tdls_link_status
-	mlanutl mlanX tdls_powermode <tdls.conf>
-	mlanutl mlanX tdls_setinfo <tdls.conf>
-	mlanutl mlanX tdls_setup <tdls.conf>
-	mlanutl mlanX tdls_stop_channel_switch <tdls.conf>
-	mlanutl mlanX tdls_teardown <tdls.conf>
 	mlanutl mlanX ts_status
 	mlanutl mlanX tsf
-	mlanutl mlanX txaggrctrl [m]
 	mlanutl mlanX txbufcfg
 	mlanutl mlanX txratecfg [l] [m] [n]
 	mlanutl uapX txratecfg [l] [m] [n]
@@ -464,8 +446,6 @@ SYNOPSIS
     mlanutl mlanX version
 	mlanutl mlanX vhtcfg <j> <k> [l] [m] [n] [o]
 	mlanutl uapX vhtcfg <j> <k> [l] [m] [n] [o]
-        mlanutl <interface> per_pkt_cfg [tx_rx_control] [type_num] [ether_type1 ether_type2 ...] [tx_rx_control] [type_num] [ether_type1 ether_type2 ...]
-        mlanutl <interface> dot11_txrx <send/recv> <options>
 	mlanutl mlanX wakeupreason
 	mlanutl uapX wakeupreason
 	mlanutl mlanX warmreset
@@ -480,17 +460,24 @@ SYNOPSIS
 	mlanutl mlanX mc_policy [n]
 	mlanutl mlanX mc_cfg_ext [c] [s] [u] [m] <a> <b> <d> <e>
         mlanutl mlanX get_sensor_temp
+        mlanutl mlanX 11k_enable [n]
+        mlanutl mlanX neighbor_report
         mlanutl <inteface> indrstcfg <ir_mode> [gpio_pin]
+
+        mlanutl <interface> dot11p_cfg [ <tlv_type> <configfile> ]
+        mlanutl <interface> dot11p_stats [ 1 ]
+        mlanutl <interface> dot11p_txrx <send/recv> <options>
 
         mlanutl <interface> fwwakeupmethod <method> <GPIO_pin>
         mlanutl <interface> tx_ampdu_prot_mode [mode]
-
         mlanutl uapX ctrldeauth <n>
 
         mlanutl mlanX/uapX bootsleep <1/0>
 
+		mlanutl mlanX csi [disable] [csi file]
+
 DESCRIPTION
-	Those commands are used to send additional commands to the Marvell MLAN
+	Those commands are used to send additional commands to the NXP MLAN
 	card via the Linux device driver.
 
 	The mlanX parameter specifies the network device that is to be used to
@@ -741,7 +728,7 @@ assocessid
 	<"[essid]"> is the essid which need to be associated with asynced mode.
 
 	Examples:
-		mlanutl mlan0 assocessid "Marvell Micro AP"    : Associate to the ESSID "Marvell Micro AP"
+		mlanutl mlan0 assocessid "NXP Micro AP"    : Associate to the ESSID "NXP Micro AP"
 
 assocessid_bssid
 	This command is used to assoc AP by ssid/bssid pair with asynced mode,
@@ -755,7 +742,7 @@ assocessid_bssid
 	<"[essid]"> is the essid which need to be associated with asynced mode.
 
 	Examples:
-		mlanutl mlan0 assocessid_bssid "xx:xx:xx:xx:xx:xx Marvell Micro AP"   : Associate to the AP which ssid = "Marvell Micro AP", bssid = "xx:xx:xx:xx:xx:xx"
+		mlanutl mlan0 assocessid_bssid "xx:xx:xx:xx:xx:xx NXP Micro AP"   : Associate to the AP which ssid = "NXP Micro AP", bssid = "xx:xx:xx:xx:xx:xx"
 
 associate
 	Request an association to a given SSID/BSSID pair. This the only accurate
@@ -782,6 +769,27 @@ Usage:
 		mlanutl mlan0 get_txpwrlimit 0x10                   : Get 5G sub band0 txpwrlimit table
 		mlanutl mlan0 get_txpwrlimit 0xff txpwrlimit.bin    : Get both 2G/5G txpwrlimit table and save to txpwrlimit.bin
 
+comparetrpc
+	This command is used to compare two txpower tables and output differences.
+
+	Usage :
+			mlanutl mlanX comparetrpc <target_file> <src_file> [display]
+    	where:
+            <target_file>       : raw data file save from get_txpwrlimit command.
+            <src_file>          : raw data file used by driver load parameter "txpwrlimit_cfg" which will be download to FW during driver init.
+	    <display> 		: display comparison output
+					  : 1 - text format
+					  : 2 - table format
+
+	Example :
+			mlanutl mlan0 comparetrpc txpwrlimit.bin txpwrlimit_init.bin 1		: Show power table comparison in text format
+            mlanutl mlan0 comparetrpc txpwrlimit.bin txpwrlimit_init.bin 2		: Show power table comparison in table format
+getcfgchanlist
+    This command is used to get the channel list used by cfg80211 stack
+
+    Example:
+           mlanutl mlan0 getcfgchanlist
+
 
 authtype
 	This command is used to set/get authentication type.
@@ -799,21 +807,6 @@ authtype
 		mlanutl mlan0 authtype 1         : use shared key authentication
 		mlanutl mlan0 authtype 255       : allow open system or shared key authentication
 		mlanutl mlan0 authtype           : get current setting
-
-autotdls
-	This command is used to enable/disable auto TDLS.
-
-	Usage:
-		mlanutl mlanX autotdls [n]
-
-	where <n>
-		0: Disable auto tdls
-		1: Enable auto tdls
-
-	Examples:
-		mlanutl mlan0 autotdls 1         : enable auto TDLS
-		mlanutl mlan0 autotdls 0         : disable auto TDLS
-		mlanutl mlan0 autotdls           : get current setting
 
 dyn_bw
 	This command is used to set/get dynamic bandwidth.
@@ -841,20 +834,6 @@ dyn_bw
 	Examples:
 		mlanutl mlan0 dyn_bw 0x1       : Enable TxInfo Indicated BW
 		mlanutl mlan0 dyn_bw           : get current setting
-
-tdls_idle_time
-	This command is used to set/get TDLS idle timeout. The valid value is between 0-0xffff. When set to 0, the tdls_idle_time will use default value(60).
-
-	Usage:
-		mlanutl mlanX tdls_idle_time [n]
-
-	where <n>
-		TDLS idle timeout value
-
-	Examples:
-		mlanutl mlan0 tdls_idle_time 30        : set tdls_idle_time value to 30
-		mlanutl mlan0 tdls_idle_time 0         : use default tdls_idle_time value(60)
-		mlanutl mlan0 tdls_idle_time           : get current setting
 
 dfs_offload
 	This command is used to enable/disable DFS offload. The valid value is 0/1.
@@ -961,7 +940,7 @@ changraph
 	or a channel load graph.
 
 	Usage:
-		mlanutl mlanX changraph [<load | anpi | anpiload> <loops>]
+        mlanutl mlanX changraph [<load | anpi | anpiload> <loops> | 11p]
 		where:
 			load:       Only channel vs channel-load graph is displayed
 			anpi:       Only channel vs Average Noise Power Indicator(ANPI)
@@ -969,6 +948,8 @@ changraph
 			anpiload:   Both the graphs for anpi and for the load are displayed
 			loops:      This is used to calculate the number of times
 						the graph [load or anpi or both] will be printed
+           		11p:        Both graphs for anpi and for the load is displayed for
+                        	    802.11P channels
 
 coex_rx_winsize
 	This command is used to set/get control to coex RX window size
@@ -1195,43 +1176,6 @@ drvdbg
 		                                   MCMND, MEVENT and MCMD_D messages
 		mlanutl mlan0 drvdbg -1          : Enable all the debug messages
 
-esuppmode
-	This command is used to set/get the e-supplicant mode configurations/status.
-
-	Note: The configurations can be set only before association.
-	      For get, the configurations will be returned before association
-	      and the current status will be returned after association.
-
-	Where
-	[l] is <rsn_mode>
-	<rsn_mode> - This parameter specifies the RSN mode configuration
-		Bit 0    : No RSN
-		Bit 1-2  : RFU
-		Bit 3    : WPA
-		Bit 4    : WPA-NONE
-		Bit 5    : WPA2
-		Bit 6-15 : RFU
-	[m] is <pairwise_cipher>
-	<pairwise_cipher> - This parameter specifies the pairwise cipher
-		Bit 0    : RFU
-		Bit 1    : RFU
-		Bit 2    : TKIP
-		Bit 3    : AES
-		Bit 4-7  : RFU
-	[n] is <group_cipher>
-	<group_cipher> - This parameter specifies the group cipher
-		Bit 0    : RFU
-		Bit 1    : RFU
-		Bit 2    : TKIP
-		Bit 3    : AES
-		Bit 4-7  : RFU
-	Note that: the RFU bits cannot be SET.
-
-	Examples:
-		mlanutl mlan0 esuppmode          : Get RSN mode and pairwise/group cipher
-		mlanutl mlan0 esuppmode 8 4 4    : Set RSN mode yo WPA, active pairwise and
-		                                   group ciphers to TKIP
-
 extcapcfg
 	This command is used to set/get extended capabilities.
 
@@ -1381,44 +1325,6 @@ getlog
 
 	dot11AMPDUDelimiterCRCErrorCount	Increments when an MPDU delimiter has a CRC error when this is the first
 						CRC error in the received A-MPDU or when the previous delimiter has been decoded correctly
-
-per_pkt_cfg
---------------
-    mlanutl <interface> per_pkt_cfg [tx_rx_control] [type_num] [ether_type1 ether_type2...] [tx_rx_control] [type_num] [ether_type1 ether_type2 ...]
-    This command is used to set tx/rx per packet Txctl and Rxinfo configuration.
-
-    The supported options are:
-       tx_rx_control :
-                        0 - disable Tx and Rx per packet control
-                        1 - enable Tx per packet control
-                        2 - enable Rx Per packet control
-                        3 - enable Tx and Rx Per packet control
-
-       type_num :       Number of ether_types which support per packet control, the Max is 8.
-       ether_type :     Array of ether_types for which need to do per-packet Tx control or get per-packet Rx info.
-
-       Examples:
-                 mlanutl mlan0/uap0 per_pkt_cfg                        : get the configuration of per-packet control
-                 mlanutl mlan0/uap0 per_pkt_cfg 0                      : disable per-packet control
-                 mlanutl mlan0/uap0 per_pkt_cfg 3 1 0x88dc       : set the Tx and Rx per-packet control configuration
-
-dot11_txrx
-    This command is used to send or receive packets.
-
-    Usage:
-            mlanutl <interface> dot11_txrx <send/recv> <options>
-            interface     : mlanX or uapX
-            options  send : <conf_file>
-            conf_file     : config file name
-            options  recv : <protocol> [ verbose_mode ]
-            protocol      : packet protocol type
-            verbose_mode  : v -- enter verbose mode
-
-    Example:
-            mlanutl mlan0 dot11_txrx send config/tx_ctrl.conf         : To send packets
-            mlanutl mlan0 dot11_txrx recv 0x88dc                         : To receive packets of type 0x88dc
-            mlanutl mlan0 dot11_txrx recv 0x88dc v                      : To receive packets of type 0x88dc and
-                                                                            enter verbose mode
 
 getscantable
 	Display the current contents of the driver scan table
@@ -2248,18 +2154,18 @@ mpactrl
 
 netmon
     This command is used to set/get sniffer mode configuration.
-    Note: The channel and band config is optional. If not specified, or if
-    any STA/uAP/STA+uAP connection is active, sniffer activity will be started
-    on the current config set in the FW.
+    Note: The channel and band config is optional. If not specified, sniffer
+    activity will be started on the current config set in the FW.
     'rtap' monitor interface will be created on enabling sniffer activity and
-    should be made 'up' for capturing in a sniffer app.
+    should be made 'up' for capturing frames in a sniffer app.
 
     Usage:
         mlanutl <interface> netmon [<act> [<filter>]]
-        mlanutl mlanX netmon [<act> [<filter>] [<band> <chan> [offset]]]
+        mlanutl <interface>  netmon [<act> [<filter>] [<band> <chan> <opt>]]
 
     Where the parameters are:
         <interface> : mlanX, uapX
+        <interface> : ocbX
         <act>	: (0) disable sniffer activity
                 : (1) enable sniffer activity
 
@@ -2267,8 +2173,6 @@ netmon
             bit 0: (1/0) enable/disable management frame
             bit 1: (1/0) enable/disable control frame
             bit 2: (1/0) enable/disable data frame
-            bit 3: (1/0) enable/disable frames destined to active connection only
-            bit 4: (1/0) enable/disable decrypted unicast data/mgmt frames
 
         <band>   : 802.11 band
             bit 0: B
@@ -2278,8 +2182,14 @@ netmon
             bit 4: AN
             bit 5: AC 2.4G
             bit 6: AC 5G
+            bit 7: 5.9G
         <chan>   : channel to monitor
 
+        <opt>    : [offset], <Bandwidth>
+        <bandwidth>  : Bandwidth
+            0 - Bandwidth 20Mhz
+            6 - Bandwidth 10Mhz
+            Note : Bandwidth 10Mhz should be set only for 802.11P operations
         [offset] : secondary channel bandwidth
             0 - Bandwidth 20Mhz
             1 - HT Bandwidth 40Mhz sec channel above
@@ -2296,12 +2206,9 @@ netmon
         mlanutl mlan0 netmon 1 7 20 64 1 : Enable sniffer activity in absence of active connection
                                            set filter management, control and data frame, band A/AN,
                                            channel 64 and secondary channel above
-        mlanutl uap0 netmon 1 0x0c	      : Enable sniffer activity, set filter data frames
-                                            destined to the active uAP connection only
-
-        mlanutl mlan0 netmon 1 0x1d       : Enable sniffer activity, set filter decrypted data and
-                                            management frames destined to the active STA connection
-                                            only
+        mlanutl ocb0 netmon 1 7 128 172 6 : Enable sniffer activity in absence of active connection,
+                                            set filter management, control and data frames,
+                                            band 5.9G, channel 172, bandwidth 10Mhz
 
 offchannel
 	This command is used to set/cancel the offchannel configuration.
@@ -2342,44 +2249,6 @@ otpuserdata
 	Examples:
 		mlanutl mlan0 otpuserdata 10         : Get the 10-byte OTP user data
 
-passphrase
-	This command is used to set/get passphrase for WPA-PSK/WPA2-PSK mode.
-
-	Where <l>
-		ASCII string for ssid/passphrase/psk.
-
-	1) "0;<ssid=valid ssid>" - This will get the passphrase, AKMP
-	   for specified ssid, if none specified then it will get all.
-
-	Example:
-		mlanutl mlan0 passphrase "0;ssid=marvell"
-
-	2) "1;<psk=64 byte hexpsk>;<passphrase=1-63 byte passphare>
-	   <ssid=valid ssid>" - Passphrase and psk cannot be provided for the same SSID.
-	   This command takes only one SSID at a time, If ssid= is present it should contain
-	   a passphrase or psk. If no arguments are provided then AKMP=802.1x, and passphrase
-	   should be provided after association.
-	   End of each parameter should be followed by a ';'(except for the last parameter)
-	   as the delimiter. If ';' or '/' has to be used in an SSID then a '/' should be preceded
-	   to ';' or '/' as a escape.
-
-	Examples:
-		mlanutl mlan0 passphrase "1;ssid=mrvlAP;passphrase=abcdefgd"
-		mlanutl mlan0 passphrase "1;ssid=mrvl AP;psk=<64 bytes hexpsk>"
-
-		If user wants to input the ssid as "mrvl; AP" then command has to be
-		mlanutl mlan0 passphrase "1;ssid=mrvl/; AP;passphrase=abcdefgh"
-
-		If user wants to input the ssid as "//;" then command has to be
-		mlanutl mlan0 passphrase "1;ssid=/////;;passphrase=abcdefgh"
-
-	3) "2;<ssid=valid ssid>" - This will clear the passphrase
-	   for specified ssid, if none specified then it will clear all.
-
-	Examples:
-		mlanutl mlan0 passphrase "2;ssid=marvell"
-		mlanutl mlan0 passphrase "2"     : Clear all profiles and disable embedded supplicant
-
 pb_bypass
 	This command is used to get the By-passed TX packet from upper layer.
 
@@ -2388,26 +2257,6 @@ pb_bypass
 	mlanutl mlanX pb_bypass [data_1, data_2, ... data_n]
 
 	where value of data_1, data_2, ... data_n isBypass TX Data
-
-pmfcfg
-	This command is used to set/get management frame protection parameters.
-
-	Usage:
-		mlanutl mlanX pmfcfg <m> <n>
-
-	where
-		<m>: Management Frame Protection Capable (MFPC)
-			1: Management Frame Protection Capable
-			0: Management Frame Protection not Capable
-		<n>: Management Frame Protection Required (MFPR)
-			1: Management Frame Protection Required
-			0: Management Frame Protection Optional
-		Default setting is PMF not capable.
-		m = 0, n = 1 is an invalid combination
-
-        Examples:
-                mlanutl mlan0 pmfcfg            : Get PMF parameters
-                mlanutl mlan0 pmfcfg 1 0        : Set MFPC and make MFPR optional
 
 port_ctrl
 	This command is used to Set/Get Port Control mode. No argument is used to get.
@@ -2754,11 +2603,11 @@ setuserscan
 	   BSSID/SSID matches with the new scan data:
 		setuserscan chan=6g bss_type=1 probes=2 keep=1
 
-	7) Scan channel 1 and 6, for all networks matching the Mrvl*AP
-	   or AP*Mrvl? patterns and for MrvlTst SSID.  Generate 3 broadcast
-	   probes for the patterns and 3 SSID specific probes for MrvlTst on
+	7) Scan channel 1 and 6, for all networks matching the NXP*AP
+	   or AP*NXP? patterns and for NXPTst SSID.  Generate 3 broadcast
+	   probes for the patterns and 3 SSID specific probes for NXPTst on
 	   both channel 1 and channel 6.
-		setuserscan chan=1g,6g probes=3 wc="Mrvl*AP" wc="AP*Mrvl?" ssid="MrvlTst"
+		setuserscan chan=1g,6g probes=3 wc="NXP*AP" wc="AP*NXP?" ssid="NXPTst"
 
 	8) Scan all the channels for specified band.
 		setuserscan chan=0g
@@ -2827,167 +2676,6 @@ sysclock
 		mlanutl mlanX sysclock 0 0 128   : Set system clock in non-security A-MPDU
 		                                  mode to 128 MHz, no changes for others
 
-host_tdls_config
-	This command is used to support channel switch and uapsd for host based tdls
-
-	Usage:
-		mlanutl mlanX host_tdls_config <host_tdls.conf>
-
-
-	Where the parameter is:
-		host_tdls.conf: The configuration file specifying to enable/disable uapsd/cs and related parameters.
-
-	Examples:
-		mlanutl mlan0 host_tdls_config config/host_tdls.conf
-			: enable or disable uapsd/cs, config the channel related ie, based on the configuration file.
-tdls_channel_switch
-	This command is used to send TDLS channel switch request.
-
-	Usage:
-		mlanutl mlanX tdls_channel_switch <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file for sending TDLS channel switch command.
-
-	Examples:
-		mlanutl mlan0 tdls_channel_switch config/tdls.conf
-			: Send TDLS channel switch command, based on the configuration file.
-
-tdls_config
-	This command is used to enable/disable TDLS on device.
-
-	Usage:
-		mlanutl mlanX tdls_config <0/1>
-
-	Where the parameter is:
-		0: Enable TDLS.
-		1: Disable TDLS.
-
-	Examples:
-		mlanutl mlan0 tdls_config 0      : Disable TDLS
-		mlanutl mlan0 tdls_config 1      : Enable TDLS
-
-tdls_cs_params
-	This command is used to set TDLS channel switch params
-
-	Usage:
-		mlanutl mlanX tdls_cs_params <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file specifying the TDLS channel switch params.
-
-	Examples:
-		mlanutl mlan0 tdls_cs_params config/tdls.conf
-			: Set TDLS channel switch params, based on the configuration file.
-
-tdls_debug
-	This command is used for FW debug functionality and tests.
-
-tdls_disable_cs
-	This command is used to disable TDLS channel switch
-
-	Usage:
-		mlanutl mlanX tdls_disable_cs <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file to disable TDLS channel switch.
-
-	Examples:
-		mlanutl mlan0 tdls_disable_cs config/tdls.conf
-			: Disable TDLS channel switch, based on the configuration file.
-
-tdls_discovery
-	This command is used to request TDLS discovery.
-
-	Usage:
-		mlanutl mlanX tdls_discovery <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file to request TDLS discovery.
-
-	Examples:
-		mlanutl mlan0 tdls_discovery config/tdls.conf
-			: Request TDLS discovery based on the configuration file.
-
-tdls_link_status [peer_mac_address]
-	This command is used to get link information about TDLS links or
-    a TDLS link correponding to peer mac address.
-
-	Usage:
-		mlanutl mlanX tdls_link_status <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file to send TDLS command to get current link status.
-
-	Examples:
-		mlanutl mlan0 tdls_link_status config/tdls.conf
-			: Send TDLS command to get current link status based on the configuration file.
-
-tdls_powermode
-	This command is used to send TDLS powermode request.
-
-	Usage:
-		mlanutl mlanX tdls_powermode <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file for sending TDLS powermode command.
-
-	Examples:
-		mlanutl mlan0 tdls_powermode config/tdls.conf
-			: Send TDLS powermode (either 0:Active, 1:PowerSave) command, based on the configuration file.
-
-tdls_setinfo
-	This command is used for setting the capabilities of the TDLS station.
-
-	Usage:
-		mlanutl mlanX tdls_setinfo <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file specifying the capabilities of the TDLS station.
-
-	Examples:
-		mlanutl mlan0 tdls_setinfo config/tdls.conf
-			: Set capabilities of the TDLS station, based on the configuration file.
-
-tdls_setup
-	This command is used to send TDLS setup request.
-
-	Usage:
-		mlanutl mlanX tdls_setup <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file for sending TDLS setup request.
-
-	Examples:
-		mlanutl mlan0 tdls_setup config/tdls.conf
-			: Send TDLS setup request, based on the configuration file.
-
-tdls_stop_channel_switch
-	This command is used to send stop TDLS channel switch request.
-
-	Usage:
-		mlanutl mlanX tdls_stop_channel_switch <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file for sending stop TDLS channel switch command.
-
-	Examples:
-		mlanutl mlan0 tdls_stop_channel_switch config/tdls.conf
-			: Send stop TDLS channel switch command, based on the configuration file.
-
-tdls_teardown
-	This command is used to send TDLS teardown request.
-
-	Usage:
-		mlanutl mlanX tdls_teardown <tdls.conf>
-
-	Where the parameter is:
-		tdls.conf: The configuration file for requesting teardown of TDLS link.
-
-	Examples:
-		mlanutl mlan0 tdls_teardown config/tdls.conf
-			: Request teardown of TDLS link, based on the configuration file.
-
 ts_status
 	This command queries the FW for the status of TSIDs 0 through 7
 	  configured via call admission control and displays the results in a
@@ -3002,23 +2690,6 @@ tsf
 
 	Usage:
 		mlanutl mlanX tsf
-
-txaggrctrl
-	This command is used to enable/disable TX AMPDU on infra link when TDLS link is established
-
-	Usage:
-		mlanutl mlanX txaggrctrl [m]
-
-	Where:
-		[m]: 1 to enable TX AMPDU on infra link; 0 to disable TX AMPDU on infra link
-
-	Examples:
-		mlanutl mlan0 txaggrctrl	: Get current TX AMPDU status on infra link
-		mlanutl mlan0 txaggrctrl 0	: Disable TX AMPDU on infra link
-		mlanutl mlan0 txaggrctrl 1	: Enable TX AMPDU on infra link
-
-	Note:
-		The set command only works when TDLS link is established.
 
 txbufcfg
 	This command can be used to get current buffer size.
@@ -3423,7 +3094,6 @@ mc_cfg_ext
         mlanutl mlanX mc_cfg_ext 15 10 5 0 25 15 9 0    : Set channel index0: channeltime 17TU, switchtime 10TU, undozetime 5TU, mode PM1;
                                                         set channel index1: channeltime 25TU, switchtime 15TU, undozetime 9TU, mode PM1.
 
-
 rxpktcoal_cfg
 	This is used to get/set RX packet coalescing paramters
 	Usage:
@@ -3441,6 +3111,24 @@ get_sensor_temp
         This command is used to get SOC temperature
         Usage:
                 mlanutl mlanX get_sensor_temp
+11k_enable
+        This command is used to control 11K. No argument is used to get.
+        only available when disconnected.
+
+        where value of n is:
+                0   -- Disable
+                1   -- Enable
+
+        Examples:
+                mlanutl mlan0 11k_enable 1           : Enable 11k
+                mlanutl mlan0 11k_enable             : Get 11k status
+
+neighbor_report
+        This command is used to get neighbor AP list.
+        You can open mlanevent to show the AP list result before issue this command.
+
+        Usage:
+                mlanutl mlanX neighbor_report
 
 indrstcfg
     This command is used to set/ get independent reset mode configuration
@@ -3461,6 +3149,52 @@ indrstcfg
             mlanutl mlan0 indrstcfg         : Get the status and the pin used for reset pin
             mlanutl mlan0 indrstcfg 2       : Enable in band reset mode
 
+dot11p_cfg
+    This command is used to Set/Get 802.11P settings.
+
+    Usage:
+            mlanutl <interface> dot11p_cfg [ <tlv_type> <conf_file> ]
+            interface : ocbX
+            tlv_type  : mode -- mode tlv; tdm -- tdm tlv
+            conf_file : config file name
+
+    Example:
+            mlanutl ocb0 dot11p_cfg mode config/11p_settings.conf        : Enable/Disable mode tlv related operations
+            mlanutl ocb0 dot11p_cfg tdm  config/11p_settings.conf        : Enable/Disable tdm tlv related operations
+            mlanutl ocb0 dot11p_cfg                                      : Get 11P default values
+
+    Note : channel, datarate and power other default values provided along with mode dot11p_cfg mode command
+    Will be overridden by the non zero rate provided during transmission
+
+dot11p_stats
+    This command is used to get the statistics related to the tx and rx packets.
+
+    Usage:
+            mlanutl <interface> dot11p_stats [is_reset]
+            interface : ocbX
+            is_reset  : 1 -- Reset all counters
+    Example:
+            mlanutl ocb0 dot11p_stats                                    : To get the counter values
+            mlanutl ocb0 dot11p_stats 1                                  : To reset all the counter values
+
+dot11p_txrx
+    This command is used to send or receive 11p packets.
+
+    Usage:
+            mlanutl <interface> dot11p_txrx <send/recv> <options>
+            interface     : ocbX
+            options  send : <conf_file>
+            conf_file     : config file name
+            options  recv : <protocol> [ verbose_mode ]
+            protocol      : packet protocol type
+            verbose_mode  : v -- enter verbose mode
+
+    Example:
+            mlanutl ocb0 dot11p_txrx send config/dot11p_tx.conf           : To send 11p packets
+            mlanutl ocb0 dot11p_txrx recv 0x88dc                          : To receive 11p packets of type 0x88dc
+            mlanutl ocb0 dot11p_txrx recv 0x88dc v                        : To receive 11p packets of type 0x88dc and
+                                                                            enter verbose mode
+
     This command is used to set FW wakeup method and GPIO pin
     Usage :
             mlanutl <interface> fwwakeupmethod <method> <GPIO_pin>
@@ -3477,7 +3211,8 @@ indrstcfg
 
 tx_ampdu_prot_mode
     This command is used to set either RTS/CTS or CTS2SELF protection mechanism
-    in MAC, for aggregated Tx QoS data frames. RTS/CTS is enabled by default.
+    in MAC, for aggregated Tx QoS data frames.
+    RTS/CTS is enabled by default.
 
     Usage:
         mlanutl <interface> tx_ampdu_prot_mode [mode]
@@ -3488,7 +3223,6 @@ tx_ampdu_prot_mode
         [mode]            : 0 - Set RTS/CTS mode
                             1 - Set CTS2SELF mode
                             2 - Disable Protection mode
-
     Examples:
         mlanutl mlan0 tx_ampdu_prot_mode
             - Get currently set protection mode for Tx AMPDU
@@ -3521,19 +3255,6 @@ ctrldeauth
             mlanutl uap0 ctrldeauth   : Get current setting
             mlanutl uap0 ctrldeauth   : Firmware will not send deauth packet when uap move to different channel.
 
-cwmode
-    This command is used to set Cont. Tx/Wave mode.
-
-    Usage:
-            mlanutl <interface> cwmode config/cwmode.conf
-            interface: mlanX
-            cwmode.conf: This config file specifies whether to enable/disable Cont Tx/Wave mode.
-                         User can specify parameters like Channel, datarate, BW, Channel Offset, Band.
-                         Detailed information about parameters is mentioned in the conf file.
-    Example:
-            mlanutl mlan0 cwmode config/cwmode.conf                       : Enable/Disable Cont Tx/Wave mode.
-            mlanutl mlan0 cwmode                                          : Get current Tx mode
-
 bootsleep
     This command is used to set and get boot sleep configure.
 
@@ -3547,5 +3268,16 @@ bootsleep
             mlanutl mlan0/uap0 bootsleep 1       : Enable boot sleep
             mlanutl mlan0/uap0 bootsleep         : Get boot sleep configure
 
+csi
+    Enable/disable channel state information collection
+
+    Usage :
+        mlanutl mlanX csi [disable] [csi file]
+        disable         : 0
+        csi file        : file with csi filters
+
+    Example :
+    	mlanutl mlan0 csi config/csi.conf    : Enable CSI
+    	mlanutl mlan0 csi 0                  : Disable CSI
 
 ===============================================================================

@@ -3,22 +3,23 @@
  *
  * @brief This file contains definition for private IOCTL call.
  *
- * Copyright (C) 2014-2019, Marvell International Ltd.
- *
- * This software file (the "File") is distributed by Marvell International
- * Ltd. under the terms of the GNU General Public License Version 2, June 1991
- * (the "License").  You may use, redistribute and/or modify this File in
- * accordance with the terms and conditions of the License, a copy of which
- * is available by writing to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
- * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
- *
- * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
- * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
- * this warranty disclaimer.
- *
- */
+  *
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
+  * accordance with the terms and conditions of the License, a copy of which
+  * is available by writing to the Free Software Foundation, Inc.,
+  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+  * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+  *
+  * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
+  * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
+  * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
+  * this warranty disclaimer.
+  *
+  */
 
 /********************************************************
 Change log:
@@ -41,8 +42,8 @@ Change log:
 /** 2K bytes */
 #define WOAL_2K_BYTES       2000
 
-/** Marvell private command identifier string */
-#define CMD_MARVELL     "MRVL_CMD"
+/** NXP private command identifier string */
+#define CMD_NXP     "MRVL_CMD"
 
 /** Private command: Version */
 #define PRIV_CMD_VERSION    "version"
@@ -74,18 +75,14 @@ Change log:
 #define PRIV_CMD_TXRATECFG  "txratecfg"
 #define PRIV_CMD_GETLOG     "getlog"
 
-#define PRIV_CMD_ESUPPMODE  "esuppmode"
-#define PRIV_CMD_PASSPHRASE "passphrase"
 #define PRIV_CMD_DEAUTH     "deauth"
 #ifdef UAP_SUPPORT
 #define PRIV_CMD_AP_DEAUTH     "apdeauth"
 #define PRIV_CMD_GET_STA_LIST     "getstalist"
 #define PRIV_CMD_BSS_CONFIG   "bssconfig"
 #endif
-#if defined(WIFI_DIRECT_SUPPORT)
 #if defined(STA_SUPPORT) && defined(UAP_SUPPORT)
 #define PRIV_CMD_BSSROLE    "bssrole"
-#endif
 #endif
 #ifdef STA_SUPPORT
 #define PRIV_CMD_GETSCANTABLE   "getscantable"
@@ -173,9 +170,6 @@ Change log:
 #ifdef STA_SUPPORT
 #define PRIV_CMD_GET_SIGNAL         "getsignal"
 #endif
-#if defined(STA_SUPPORT)
-#define PRIV_CMD_PMFCFG         "pmfcfg"
-#endif
 #define PRIV_CMD_INACTIVITYTO   "inactivityto"
 #define PRIV_CMD_AMSDU_AGGR_CTRL    "amsduaggrctrl"
 #define PRIV_CMD_TX_BF_CAP          "httxbfcap"
@@ -189,7 +183,6 @@ Change log:
 #define PRIV_CMD_DFS_TESTING        "dfstesting"
 #endif
 #define PRIV_CMD_CFP_CODE           "cfpcode"
-#define PRIV_CMD_CWMODE             "cwmode"
 #define PRIV_CMD_ANT_CFG            "antcfg"
 #define PRIV_CMD_SYSCLOCK       "sysclock"
 #define PRIV_CMD_ASSOCIATE      "associate"
@@ -204,26 +197,21 @@ Change log:
 #define PRIV_CMD_MULTI_CHAN_CFG "mc_cfg"
 #define PRIV_CMD_MULTI_CHAN_POLICY "mc_policy"
 #define PRIV_CMD_DRCS_CFG "mc_cfg_ext"
-#if defined(WIFI_DIRECT_SUPPORT)
-#endif
-#ifdef WIFI_DIRECT_SUPPORT
 #if defined(STA_CFG80211) || defined(UAP_CFG80211)
 #define PRIV_CMD_MIRACAST_CFG       "miracastcfg"
 #endif
-#endif
 #define PRIV_CMD_COEX_RX_WINSIZE    "coex_rx_winsize"
-#define PRIV_CMD_TX_AGGR_CTRL "txaggrctrl"
-#define PRIV_CMD_AUTO_TDLS          "autotdls"
 
 #define PRIV_CMD_GET_SENSOR_TEMP        "get_sensor_temp"
 
 #define PRIV_CMD_GET_TXPWR_LIMIT        "get_txpwrlimit"
+#define PRIV_CMD_GET_CFG_CHAN_LIST      "getcfgchanlist"
 
+#define PRIV_CMD_11K_CFG        "11k_enable"
+#define PRIV_CMD_11K_NEIGHBOR_REPORT        "neighbor_report"
 #if defined(UAP_SUPPORT)
 #define PRIV_CMD_EXTEND_CHAN_SWITCH        "channel_switch"
 #endif
-
-#define PRIV_CMD_TDLS_IDLE_TIME          "tdls_idle_time"
 
 #define PRIV_CMD_DYN_BW          "dyn_bw"
 
@@ -235,24 +223,23 @@ Change log:
 #define PRIV_CMD_AUTO_ARP	"auto_arp"
 #endif
 
-#define PRIV_CMD_PER_PKT_CFG    "per_pkt_cfg"
-
 #define PRIV_CMD_DEAUTH_CTRL    "ctrldeauth"
 
 /**Private command ID to set/get independent reset*/
 #define PRIV_CMD_IND_RST_CFG            "indrstcfg"
 
+#define  PRIV_CMD_DOT11P_CFG          "dot11p_cfg"
+#define  PRIV_CMD_DOT11P_STATS        "dot11p_stats"
+
 #define TX_AMPDU_RTS_CTS              0
 #define TX_AMPDU_CTS_2_SELF           1
 #define TX_AMPDU_DISABLE_PROTECTION   2
+#define TX_AMPDU_DYN_PROTECTION       3
 /**Private command to set tx ampdu protection mode */
 #define PRIV_CMD_TX_AMPDU_PROT_MODE   "tx_ampdu_prot_mode"
 
 /** Private command ID for Android default commands */
 #define WOAL_ANDROID_DEF_CMD        (SIOCDEVPRIVATE + 1)
-
-/** Private command ID to send TLD configuration */
-#define WOAL_TDLS_CONFIG            (SIOCDEVPRIVATE + 5)
 
 /** Private command ID to pass mgmt frame */
 #define WOAL_MGMT_FRAME_TX          WOAL_MGMT_FRAME_TX_IOCTL
@@ -269,7 +256,22 @@ Change log:
 /** Private command ID for robustcoex */
 #define PRIV_CMD_ROBUSTCOEX           "robustcoex"
 
+#define PRIV_CMD_CSI                  "csi"
+
 #define PRIV_CMD_BOOTSLEEP            "bootsleep"
+
+#define FILS_IP_CONFIG              "FILSIPCONFIG"
+#define FILS_PSK_CONFIG             "FILSPSKCONFIG"
+#define FILS_IP_STR                 "ip"
+#define FILS_MASK_STR               "mask"
+#define FILS_BASE_IP_STR            "base_ip"
+#define FILS_DNS_STR                "dns"
+#define FILS_COUNT_STR              "max"
+#define FILS_KEY                    "key"
+#define FILS_BSSID                  "bssid"
+
+mlan_status woal_set_fils_psk(moal_private *priv, char *data);
+mlan_status woal_set_fils_ip_cfg(moal_private *priv, char *data);
 
 #define PRIV_CMD_GET_CORRELATED_TIME "GET_CORRELATED_TIME"
 
@@ -444,16 +446,6 @@ typedef struct woal_priv_tx_rate_cfg {
 	t_u32 nss;
 } woal_tx_rate_cfg;
 
-/** woal embedded supplicant structure */
-typedef struct woal_priv_esuppmode_cfg {
-    /** RSN mode */
-	t_u16 rsn_mode;
-    /** Pairwise cipher */
-	t_u8 pairwise_cipher;
-    /** Group cipher */
-	t_u8 group_cipher;
-} woal_esuppmode_cfg;
-
 mlan_status woal_set_ap_wps_p2p_ie(moal_private *priv, t_u8 *ie, size_t len);
 mlan_status woal_ioctl_aggr_prio_tbl(moal_private *priv, t_u32 action,
 				     mlan_ds_11n_aggr_prio_tbl *aggr_prio_tbl);
@@ -472,14 +464,23 @@ typedef struct _acs_result {
 	ChStat_t ch_stats[0];
 } acs_result, *pacs_result;
 
-#define TLV_TYPE_PER_PKT_CFG 0x0001
-#define TX_PKT_CTRL  MBIT(0)
-#define RX_PKT_INFO  MBIT(1)
+/** wlan_ieee80211_chan */
+typedef struct {
+    /** center freq */
+	t_u16 center_freq;
+    /** chan num */
+	t_u16 hw_value;
+    /** chan flags */
+	t_u32 flags;
+    /** max power */
+	int max_power;
+} __ATTRIB_PACK__ wlan_ieee80211_chan;
 
-/** Enum for different CW mode type */
-typedef enum _cw_modes_e {
-	CWMODE_DISABLE,
-	CWMODE_TXCONTPKT,
-	CWMODE_TXCONTWAVE,
-} cw_modes_e;
+/** wlan_ieee80211_chan_list*/
+typedef struct {
+    /** num of chan */
+	t_u8 num_chan;
+    /** chan_list */
+	wlan_ieee80211_chan chan_list[0];
+} __ATTRIB_PACK__ wlan_ieee80211_chan_list;
 #endif /** _WOAL_ETH_PRIV_H_ */

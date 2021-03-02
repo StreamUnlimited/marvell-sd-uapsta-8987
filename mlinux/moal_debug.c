@@ -2,11 +2,12 @@
   *
   * @brief This file contains functions for debug proc file.
   *
-  * Copyright (C) 2008-2019, Marvell International Ltd.
   *
-  * This software file (the "File") is distributed by Marvell International
-  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
-  * (the "License").  You may use, redistribute and/or modify this File in
+  * Copyright 2014-2020 NXP
+  *
+  * This software file (the File) is distributed by NXP
+  * under the terms of the GNU General Public License Version 2, June 1991
+  * (the License).  You may use, redistribute and/or modify the File in
   * accordance with the terms and conditions of the License, a copy of which
   * is available by writing to the Free Software Foundation, Inc.,
   * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -163,6 +164,8 @@ static struct debug_data items[] = {
 	 item_addr(num_cmd_assoc_success)},
 	{"num_cmd_assoc_fail", item_size(num_cmd_assoc_failure),
 	 item_addr(num_cmd_assoc_failure)},
+	{"num_cons_assoc_failure", item_size(num_cons_assoc_failure),
+	 item_addr(num_cons_assoc_failure)},
 	{"cmd_sent", item_size(cmd_sent), item_addr(cmd_sent)},
 	{"data_sent", item_size(data_sent), item_addr(data_sent)},
 	{"mp_rd_bitmap", item_size(mp_rd_bitmap), item_addr(mp_rd_bitmap)},
@@ -566,10 +569,6 @@ woal_histogram_read(struct seq_file *sfp, void *data)
 		return -EFAULT;
 	}
 
-	if (!priv->hist_data) {
-		LEAVE();
-		return -EFAULT;
-	}
 	if (hist_data->ant_idx < priv->phandle->histogram_table_num)
 		woal_histogram_info(sfp, priv->hist_data[hist_data->ant_idx]);
 
@@ -956,33 +955,6 @@ woal_debug_read(struct seq_file *sfp, void *data)
 			   info.ralist[i].tx_pause);
 	}
 
-	for (i = 0; i < info.tdls_peer_num; i++) {
-		unsigned int j;
-		seq_printf(sfp,
-			   "tdls peer: %02x:%02x:%02x:%02x:%02x:%02x snr=%d nf=%d\n",
-			   info.tdls_peer_list[i].mac_addr[0],
-			   info.tdls_peer_list[i].mac_addr[1],
-			   info.tdls_peer_list[i].mac_addr[2],
-			   info.tdls_peer_list[i].mac_addr[3],
-			   info.tdls_peer_list[i].mac_addr[4],
-			   info.tdls_peer_list[i].mac_addr[5],
-			   info.tdls_peer_list[i].snr,
-			   -info.tdls_peer_list[i].nf);
-		seq_printf(sfp, "htcap: ");
-		for (j = 0; j < sizeof(IEEEtypes_HTCap_t); j++)
-			seq_printf(sfp, "%02x ",
-				   info.tdls_peer_list[i].ht_cap[j]);
-		seq_printf(sfp, "\nExtcap: ");
-		for (j = 0; j < sizeof(IEEEtypes_ExtCap_t); j++)
-			seq_printf(sfp, "%02x ",
-				   info.tdls_peer_list[i].ext_cap[j]);
-		seq_printf(sfp, "\n");
-		seq_printf(sfp, "vhtcap: ");
-		for (j = 0; j < sizeof(IEEEtypes_VHTCap_t); j++)
-			seq_printf(sfp, "%02x ",
-				   info.tdls_peer_list[i].vht_cap[j]);
-		seq_printf(sfp, "\n");
-	}
 exit:
 	MODULE_PUT;
 	LEAVE();
@@ -1040,6 +1012,7 @@ woal_debug_write(struct file *f, const char __user * buf, size_t count,
 		LEAVE();
 		return 0;
 	}
+	pdata[count] = '\0';
 
 	if (woal_get_debug_info(priv, MOAL_IOCTL_WAIT, &info)) {
 		kfree(pdata);
@@ -1205,7 +1178,7 @@ woal_debug_entry(moal_private *priv)
 	} else
 #endif
 	{
-		PRINTM(MMSG, "Fail to create proc debug entry\n");
+		PRINTM(MERROR, "Fail to create proc debug entry\n");
 		LEAVE();
 		return;
 	}
