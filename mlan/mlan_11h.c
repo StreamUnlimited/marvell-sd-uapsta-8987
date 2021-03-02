@@ -2,11 +2,12 @@
  *
  *  @brief This file contains functions for 802.11H.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -152,12 +153,12 @@ wlan_11h_get_random_num(pmlan_adapter pmadapter)
 }
 
 /**
- *  @brief Convert an IEEE formatted IE to 16-bit ID/Len Marvell
+ *  @brief Convert an IEEE formatted IE to 16-bit ID/Len NXP
  *         proprietary format
  *
  *  @param pmadapter Pointer to mlan_adapter
- *  @param pout_buf Output parameter: Buffer to output Marvell formatted IE
- *  @param pin_ie   Pointer to IEEE IE to be converted to Marvell format
+ *  @param pout_buf Output parameter: Buffer to output NXP formatted IE
+ *  @param pin_ie   Pointer to IEEE IE to be converted to NXP format
  *
  *  @return         Number of bytes output to pout_buf parameter return
  */
@@ -169,7 +170,7 @@ wlan_11h_convert_ieee_to_mrvl_ie(mlan_adapter *pmadapter,
 	t_u8 *ptmp_buf = pout_buf;
 
 	ENTER();
-	/* Assign the Element Id and Len to the Marvell struct attributes */
+	/* Assign the Element Id and Len to the NXP struct attributes */
 	mrvl_ie_hdr.type = wlan_cpu_to_le16(pin_ie[0]);
 	mrvl_ie_hdr.len = wlan_cpu_to_le16(pin_ie[1]);
 
@@ -1338,7 +1339,7 @@ wlan_11h_is_chan_band_valid(chan_freq_power_t *pcfp, Band_Config_t bandcfg)
 	t_u8 start_ch = pcfp->channel;
 	t_bool ret = MTRUE;
 
-	if (pcfp->dynamic.flags & MARVELL_CHANNEL_DISABLED)
+	if (pcfp->dynamic.flags & NXP_CHANNEL_DISABLED)
 		return MFALSE;
 
 	/* if band width is not 20MHZ (either 40 or 80MHz)
@@ -1349,11 +1350,11 @@ wlan_11h_is_chan_band_valid(chan_freq_power_t *pcfp, Band_Config_t bandcfg)
 
 	switch (bandcfg.chanWidth) {
 	case CHAN_BW_80MHZ:
-		if (pcfp->dynamic.flags & MARVELL_CHANNEL_NOHT80)
+		if (pcfp->dynamic.flags & NXP_CHANNEL_NOHT80)
 			ret = MFALSE;
 		break;
 	case CHAN_BW_40MHZ:
-		if (pcfp->dynamic.flags & MARVELL_CHANNEL_NOHT40)
+		if (pcfp->dynamic.flags & NXP_CHANNEL_NOHT40)
 			ret = MFALSE;
 		break;
 	default:
@@ -2045,8 +2046,8 @@ wlan_11h_get_adhoc_start_channel(mlan_private *priv)
 							channel;
 					} while (((chn_tbl->pcfp[rand_entry].
 						   dynamic.
-						   flags &
-						   MARVELL_CHANNEL_DISABLED) ||
+						   flags & NXP_CHANNEL_DISABLED)
+						  ||
 						  wlan_11h_is_channel_under_nop
 						  (adapter, start_chn) ||
 						  ((adapter->state_rdh.stage ==
@@ -2253,7 +2254,7 @@ wlan_11h_issue_radar_detect(mlan_private *priv,
 		}
 #endif
 
-		PRINTM(MMSG, "11h: issuing DFS Radar check for channel=%d."
+		PRINTM(MCMND, "11h: issuing DFS Radar check for channel=%d."
 		       "  Please wait for response...\n", channel);
 
 		ret = wlan_prepare_cmd(priv, HostCmd_CMD_CHAN_REPORT_REQUEST,
@@ -2309,7 +2310,7 @@ wlan_11h_check_chan_report(mlan_private *priv, t_u8 chan)
 	     MAX_DFS_REPORT_USABLE_AGE_SEC)) {
 		/* valid and not out-dated, check if radar */
 		if (pstate_dfs->dfs_radar_found) {
-			PRINTM(MMSG, "Radar was detected on channel %d.\n",
+			PRINTM(MEVENT, "Radar was detected on channel %d.\n",
 			       chan);
 			ret = MLAN_STATUS_FAILURE;
 		}
@@ -3113,7 +3114,7 @@ wlan_11h_is_channel_under_nop(mlan_adapter *pmadapter, t_u8 channel)
 		if (!ret)
 			wlan_11h_remove_dfs_timestamp(pmadapter, pdfs_ts);
 		else
-			PRINTM(MMSG,
+			PRINTM(MCMND,
 			       "11h: channel %d is under NOP - can't use.\n",
 			       channel);
 	}
@@ -3413,7 +3414,7 @@ wlan_11h_radar_detected_handling(mlan_adapter *pmadapter, mlan_private *pmpriv)
 
 		if (pstate_rdh->priv_list_count == 0) {
 			/* no interfaces active... nothing to do */
-			PRINTM(MMSG, "11h: Radar Detected - no active priv's,"
+			PRINTM(MERROR, "11h: Radar Detected - no active priv's,"
 			       " skip event handling.\n");
 			pstate_rdh->stage = RDH_OFF;
 			PRINTM(MCMD_D, "%s(): finished - stage(%d)=%s\n",
@@ -3703,11 +3704,11 @@ wlan_11h_radar_detected_handling(mlan_adapter *pmadapter, mlan_private *pmpriv)
 					     MIN((4 *
 						  pstate_rdh->max_bcn_dtim_ms),
 						 MAX_RDH_CHAN_SW_IE_PERIOD_MSEC));
-			PRINTM(MMSG,
+			PRINTM(MINFO,
 			       "11h: Radar Detected - delay %d ms for FW to"
 			       " broadcast CHAN_SW IE.\n", delay_ms);
 			wlan_mdelay(pmadapter, delay_ms);
-			PRINTM(MMSG,
+			PRINTM(MINFO,
 			       "11h: Radar Detected - delay over, removing"
 			       " CHAN_SW IE from interfaces.\n");
 

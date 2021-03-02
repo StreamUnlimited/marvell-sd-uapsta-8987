@@ -2,11 +2,12 @@
  *
  *  @brief This file contains SDIO specific code
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -487,7 +489,8 @@ wlan_prog_fw_w_helper(IN pmlan_adapter pmadapter, t_u8 *fw, t_u32 fw_len)
 	ENTER();
 
 	if (!firmware && !pcb->moal_get_fw_data) {
-		PRINTM(MMSG, "No firmware image found! Terminating download\n");
+		PRINTM(MERROR,
+		       "No firmware image found! Terminating download\n");
 		LEAVE();
 		return MLAN_STATUS_FAILURE;
 	}
@@ -745,7 +748,7 @@ wlan_decode_rx_packet(mlan_adapter *pmadapter, mlan_buffer *pmbuf,
 			pmbuf->data_offset += INTF_HEADER_LEN;
 			pmadapter->curr_cmd->respbuf = pmbuf;
 			if (pmadapter->upld_len >= MRVDRV_SIZE_OF_CMD_BUFFER) {
-				PRINTM(MMSG, "Invalid CmdResp len=%d\n",
+				PRINTM(MERROR, "Invalid CmdResp len=%d\n",
 				       pmadapter->upld_len);
 				DBG_HEXDUMP(MERROR, "Invalid CmdResp",
 					    pmbuf->pbuf + pmbuf->data_offset,
@@ -903,10 +906,6 @@ wlan_receive_mp_aggr_buf(mlan_adapter *pmadapter)
 			}
 		}
 	} while (ret == MLAN_STATUS_FAILURE);
-	if (pmadapter->rx_work_flag)
-		pmadapter->callbacks.moal_spin_lock(pmadapter->pmoal_handle,
-						    pmadapter->rx_data_queue.
-						    plock);
 	if (!pmadapter->mpa_rx.buf && pmadapter->mpa_rx.pkt_cnt > 1) {
 		for (pind = 0; pind < pmadapter->mpa_rx.pkt_cnt; pind++) {
 			mbuf_deaggr = pmadapter->mpa_rx.mbuf_arr[pind];
@@ -921,7 +920,7 @@ wlan_receive_mp_aggr_buf(mlan_adapter *pmadapter)
 						  2));
 			pmadapter->upld_len = pkt_len;
 			wlan_decode_rx_packet(pmadapter, mbuf_deaggr, pkt_type,
-					      MFALSE);
+					      MTRUE);
 		}
 	} else {
 		DBG_HEXDUMP(MIF_D, "SDIO MP-A Blk Rd", pmadapter->mpa_rx.buf,
@@ -949,7 +948,7 @@ wlan_receive_mp_aggr_buf(mlan_adapter *pmadapter)
 				pmadapter->upld_len = pkt_len;
 				/* Process de-aggr packet */
 				wlan_decode_rx_packet(pmadapter, mbuf_deaggr,
-						      pkt_type, MFALSE);
+						      pkt_type, MTRUE);
 			} else {
 				PRINTM(MERROR,
 				       "Wrong aggr packet: type=%d, len=%d, max_len=%d\n",
@@ -960,10 +959,6 @@ wlan_receive_mp_aggr_buf(mlan_adapter *pmadapter)
 			curr_ptr += pmadapter->mpa_rx.len_arr[pind];
 		}
 	}
-	if (pmadapter->rx_work_flag)
-		pmadapter->callbacks.moal_spin_unlock(pmadapter->pmoal_handle,
-						      pmadapter->rx_data_queue.
-						      plock);
 	pmadapter->mpa_rx_count[pmadapter->mpa_rx.pkt_cnt - 1]++;
 	MP_RX_AGGR_BUF_RESET(pmadapter);
 done:
@@ -1537,6 +1532,7 @@ wlan_interrupt(pmlan_adapter pmadapter)
 {
 	pmlan_callbacks pcb = &pmadapter->callbacks;
 	mlan_buffer mbuf;
+	t_u8 offset = 0;
 	t_u32 sdio_ireg = 0;
 
 	t_u8 max_mp_regs = MAX_MP_REGS;
@@ -1544,16 +1540,23 @@ wlan_interrupt(pmlan_adapter pmadapter)
 
 	ENTER();
 
-	memset(pmadapter, &mbuf, 0, sizeof(mlan_buffer));
-	mbuf.pbuf = pmadapter->mp_regs;
-	mbuf.data_len = max_mp_regs;
+	while (max_mp_regs) {
+		memset(pmadapter, &mbuf, 0, sizeof(mlan_buffer));
+		mbuf.pbuf = pmadapter->mp_regs + offset;
+		mbuf.data_len = MIN(max_mp_regs, MLAN_SDIO_BLOCK_SIZE);
 
-	if (MLAN_STATUS_SUCCESS !=
-	    pcb->moal_read_data_sync(pmadapter->pmoal_handle, &mbuf,
-				     REG_PORT | MLAN_SDIO_BYTE_MODE_MASK, 0)) {
-		PRINTM(MERROR, "moal_read_data_sync: read registers failed\n");
-		pmadapter->dbg.num_int_read_failure++;
-		goto done;
+		if (MLAN_STATUS_SUCCESS !=
+		    pcb->moal_read_data_sync(pmadapter->pmoal_handle, &mbuf,
+					     (REG_PORT +
+					      offset) |
+					     MLAN_SDIO_BYTE_MODE_MASK, 0)) {
+			PRINTM(MERROR,
+			       "moal_read_data_sync: read registers failed\n");
+			pmadapter->dbg.num_int_read_failure++;
+			goto done;
+		}
+		offset += mbuf.data_len;
+		max_mp_regs -= mbuf.data_len;
 	}
 
 	DBG_HEXDUMP(MIF_D, "SDIO MP Registers", pmadapter->mp_regs,
@@ -1933,13 +1936,23 @@ wlan_sdio_host_to_card(mlan_adapter *pmadapter, t_u8 type, mlan_buffer *pmbuf,
 	t_u8 port = 0;
 	t_u32 cmd53_port = 0;
 	t_u8 *payload = pmbuf->pbuf + pmbuf->data_offset;
+	t_u16 max_size = 0;
 
 	ENTER();
 
 	/* Allocate buffer and copy payload */
 	blksz = MLAN_SDIO_BLOCK_SIZE;
 	buf_block_len = (pmbuf->data_len + blksz - 1) / blksz;
-	*(t_u16 *)&payload[0] = wlan_cpu_to_le16((t_u16)pmbuf->data_len);
+	if (type == MLAN_TYPE_CMD)
+		max_size = MRVDRV_SIZE_OF_CMD_BUFFER;
+	else
+		max_size = pmadapter->tx_buf_size;
+	if (blksz * buf_block_len <= max_size)
+		*(t_u16 *)&payload[0] =
+			wlan_cpu_to_le16((t_u16)(blksz * buf_block_len));
+	else
+		*(t_u16 *)&payload[0] =
+			wlan_cpu_to_le16((t_u16)pmbuf->data_len);
 	*(t_u16 *)&payload[2] = wlan_cpu_to_le16(type);
 
 	/*

@@ -2,11 +2,12 @@
  *
  *  @brief This file contains the functions for station ioctl.
  *
- *  Copyright (C) 2011-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 #ifndef _MLAN_11AC_H_
@@ -33,10 +35,6 @@ void wlan_fill_vht_cap_tlv(mlan_private *priv, MrvlIETypes_VHTCap_t *pvht_cap,
 			   t_u8 bands, t_u8 flag);
 void wlan_fill_vht_cap_ie(mlan_private *priv, IEEEtypes_VHTCap_t *pvht_cap,
 			  t_u8 bands);
-void wlan_fill_tdls_vht_oprat_ie(mlan_private *priv,
-				 IEEEtypes_VHTOprat_t *vht_oprat,
-				 sta_node *sta_ptr);
-t_u8 wlan_is_ap_in_11ac_mode(mlan_private *priv);
 int wlan_cmd_append_11ac_tlv(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc,
 			     t_u8 **ppbuffer);
 mlan_status wlan_11ac_cfg_ioctl(pmlan_adapter pmadapter,

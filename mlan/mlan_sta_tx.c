@@ -3,11 +3,12 @@
  *  @brief This file contains the handling of data packet
  *  transmission in MLAN module.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -17,6 +18,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -127,8 +129,6 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 				MRVDRV_TxPD_POWER_MGMT_LAST_PACKET;
 		}
 	}
-	if (pmbuf->flags & MLAN_BUF_FLAG_TDLS)
-		plocal_tx_pd->flags |= MRVDRV_TxPD_FLAGS_TDLS_PACKET;
 	/* Offset of actual data */
 	plocal_tx_pd->tx_pkt_offset =
 		(t_u16)((t_ptr)pmbuf->pbuf + pmbuf->data_offset -

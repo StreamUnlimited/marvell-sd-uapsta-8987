@@ -5,11 +5,12 @@
  *  IOCTL handlers as well as command preparation and response routines
  *  for sending scan commands to the firmware.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -19,6 +20,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /******************************************************
@@ -471,22 +473,29 @@ wlan_scan_create_channel_list(IN mlan_private *pmpriv,
 		if (!wlan_is_band_compatible(band, pscan_region->band))
 			continue;
 		for (next_chan = 0;
-		     next_chan < pscan_region->num_cfp;
-		     next_chan++, chan_idx++) {
+		     next_chan < pscan_region->num_cfp; next_chan++) {
 			/* Set the default scan type to the user specified type, will later
 			 *   be changed to passive on a per channel basis if restricted by
 			 *   regulatory requirements (11d or 11h)
 			 */
 			scan_type = pmadapter->scan_type;
 			cfp = pscan_region->pcfp + next_chan;
+			if (cfp->dynamic.flags & NXP_CHANNEL_DISABLED)
+				continue;
 
+			if (wlan_is_chan_passive(pmpriv, pscan_region->band,
+						 (t_u8)cfp->channel)) {
+				/* do not send probe requests on this channel */
+				scan_type = MLAN_SCAN_TYPE_PASSIVE;
+			}
 			switch (pscan_region->band) {
 			case BAND_A:
 				pscan_chan_list[chan_idx].bandcfg.chanBand =
 					BAND_5GHZ;
 				/* Passive scan on DFS channels */
 				if (wlan_11h_radar_detect_required
-				    (pmpriv, (t_u8)cfp->channel))
+				    (pmpriv, (t_u8)cfp->channel)
+				    && scan_type != MLAN_SCAN_TYPE_PASSIVE)
 					scan_type =
 						MLAN_SCAN_TYPE_PASSIVE_TO_ACTIVE;
 				break;
@@ -551,7 +560,7 @@ wlan_scan_create_channel_list(IN mlan_private *pmpriv,
 			       passive_scan,
 			       pscan_chan_list[chan_idx].chan_scan_mode.
 			       passive_to_active_scan);
-
+			chan_idx++;
 		}
 	}
 
@@ -632,8 +641,18 @@ wlan_cmd_acs(IN pmlan_private pmpriv,
 
 	    /** Set chan_scan_mode */
 			scan_type = pmadapter->scan_type;
+			if (wlan_is_chan_passive(pmpriv,
+						 radio_type_to_band
+						 (pscan_chan_list[i].bandcfg.
+						  chanBand),
+						 pscan_chan_list[i].
+						 chan_number)) {
+				/* do not send probe requests on this channel */
+				scan_type = MLAN_SCAN_TYPE_PASSIVE;
+			}
 	    /** Prevent active scanning on a radar controlled channel */
-			if (pscan_chan_list[i].bandcfg.chanBand == BAND_5GHZ) {
+			if (pscan_chan_list[i].bandcfg.chanBand == BAND_5GHZ &&
+			    scan_type != MLAN_SCAN_TYPE_PASSIVE) {
 				if (pmadapter->active_scan_triggered == MFALSE)
 					if (wlan_11h_radar_detect_required
 					    (pmpriv,
@@ -641,7 +660,8 @@ wlan_cmd_acs(IN pmlan_private pmpriv,
 						scan_type =
 							MLAN_SCAN_TYPE_PASSIVE;
 			}
-			if (pscan_chan_list[i].bandcfg.chanBand == BAND_2GHZ) {
+			if (pscan_chan_list[i].bandcfg.chanBand == BAND_2GHZ &&
+			    scan_type != MLAN_SCAN_TYPE_PASSIVE) {
 				if (pmadapter->active_scan_triggered == MFALSE)
 					if (wlan_bg_scan_type_is_passive
 					    (pmpriv,
@@ -1562,6 +1582,21 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 		ptlv_pos += sizeof(MrvlIEtypes_OnlyProberesp_t);
 	}
 
+	if (puser_scan_in &&
+	    memcmp(pmadapter, puser_scan_in->random_mac, zero_mac,
+		   MLAN_MAC_ADDR_LENGTH)) {
+		MrvlIEtypes_MacAddr_t *randomMacParam =
+			(MrvlIEtypes_MacAddr_t *)ptlv_pos;
+		memset(pmadapter, randomMacParam, 0,
+		       sizeof(MrvlIEtypes_MacAddr_t));
+		randomMacParam->header.type =
+			wlan_cpu_to_le16(TLV_TYPE_RANDOM_MAC);
+		randomMacParam->header.len =
+			wlan_cpu_to_le16(MLAN_MAC_ADDR_LENGTH);
+		memcpy(pmadapter, randomMacParam->mac,
+		       puser_scan_in->random_mac, MLAN_MAC_ADDR_LENGTH);
+		ptlv_pos += sizeof(MrvlIEtypes_MacAddr_t);
+	}
 	/*
 	 * Set the output for the channel TLV to the address in the tlv buffer
 	 *   past any TLVs that were added in this function (SSID, num_probes).
@@ -1614,8 +1649,13 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 				}
 			}
 
+			if (wlan_is_chan_passive(pmpriv, radio_type, channel)) {
+				/* do not send probe requests on this channel */
+				scan_type = MLAN_SCAN_TYPE_PASSIVE;
+			}
 			/* Prevent active scanning on a radar controlled channel */
-			if (radio_type == BAND_5GHZ) {
+			if (radio_type == BAND_5GHZ &&
+			    scan_type != MLAN_SCAN_TYPE_PASSIVE) {
 				if (pmadapter->active_scan_triggered == MFALSE)
 					if (wlan_11h_radar_detect_required
 					    (pmpriv, channel)) {
@@ -1623,7 +1663,8 @@ wlan_scan_setup_scan_config(IN mlan_private *pmpriv,
 							MLAN_SCAN_TYPE_PASSIVE_TO_ACTIVE;
 					}
 			}
-			if (radio_type == BAND_2GHZ) {
+			if (radio_type == BAND_2GHZ &&
+			    scan_type != MLAN_SCAN_TYPE_PASSIVE) {
 				if (pmadapter->active_scan_triggered == MFALSE)
 					if (wlan_bg_scan_type_is_passive
 					    (pmpriv, channel)) {
@@ -3560,52 +3601,6 @@ wlan_is_network_compatible(IN mlan_private *pmpriv,
 		return index;
 	}
 
-	if ((pbss_desc->bss_mode == mode) &&
-	    (pmpriv->sec_info.ewpa_enabled == MTRUE)) {
-		if (((pbss_desc->pwpa_ie) &&
-		     ((*(pbss_desc->pwpa_ie)).vend_hdr.element_id == WPA_IE)) ||
-		    ((pbss_desc->prsn_ie) &&
-		     ((*(pbss_desc->prsn_ie)).ieee_hdr.element_id == RSN_IE))) {
-			if (((pmpriv->adapter->config_bands & BAND_GN ||
-			      pmpriv->adapter->config_bands & BAND_AN) &&
-			     pbss_desc->pht_cap)
-			    && (pmpriv->bss_mode == MLAN_BSS_MODE_INFRA)
-			    && !is_wpa_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_CCMP)
-			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_CCMP)
-			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_GCMP)
-			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_GCMP_256)
-			    && !is_rsn_oui_present(pmpriv->adapter, pbss_desc,
-						   CIPHER_SUITE_CCMP_256)
-				) {
-
-				if (is_wpa_oui_present
-				    (pmpriv->adapter, pbss_desc,
-				     CIPHER_SUITE_TKIP)
-				    || is_rsn_oui_present(pmpriv->adapter,
-							  pbss_desc,
-							  CIPHER_SUITE_TKIP)) {
-					PRINTM(MINFO,
-					       "Disable 11n if AES is not supported by AP\n");
-					pbss_desc->disable_11n = MTRUE;
-				} else {
-					LEAVE();
-					return -1;
-				}
-			}
-			LEAVE();
-			return index;
-		} else {
-			PRINTM(MINFO,
-			       "ewpa_enabled: Ignore none WPA/WPA2 AP\n");
-			LEAVE();
-			return -1;
-		}
-	}
-
 	if (pmpriv->sec_info.wapi_enabled &&
 	    (pbss_desc->pwapi_ie &&
 	     ((*(pbss_desc->pwapi_ie)).ieee_hdr.element_id == WAPI_IE))) {
@@ -5225,9 +5220,8 @@ wlan_handle_event_ext_scan_status(IN mlan_private *pmpriv,
 			break;
 		}
 		tlv_buf_left -= tlv_len + sizeof(MrvlIEtypesHeader_t);
-		tlv = (MrvlIEtypesHeader_t *)((t_u8 *)(tlv + tlv_len +
-						       sizeof
-						       (MrvlIEtypesHeader_t)));
+		tlv = (MrvlIEtypesHeader_t *)((t_u8 *)tlv + tlv_len +
+					      sizeof(MrvlIEtypesHeader_t));
 	}
 
 done:
@@ -5496,6 +5490,7 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 	t_u16 scan_dur;
 	t_u8 scan_type;
 	t_u8 band;
+	const t_u8 zero_mac[6] = { 0, 0, 0, 0, 0, 0 };
 
 	ENTER();
 
@@ -5503,6 +5498,7 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 	bg_scan->action = wlan_cpu_to_le16(bg_scan_in->action);
 	bg_scan->enable = bg_scan_in->enable;
 	bg_scan->bss_type = bg_scan_in->bss_type;
+	bg_scan->dot11ai = bg_scan_in->dot11ai;
 	cmd_size = sizeof(HostCmd_DS_802_11_BG_SCAN_CONFIG) + S_DS_GEN;
 	if (bg_scan_in->scan_interval)
 		bg_scan->scan_interval =
@@ -5824,6 +5820,22 @@ wlan_cmd_bgscan_config(IN mlan_private *pmpriv,
 		}
 	}
 
+	if (memcmp
+	    (pmadapter, bg_scan_in->random_mac, zero_mac,
+	     MLAN_MAC_ADDR_LENGTH)) {
+		MrvlIEtypes_MacAddr_t *randomMacParam =
+			(MrvlIEtypes_MacAddr_t *)tlv;
+		memset(pmadapter, randomMacParam, 0,
+		       sizeof(MrvlIEtypes_MacAddr_t));
+		randomMacParam->header.type =
+			wlan_cpu_to_le16(TLV_TYPE_RANDOM_MAC);
+		randomMacParam->header.len =
+			wlan_cpu_to_le16(MLAN_MAC_ADDR_LENGTH);
+		memcpy(pmadapter, randomMacParam->mac, bg_scan_in->random_mac,
+		       MLAN_MAC_ADDR_LENGTH);
+		tlv += sizeof(MrvlIEtypes_MacAddr_t);
+		cmd_size += sizeof(MrvlIEtypes_MacAddr_t);
+	}
 done:
 	pcmd->size = wlan_cpu_to_le16(cmd_size);
 	LEAVE();
@@ -5855,7 +5867,7 @@ wlan_ret_bgscan_config(IN mlan_private *pmpriv,
 		bg_scan_out =
 			(wlan_bgscan_cfg *)pscan->param.user_scan.scan_cfg_buf;
 		bg_scan_out->action = wlan_le16_to_cpu(bg_scan->action);
-		if ((bg_scan_out->action == BG_SCAN_ACT_GET) &&
+		if ((bg_scan_out->action == BG_SCAN_ACT_GET) ||
 		    (bg_scan_out->action == BG_SCAN_ACT_GET_PPS_UAPSD)) {
 			bg_scan_out->enable = bg_scan->enable;
 			bg_scan_out->bss_type = bg_scan->bss_type;

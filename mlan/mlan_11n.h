@@ -5,11 +5,12 @@
  *  Driver interface functions and type declarations for the 11n module
  *    implemented in mlan_11n.c.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -242,10 +243,6 @@ reset_station_ampdu(mlan_private *priv, t_u8 tid, t_u8 *ra)
 static INLINE t_u8
 wlan_is_ampdu_allowed(mlan_private *priv, raListTbl *ptr, int tid)
 {
-	if (ptr->is_tdls_link)
-		return is_station_ampdu_allowed(priv, ptr, tid);
-	if (priv->adapter->tdls_status != TDLS_NOT_SETUP && !priv->txaggrctrl)
-		return MFALSE;
 
 	if ((!priv->is_data_rate_auto) && IS_BG_RATE)
 		return MFALSE;
@@ -283,8 +280,6 @@ wlan_update_del_ba_count(mlan_private *priv, raListTbl *ptr)
 	if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_UAP)
 		return wlan_update_station_del_ba_count(priv, ptr);
 #endif /* UAP_SUPPORT */
-	if (ptr->is_tdls_link)
-		return wlan_update_station_del_ba_count(priv, ptr);
 	rssi = priv->snr - priv->nf;
 	if (rssi > BA_RSSI_HIGH_THRESHOLD)
 		ptr->del_ba_count = 0;
@@ -313,9 +308,6 @@ wlan_is_amsdu_allowed(mlan_private *priv, raListTbl *ptr, int tid)
 		}
 	}
 #endif /* UAP_SUPPORT */
-	if (ptr->is_tdls_link)
-		return (priv->aggr_prio_tbl[tid].amsdu !=
-			BA_STREAM_NOT_ALLOWED)? MTRUE : MFALSE;
 #define TXRATE_BITMAP_INDEX_MCS0_7 2
 	return ((priv->aggr_prio_tbl[tid].amsdu != BA_STREAM_NOT_ALLOWED)
 		&&((priv->is_data_rate_auto)

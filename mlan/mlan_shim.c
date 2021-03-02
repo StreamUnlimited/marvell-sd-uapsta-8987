@@ -2,11 +2,12 @@
  *
  *  @brief This file contains APIs to MOAL module.
  *
- *  Copyright (C) 2008-2019, Marvell International Ltd.
  *
- *  This software file (the "File") is distributed by Marvell International
- *  Ltd. under the terms of the GNU General Public License Version 2, June 1991
- *  (the "License").  You may use, redistribute and/or modify this File in
+ *  Copyright 2014-2020 NXP
+ *
+ *  This software file (the File) is distributed by NXP
+ *  under the terms of the GNU General Public License Version 2, June 1991
+ *  (the License).  You may use, redistribute and/or modify the File in
  *  accordance with the terms and conditions of the License, a copy of which
  *  is available by writing to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
@@ -16,6 +17,7 @@
  *  IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
  *  ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
  *  this warranty disclaimer.
+ *
  */
 
 /********************************************************
@@ -302,7 +304,6 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	MASSERT(pcb->moal_spin_lock);
 	MASSERT(pcb->moal_spin_unlock);
 	MASSERT(pcb->moal_hist_data_add);
-	MASSERT(pcb->moal_updata_peer_signal);
 	MASSERT(pcb->moal_do_div);
 	/* Save pmoal_handle */
 	pmadapter->pmoal_handle = pmdevice->pmoal_handle;
@@ -362,7 +363,6 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	pmadapter->multiple_dtim = pmdevice->multi_dtim;
 	pmadapter->inact_tmo = pmdevice->inact_tmo;
 	pmadapter->init_para.drcs_chantime_mode = pmdevice->drcs_chantime_mode;
-	pmadapter->init_para.fw_region = pmdevice->fw_region;
 	pmadapter->hs_wake_interval = pmdevice->hs_wake_interval;
 	if (pmdevice->indication_gpio != 0xff) {
 		pmadapter->ind_gpio = pmdevice->indication_gpio & 0x0f;
@@ -394,24 +394,15 @@ mlan_register(IN pmlan_device pmdevice, OUT t_void **ppmlan_adapter)
 	memset(pmadapter, pmadapter->priv[0], 0, sizeof(mlan_private));
 
 	pmadapter->priv[0]->adapter = pmadapter;
-	pmadapter->priv[0]->bss_type = (t_u8)pmdevice->bss_attr[0].bss_type;
-	pmadapter->priv[0]->frame_type = (t_u8)pmdevice->bss_attr[0].frame_type;
-	pmadapter->priv[0]->bss_priority =
-		(t_u8)pmdevice->bss_attr[0].bss_priority;
-	if (pmdevice->bss_attr[0].bss_type == MLAN_BSS_TYPE_STA)
-		pmadapter->priv[0]->bss_role = MLAN_BSS_ROLE_STA;
-	else if (pmdevice->bss_attr[0].bss_type == MLAN_BSS_TYPE_UAP)
-		pmadapter->priv[0]->bss_role = MLAN_BSS_ROLE_UAP;
-#ifdef WIFI_DIRECT_SUPPORT
-	else if (pmdevice->bss_attr[0].bss_type == MLAN_BSS_TYPE_WIFIDIRECT) {
-		pmadapter->priv[0]->bss_role = MLAN_BSS_ROLE_STA;
-		if (pmdevice->bss_attr[0].bss_virtual)
-			pmadapter->priv[0]->bss_virtual = MTRUE;
-	}
-#endif
+	/* Save bss_type, frame_type & bss_priority */
+	pmadapter->priv[0]->bss_type = 0xff;
+	pmadapter->priv[0]->frame_type = MLAN_DATA_FRAME_TYPE_ETH_II;
+	pmadapter->priv[0]->bss_priority = 0;
+	pmadapter->priv[0]->bss_role = MLAN_BSS_ROLE_STA;
+
 	/* Save bss_index and bss_num */
 	pmadapter->priv[0]->bss_index = 0;
-	pmadapter->priv[0]->bss_num = (t_u8)pmdevice->bss_attr[0].bss_num;
+	pmadapter->priv[0]->bss_num = 0xff;
 
 	/* init function table */
 	for (j = 0; mlan_ops[j]; j++) {
@@ -576,7 +567,9 @@ mlan_dnld_fw(IN t_void *pmlan_adapter, IN pmlan_fw_image pmfw)
 	/* Check if firmware is already running */
 	ret = wlan_check_fw_status(pmadapter, poll_num);
 	if (ret == MLAN_STATUS_SUCCESS) {
-		if (pmfw->fw_reload) {
+		if ((pmfw->fw_reload == FW_RELOAD_SDIO_INBAND_RESET)
+			) {
+			PRINTM(MCMND, "Try Reset FW in MLAN\n");
 			ret = wlan_reset_fw(pmadapter);
 			if (ret == MLAN_STATUS_FAILURE) {
 				PRINTM(MERROR, "FW reset failure!");
@@ -586,6 +579,7 @@ mlan_dnld_fw(IN t_void *pmlan_adapter, IN pmlan_fw_image pmfw)
 		} else {
 			PRINTM(MMSG,
 			       "WLAN FW already running! Skip FW download\n");
+			mlan_pm_wakeup_card(pmadapter);
 			goto done;
 		}
 	}
@@ -1050,6 +1044,14 @@ process_start:
 			wlan_process_pending_ioctl(pmadapter);
 			pmadapter->pending_ioctl = MFALSE;
 		}
+		if (pmadapter->pending_disconnect_priv) {
+			PRINTM(MEVENT, "HostMlme Reset connect state\n");
+			wlan_reset_connect_state(pmadapter->
+						 pending_disconnect_priv,
+						 MTRUE);
+			pmadapter->pending_disconnect_priv = MNULL;
+		}
+
 		if (pmadapter->rx_pkts_queued > HIGH_RX_PENDING) {
 			PRINTM(MEVENT, "Pause\n");
 			pmadapter->delay_task_flag = MTRUE;
@@ -1109,16 +1111,12 @@ process_start:
 				break;
 
 			if (pmadapter->data_sent
-			    || wlan_is_tdls_link_chan_switching(pmadapter->
-								tdls_status)
 			    || (wlan_bypass_tx_list_empty(pmadapter) &&
 				wlan_wmm_lists_empty(pmadapter))
 			    || wlan_11h_radar_detected_tx_blocked(pmadapter)
 				) {
 				if (pmadapter->cmd_sent || pmadapter->curr_cmd
-				    || !wlan_is_send_cmd_allowed(pmadapter->
-								 tdls_status) ||
-				    !wlan_is_cmd_pending(pmadapter)) {
+				    || !wlan_is_cmd_pending(pmadapter)) {
 					break;
 				}
 			}
@@ -1164,9 +1162,7 @@ process_start:
 			continue;
 		}
 
-		if (!pmadapter->cmd_sent && !pmadapter->curr_cmd
-		    && wlan_is_send_cmd_allowed(pmadapter->tdls_status)
-			) {
+		if (!pmadapter->cmd_sent && !pmadapter->curr_cmd) {
 			if (wlan_exec_next_cmd(pmadapter) ==
 			    MLAN_STATUS_FAILURE) {
 				ret = MLAN_STATUS_FAILURE;
@@ -1176,7 +1172,6 @@ process_start:
 
 		if (!pmadapter->data_sent &&
 		    !wlan_11h_radar_detected_tx_blocked(pmadapter) &&
-		    !wlan_is_tdls_link_chan_switching(pmadapter->tdls_status) &&
 		    !wlan_bypass_tx_list_empty(pmadapter)) {
 			PRINTM(MINFO, "mlan_send_pkt(): deq(bybass_txq)\n");
 			wlan_process_bypass_tx(pmadapter);
@@ -1191,7 +1186,6 @@ process_start:
 
 		if (!pmadapter->data_sent && !wlan_wmm_lists_empty(pmadapter)
 		    && !wlan_11h_radar_detected_tx_blocked(pmadapter)
-		    && !wlan_is_tdls_link_chan_switching(pmadapter->tdls_status)
 			) {
 			wlan_wmm_process_tx(pmadapter);
 			if (pmadapter->hs_activated == MTRUE) {
@@ -1255,8 +1249,6 @@ mlan_send_packet(IN t_void *pmlan_adapter, IN pmlan_buffer pmbuf)
 	mlan_adapter *pmadapter = (mlan_adapter *)pmlan_adapter;
 	mlan_private *pmpriv;
 	t_u16 eth_type = 0;
-	t_u8 ra[MLAN_MAC_ADDR_LENGTH];
-	tdlsStatus_e tdls_status;
 
 	ENTER();
 	MASSERT(pmlan_adapter &&pmbuf);
@@ -1277,17 +1269,8 @@ mlan_send_packet(IN t_void *pmlan_adapter, IN pmlan_buffer pmbuf)
 	     ((eth_type == MLAN_ETHER_PKT_TYPE_EAPOL)
 	      || (eth_type == MLAN_ETHER_PKT_TYPE_WAPI)
 	     ))
-	    || (eth_type == MLAN_ETHER_PKT_TYPE_TDLS_ACTION)
 	    || (pmbuf->buf_type == MLAN_BUF_TYPE_RAW_DATA)
 		) {
-		if (eth_type == MLAN_ETHER_PKT_TYPE_TDLS_ACTION) {
-			memcpy(pmadapter, ra, pmbuf->pbuf + pmbuf->data_offset,
-			       MLAN_MAC_ADDR_LENGTH);
-			tdls_status = wlan_get_tdls_link_status(pmpriv, ra);
-			if (MTRUE == wlan_is_tdls_link_setup(tdls_status) ||
-			    !pmpriv->media_connected)
-				pmbuf->flags |= MLAN_BUF_FLAG_TDLS;
-		}
 		PRINTM(MINFO, "mlan_send_pkt(): enq(bybass_txq)\n");
 		wlan_add_buf_bypass_txqueue(pmadapter, pmbuf);
 	} else {
@@ -1408,6 +1391,66 @@ mlan_pm_wakeup_card(IN t_void *adapter)
 	ENTER();
 	wlan_pm_wakeup_card(pmadapter, MFALSE);
 	LEAVE();
+}
+
+/**
+ *  @brief This function collect the power statistic info
+ *
+ *  @param adapter  A pointer to mlan_adapter structure
+ *  @param ps_state  Power save state
+ *
+ *  @return         MLAN_SATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+mlan_collect_power_statistic(IN t_void *pmlan_adapter)
+{
+	mlan_adapter *pmadapter = (mlan_adapter *)pmlan_adapter;
+	pmlan_callbacks pcb = &pmadapter->callbacks;
+	mlan_status ret = MLAN_STATUS_SUCCESS;
+	t_u64 nsec = 0;
+	t_u64 wakeup_time = 0;
+	int i = 0;
+
+	ENTER();
+
+	/* If media connected, don't collect power statistic */
+	for (i = 0; i < pmadapter->priv_num; i++) {
+		if (pmadapter->priv[i] &&
+		    pmadapter->priv[i]->media_connected == MTRUE)
+			return ret;
+	}
+
+	ret = pmadapter->callbacks.moal_get_boot_ktime(pmadapter->pmoal_handle,
+						       &nsec);
+	if (pmadapter->ps_state == PS_STATE_SLEEP) {
+		pmadapter->sleep_counter++;
+		pmadapter->sleep_enter_time_ms =
+			pcb->moal_do_div(nsec, 1000000);
+		pmadapter->last_sleep_enter_time =
+			pmadapter->sleep_enter_time_ms;
+		PRINTM(MINFO, "sleep_enter_time is %lu\n",
+		       pmadapter->sleep_enter_time_ms);
+		PRINTM(MINFO, "sleep_counter is %d\n",
+		       pmadapter->sleep_counter);
+	} else if (pmadapter->ps_state == PS_STATE_AWAKE &&
+		   pmadapter->sleep_enter_time_ms) {
+		wakeup_time = pcb->moal_do_div(nsec, 1000000);
+		if (wakeup_time < pmadapter->last_sleep_enter_time) {
+			PRINTM(MERROR,
+			       "Error! Value of wakeup_time is smaller than last sleep enter time\n");
+			ret = MLAN_STATUS_FAILURE;
+			goto done;
+		}
+		pmadapter->cumulate_sleep_time +=
+			(wakeup_time - pmadapter->sleep_enter_time_ms);
+		pmadapter->sleep_enter_time_ms = 0;
+		PRINTM(MINFO, "cumulate_sleep_time is %lu\n",
+		       pmadapter->cumulate_sleep_time);
+	}
+
+done:
+	LEAVE();
+	return ret;
 }
 
 /**
