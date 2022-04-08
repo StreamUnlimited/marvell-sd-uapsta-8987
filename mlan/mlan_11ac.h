@@ -3,7 +3,7 @@
  *  @brief This file contains the functions for station ioctl.
  *
  *
- *  Copyright 2014-2020 NXP
+ *  Copyright 2011-2021 NXP
  *
  *  This software file (the File) is distributed by NXP
  *  under the terms of the GNU General Public License Version 2, June 1991
@@ -29,25 +29,26 @@
 
 void wlan_show_dot11acdevcap(pmlan_adapter pmadapter, t_u32 cap);
 void wlan_show_dot11acmcssupport(pmlan_adapter pmadapter, t_u32 support);
-t_u16 wlan_convert_mcsmap_to_maxrate(mlan_private *priv, t_u8 bands,
+t_u16 wlan_convert_mcsmap_to_maxrate(mlan_private *priv, t_u16 bands,
 				     t_u16 mcs_map);
 void wlan_fill_vht_cap_tlv(mlan_private *priv, MrvlIETypes_VHTCap_t *pvht_cap,
-			   t_u8 bands, t_u8 flag);
+			   t_u16 bands, t_u8 flag, t_u8 bw_80p80);
 void wlan_fill_vht_cap_ie(mlan_private *priv, IEEEtypes_VHTCap_t *pvht_cap,
-			  t_u8 bands);
+			  t_u16 bands);
 int wlan_cmd_append_11ac_tlv(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc,
 			     t_u8 **ppbuffer);
 mlan_status wlan_11ac_cfg_ioctl(pmlan_adapter pmadapter,
 				pmlan_ioctl_req pioctl_req);
 void wlan_update_11ac_cap(mlan_private *pmpriv);
-t_u8 wlan_11ac_bandconfig_allowed(mlan_private *pmpriv, t_u8 bss_band);
+t_u8 wlan_11ac_bandconfig_allowed(mlan_private *pmpriv, t_u16 bss_band);
+t_u8 wlan_is_80_80_support(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc);
 
-mlan_status wlan_cmd_11ac_cfg(IN pmlan_private pmpriv,
-			      IN HostCmd_DS_COMMAND *cmd,
-			      IN t_u16 cmd_action, IN t_void *pdata_buf);
+mlan_status wlan_cmd_11ac_cfg(pmlan_private pmpriv,
+			      HostCmd_DS_COMMAND *cmd, t_u16 cmd_action,
+			      t_void *pdata_buf);
 
-mlan_status wlan_ret_11ac_cfg(IN pmlan_private pmpriv,
-			      IN HostCmd_DS_COMMAND *resp,
-			      IN mlan_ioctl_req *pioctl_buf);
+mlan_status wlan_ret_11ac_cfg(pmlan_private pmpriv,
+			      HostCmd_DS_COMMAND *resp,
+			      mlan_ioctl_req *pioctl_buf);
 
 #endif /* _MLAN_11AC_H_ */

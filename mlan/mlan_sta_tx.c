@@ -4,7 +4,7 @@
  *  transmission in MLAN module.
  *
  *
- *  Copyright 2014-2020 NXP
+ *  Copyright 2008-2020 NXP
  *
  *  This software file (the File) is distributed by NXP
  *  under the terms of the GNU General Public License Version 2, June 1991
@@ -32,7 +32,6 @@ Change log:
 #include "mlan_fw.h"
 #include "mlan_main.h"
 #include "mlan_wmm.h"
-#include "mlan_sdio.h"
 
 /********************************************************
 		Local Variables
@@ -58,7 +57,7 @@ Change log:
  *  @return        headptr or MNULL
  */
 t_void *
-wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
+wlan_ops_sta_process_txpd(t_void *priv, pmlan_buffer pmbuf)
 {
 	mlan_private *pmpriv = (mlan_private *)priv;
 	pmlan_adapter pmadapter = pmpriv->adapter;
@@ -76,17 +75,18 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		goto done;
 	}
 	if (pmbuf->buf_type == MLAN_BUF_TYPE_RAW_DATA) {
-		memcpy(pmpriv->adapter, &pkt_type,
-		       pmbuf->pbuf + pmbuf->data_offset, sizeof(pkt_type));
-		memcpy(pmpriv->adapter, &tx_control,
-		       pmbuf->pbuf + pmbuf->data_offset + sizeof(pkt_type),
-		       sizeof(tx_control));
+		memcpy_ext(pmpriv->adapter, &pkt_type,
+			   pmbuf->pbuf + pmbuf->data_offset, sizeof(pkt_type),
+			   sizeof(pkt_type));
+		memcpy_ext(pmpriv->adapter, &tx_control,
+			   pmbuf->pbuf + pmbuf->data_offset + sizeof(pkt_type),
+			   sizeof(tx_control), sizeof(tx_control));
 		pmbuf->data_offset += sizeof(pkt_type) + sizeof(tx_control);
 		pmbuf->data_len -= sizeof(pkt_type) + sizeof(tx_control);
 	}
 
-	if (pmbuf->data_offset < (sizeof(TxPD) + pmpriv->intf_hr_len +
-				  DMA_ALIGNMENT)) {
+	if (pmbuf->data_offset <
+	    (sizeof(TxPD) + pmpriv->intf_hr_len + DMA_ALIGNMENT)) {
 		PRINTM(MERROR,
 		       "not enough space for TxPD: headroom=%d pkt_len=%d, required=%d\n",
 		       pmbuf->data_offset, pmbuf->data_len,
@@ -96,8 +96,7 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 	}
 
 	/* head_ptr should be aligned */
-	head_ptr =
-		pmbuf->pbuf + pmbuf->data_offset - sizeof(TxPD) -
+	head_ptr = pmbuf->pbuf + pmbuf->data_offset - sizeof(TxPD) -
 		pmpriv->intf_hr_len;
 	head_ptr = (t_u8 *)((t_ptr)head_ptr & ~((t_ptr)(DMA_ALIGNMENT - 1)));
 
@@ -118,8 +117,7 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		 * Set the priority specific tx_control field, setting of 0 will
 		 *   cause the default value to be used later in this function
 		 */
-		plocal_tx_pd->tx_control
-			=
+		plocal_tx_pd->tx_control =
 			pmpriv->wmm.user_pri_pkt_tx_ctrl[plocal_tx_pd->
 							 priority];
 	if (pmadapter->pps_uapsd_mode) {
@@ -130,9 +128,9 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		}
 	}
 	/* Offset of actual data */
-	plocal_tx_pd->tx_pkt_offset =
-		(t_u16)((t_ptr)pmbuf->pbuf + pmbuf->data_offset -
-			(t_ptr)plocal_tx_pd);
+	plocal_tx_pd->tx_pkt_offset = (t_u16)((t_ptr)pmbuf->pbuf +
+					      pmbuf->data_offset -
+					      (t_ptr)plocal_tx_pd);
 
 	if (!plocal_tx_pd->tx_control) {
 		/* TxCtrl set by user or default */
@@ -152,8 +150,8 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		if (pmbuf->u.tx_info.data_rate) {
 			plocal_tx_pd->tx_control |=
 				(wlan_ieee_rateid_to_mrvl_rateid
-				 (pmpriv, pmbuf->u.tx_info.data_rate,
-				  MNULL) << 16);
+				 (pmpriv, pmbuf->u.tx_info.data_rate, MNULL)
+				 << 16);
 			plocal_tx_pd->tx_control |= TXPD_TXRATE_ENABLE;
 		}
 		plocal_tx_pd->tx_control_1 |= pmbuf->u.tx_info.channel << 21;
@@ -163,14 +161,15 @@ wlan_ops_sta_process_txpd(IN t_void *priv, IN pmlan_buffer pmbuf)
 		}
 		if (pmbuf->u.tx_info.tx_power.tp.hostctl)
 			plocal_tx_pd->tx_control |=
-				pmbuf->u.tx_info.tx_power.val;
+				(t_u32)pmbuf->u.tx_info.tx_power.val;
 		if (pmbuf->u.tx_info.retry_limit) {
-			plocal_tx_pd->tx_control |=
-				pmbuf->u.tx_info.retry_limit << 8;
+			plocal_tx_pd->tx_control |= pmbuf->u.tx_info.retry_limit
+				<< 8;
 			plocal_tx_pd->tx_control |= TXPD_RETRY_ENABLE;
 		}
 	}
 	endian_convert_TxPD(plocal_tx_pd);
+
 	/* Adjust the data offset and length to include TxPD in pmbuf */
 	pmbuf->data_len += pmbuf->data_offset;
 	pmbuf->data_offset = (t_u32)(head_ptr - pmbuf->pbuf);
@@ -187,7 +186,8 @@ done:
  *  @param priv     A pointer to mlan_private structure
  *  @param flags    Transmit Pkt Flags
  *
- *  @return         MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise failure
+ *  @return         MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise
+ * failure
  */
 mlan_status
 wlan_send_null_packet(pmlan_private priv, t_u8 flags)
@@ -250,7 +250,7 @@ wlan_send_null_packet(pmlan_private priv, t_u8 flags)
 
 	endian_convert_TxPD(ptx_pd);
 
-	ret = wlan_sdio_host_to_card(pmadapter, MLAN_TYPE_DATA, pmbuf, MNULL);
+	ret = pmadapter->ops.host_to_card(priv, MLAN_TYPE_DATA, pmbuf, MNULL);
 
 	switch (ret) {
 	case MLAN_STATUS_RESOURCE:
@@ -259,7 +259,6 @@ wlan_send_null_packet(pmlan_private priv, t_u8 flags)
 		pmadapter->dbg.num_tx_host_to_card_failure++;
 		goto done;
 	case MLAN_STATUS_FAILURE:
-		pmadapter->data_sent = MFALSE;
 		wlan_free_mlan_buffer(pmadapter, pmbuf);
 		PRINTM(MERROR, "STA Tx Error: Failed to send NULL packet!\n");
 		pmadapter->dbg.num_tx_host_to_card_failure++;
@@ -312,8 +311,8 @@ wlan_check_last_packet_indication(pmlan_private priv)
 
 			ret = MTRUE;
 	}
-	if (ret && !pmadapter->cmd_sent && !pmadapter->curr_cmd
-	    && !wlan_is_cmd_pending(pmadapter)) {
+	if (ret && !pmadapter->cmd_sent && !pmadapter->curr_cmd &&
+	    !wlan_is_cmd_pending(pmadapter)) {
 		pmadapter->delay_null_pkt = MFALSE;
 		ret = MTRUE;
 	} else {

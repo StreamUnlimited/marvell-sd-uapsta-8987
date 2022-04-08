@@ -3,7 +3,7 @@
  *  @brief This file contains functions for 802.11D.
  *
  *
- *  Copyright 2014-2020 NXP
+ *  Copyright 2008-2020 NXP
  *
  *  This software file (the File) is distributed by NXP
  *  under the terms of the GNU General Public License Version 2, June 1991
@@ -38,9 +38,9 @@ Change log:
 #ifdef STA_SUPPORT
 /** Region code mapping */
 typedef struct _region_code_mapping {
-    /** Region */
+	/** Region */
 	t_u8 region[COUNTRY_CODE_LEN];
-    /** Code */
+	/** Code */
 	t_u8 code;
 } region_code_mapping_t;
 
@@ -58,72 +58,73 @@ static region_code_mapping_t region_code_mapping[] = {
 	{"CN ", 0x50},		/* China       */
 	{"JP ", 0xFE},		/* Japan       */
 	{"JP ", 0xFF},		/* Japan special */
+	{"NE ", 0x30},		/* New Zeland  */
 };
 
 /** Universal region code */
-#define UNIVERSAL_REGION_CODE   0xff
+#define UNIVERSAL_REGION_CODE 0xff
 #endif
 
 /** Default Tx power */
-#define TX_PWR_DEFAULT  10
+#define TX_PWR_DEFAULT 10
 
 /* Following two structures define the supported channels */
 /** Channels for 802.11b/g */
 static chan_freq_power_t channel_freq_power_UN_BG[] = {
-	{1, 2412, TX_PWR_DEFAULT},
-	{2, 2417, TX_PWR_DEFAULT},
-	{3, 2422, TX_PWR_DEFAULT},
-	{4, 2427, TX_PWR_DEFAULT},
-	{5, 2432, TX_PWR_DEFAULT},
-	{6, 2437, TX_PWR_DEFAULT},
-	{7, 2442, TX_PWR_DEFAULT},
-	{8, 2447, TX_PWR_DEFAULT},
-	{9, 2452, TX_PWR_DEFAULT},
-	{10, 2457, TX_PWR_DEFAULT},
-	{11, 2462, TX_PWR_DEFAULT},
-	{12, 2467, TX_PWR_DEFAULT},
-	{13, 2472, TX_PWR_DEFAULT},
-	{14, 2484, TX_PWR_DEFAULT}
+	{1, 2412, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{2, 2417, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{3, 2422, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{4, 2427, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{5, 2432, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{6, 2437, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{7, 2442, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{8, 2447, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{9, 2452, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{10, 2457, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{11, 2462, TX_PWR_DEFAULT, MFALSE, {0x1c, 0, 0}},
+	{12, 2467, TX_PWR_DEFAULT, MFALSE, {0x1d, 0, 0}},
+	{13, 2472, TX_PWR_DEFAULT, MFALSE, {0x1d, 0, 0}},
+	{14, 2484, TX_PWR_DEFAULT, MFALSE, {0x1d, 0, 0}},
 };
 
 /** Channels for 802.11a/j */
 static chan_freq_power_t channel_freq_power_UN_AJ[] = {
-	{8, 5040, TX_PWR_DEFAULT},
-	{12, 5060, TX_PWR_DEFAULT},
-	{16, 5080, TX_PWR_DEFAULT},
-	{34, 5170, TX_PWR_DEFAULT},
-	{38, 5190, TX_PWR_DEFAULT},
-	{42, 5210, TX_PWR_DEFAULT},
-	{46, 5230, TX_PWR_DEFAULT},
-	{36, 5180, TX_PWR_DEFAULT},
-	{40, 5200, TX_PWR_DEFAULT},
-	{44, 5220, TX_PWR_DEFAULT},
-	{48, 5240, TX_PWR_DEFAULT},
-	{52, 5260, TX_PWR_DEFAULT},
-	{56, 5280, TX_PWR_DEFAULT},
-	{60, 5300, TX_PWR_DEFAULT},
-	{64, 5320, TX_PWR_DEFAULT},
-	{100, 5500, TX_PWR_DEFAULT},
-	{104, 5520, TX_PWR_DEFAULT},
-	{108, 5540, TX_PWR_DEFAULT},
-	{112, 5560, TX_PWR_DEFAULT},
-	{116, 5580, TX_PWR_DEFAULT},
-	{120, 5600, TX_PWR_DEFAULT},
-	{124, 5620, TX_PWR_DEFAULT},
-	{128, 5640, TX_PWR_DEFAULT},
-	{132, 5660, TX_PWR_DEFAULT},
-	{136, 5680, TX_PWR_DEFAULT},
-	{140, 5700, TX_PWR_DEFAULT},
-	{149, 5745, TX_PWR_DEFAULT},
-	{153, 5765, TX_PWR_DEFAULT},
-	{157, 5785, TX_PWR_DEFAULT},
-	{161, 5805, TX_PWR_DEFAULT},
-	{165, 5825, TX_PWR_DEFAULT},
-/*  {240, 4920, TX_PWR_DEFAULT},
-    {244, 4940, TX_PWR_DEFAULT},
-    {248, 4960, TX_PWR_DEFAULT},
-    {252, 4980, TX_PWR_DEFAULT},
-channels for 11J JP 10M channel gap */
+	{8, 5040, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{12, 5060, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{16, 5080, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{34, 5170, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{36, 5180, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{38, 5190, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{40, 5200, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{42, 5210, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{44, 5220, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{46, 5230, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{48, 5240, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{52, 5260, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{56, 5280, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{60, 5300, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{64, 5320, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{100, 5500, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{104, 5520, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{108, 5540, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{112, 5560, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{116, 5580, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{120, 5600, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{124, 5620, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{128, 5640, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{132, 5660, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{136, 5680, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{140, 5700, TX_PWR_DEFAULT, MTRUE, {0x13, 0, 0}},
+	{149, 5745, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{153, 5765, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{157, 5785, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{161, 5805, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}},
+	{165, 5825, TX_PWR_DEFAULT, MFALSE, {0x10, 0, 0}}
+	/*  {240, 4920, TX_PWR_DEFAULT},
+	   {244, 4940, TX_PWR_DEFAULT},
+	   {248, 4960, TX_PWR_DEFAULT},
+	   {252, 4980, TX_PWR_DEFAULT},
+	   channels for 11J JP 10M channel gap */
 };
 
 /********************************************************
@@ -173,8 +174,7 @@ wlan_11d_code_2_region(pmlan_adapter pmadapter, t_u8 code)
  *  @return                     MTRUE or MFALSE
  */
 static t_u8
-wlan_11d_channel_known(pmlan_adapter pmadapter,
-		       t_u8 band,
+wlan_11d_channel_known(pmlan_adapter pmadapter, t_u8 band,
 		       t_u8 chan, parsed_region_chan_11d_t *parsed_region_chan)
 {
 	chan_power_11d_t *pchan_pwr = parsed_region_chan->chan_pwr;
@@ -196,7 +196,8 @@ wlan_11d_channel_known(pmlan_adapter pmadapter,
 			ret = MTRUE;
 
 			if (band & BAND_A) {
-				/* If chan is a DFS channel, we need to see an AP on it */
+				/* If chan is a DFS channel, we need to see an
+				 * AP on it */
 				pmpriv = wlan_get_priv(pmadapter,
 						       MLAN_BSS_ROLE_STA);
 				if (pmpriv &&
@@ -298,9 +299,10 @@ wlan_11d_generate_domain_info(pmlan_adapter pmadapter,
 	memset(pmadapter, domain_info, 0, sizeof(wlan_802_11d_domain_reg_t));
 
 	/* Set country code */
-	memcpy(pmadapter, domain_info->country_code,
-	       wlan_11d_code_2_region(pmadapter, (t_u8)pmadapter->region_code),
-	       COUNTRY_CODE_LEN);
+	memcpy_ext(pmadapter, domain_info->country_code,
+		   wlan_11d_code_2_region(pmadapter,
+					  (t_u8)pmadapter->region_code),
+		   COUNTRY_CODE_LEN, COUNTRY_CODE_LEN);
 
 	PRINTM(MINFO, "11D: Number of channel = %d\n", no_of_chan);
 	HEXDUMP("11D: parsed_region_chan", (t_u8 *)parsed_region_chan,
@@ -380,17 +382,18 @@ wlan_11d_update_chan_pwr_table(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc)
 	tx_power = wlan_get_txpwr_of_chan_from_cfp(pmpriv, chan);
 
 	if (!tx_power) {
-		PRINTM(MINFO, "11D: Invalid channel\n");
+		PRINTM(MMSG, "11D: Invalid channel\n");
 		LEAVE();
 		return MLAN_STATUS_FAILURE;
 	}
 
 	/* Check whether the channel already exists in channel power table of
 	   parsed region */
-	for (i = 0; ((i < parsed_region_chan->no_of_chan) &&
-		     (i < MAX_NO_OF_CHAN)); i++) {
-		if (parsed_region_chan->chan_pwr[i].chan == chan
-		    && parsed_region_chan->chan_pwr[i].band ==
+	for (i = 0;
+	     ((i < parsed_region_chan->no_of_chan) && (i < MAX_NO_OF_CHAN));
+	     i++) {
+		if (parsed_region_chan->chan_pwr[i].chan == chan &&
+		    parsed_region_chan->chan_pwr[i].band ==
 		    pbss_desc->bss_band) {
 			/* Channel already exists, use minimum of existing and
 			   tx_power */
@@ -429,8 +432,8 @@ wlan_11d_update_chan_pwr_table(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc)
  *  @return           MTRUE or MFALSE
  */
 static t_u8
-wlan_11d_get_chan(pmlan_adapter pmadapter, t_u8 band, t_u8 first_chan,
-		  t_u8 no_of_chan, t_u8 *chan)
+wlan_11d_get_chan(pmlan_adapter pmadapter, t_u8 band,
+		  t_u8 first_chan, t_u8 no_of_chan, t_u8 *chan)
 {
 	chan_freq_power_t *cfp = MNULL;
 	t_u8 i;
@@ -506,18 +509,19 @@ wlan_11d_process_country_info(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc)
 		 */
 		for (i = 0; (i < region_chan.no_of_chan && i < MAX_NO_OF_CHAN);
 		     i++) {
-			for (j = 0;
-			     (j < parsed_region_chan->no_of_chan &&
-			      j < MAX_NO_OF_CHAN); j++) {
+			for (j = 0; (j < parsed_region_chan->no_of_chan &&
+				     j < MAX_NO_OF_CHAN); j++) {
 				/*
 				 * Channel already exists, update the tx power
 				 * with new tx power, since country IE is valid
 				 * here.
 				 */
 				if (region_chan.chan_pwr[i].chan ==
-				    parsed_region_chan->chan_pwr[j].chan &&
+				    parsed_region_chan->chan_pwr[j]
+				    .chan &&
 				    region_chan.chan_pwr[i].band ==
-				    parsed_region_chan->chan_pwr[j].band) {
+				    parsed_region_chan->chan_pwr[j]
+				    .band) {
 					parsed_region_chan->chan_pwr[j].pwr =
 						region_chan.chan_pwr[i].pwr;
 					break;
@@ -533,32 +537,29 @@ wlan_11d_process_country_info(mlan_private *pmpriv, BSSDescriptor_t *pbss_desc)
 				 */
 				parsed_region_chan->
 					chan_pwr[parsed_region_chan->
-						 no_of_chan +
-						 num_chan_added].chan =
-					region_chan.chan_pwr[i].chan;
+						 no_of_chan + num_chan_added]
+					.chan = region_chan.chan_pwr[i].chan;
 				parsed_region_chan->
 					chan_pwr[parsed_region_chan->
-						 no_of_chan +
-						 num_chan_added].band =
-					region_chan.chan_pwr[i].band;
+						 no_of_chan + num_chan_added]
+					.band = region_chan.chan_pwr[i].band;
 				parsed_region_chan->
 					chan_pwr[parsed_region_chan->
-						 no_of_chan +
-						 num_chan_added].pwr =
-					region_chan.chan_pwr[i].pwr;
+						 no_of_chan + num_chan_added]
+					.pwr = region_chan.chan_pwr[i].pwr;
 				parsed_region_chan->
 					chan_pwr[parsed_region_chan->
-						 no_of_chan +
-						 num_chan_added].ap_seen =
-					MFALSE;
+						 no_of_chan + num_chan_added]
+					.ap_seen = MFALSE;
 				num_chan_added++;
 			}
 		}
 		parsed_region_chan->no_of_chan += num_chan_added;
 	} else {
 		/* Parsed region is empty, copy the first one */
-		memcpy(pmadapter, parsed_region_chan,
-		       &region_chan, sizeof(parsed_region_chan_11d_t));
+		memcpy_ext(pmadapter, parsed_region_chan, &region_chan,
+			   sizeof(parsed_region_chan_11d_t),
+			   sizeof(parsed_region_chan_11d_t));
 	}
 
 	LEAVE();
@@ -641,10 +642,9 @@ wlan_11d_send_domain_info(mlan_private *pmpriv, t_void *pioctl_buf)
 	ENTER();
 
 	/* Send cmd to FW to set domain info */
-	ret = wlan_prepare_cmd(pmpriv,
-			       HostCmd_CMD_802_11D_DOMAIN_INFO,
-			       HostCmd_ACT_GEN_SET,
-			       0, (t_void *)pioctl_buf, MNULL);
+	ret = wlan_prepare_cmd(pmpriv, HostCmd_CMD_802_11D_DOMAIN_INFO,
+			       HostCmd_ACT_GEN_SET, 0, (t_void *)pioctl_buf,
+			       MNULL);
 	if (ret)
 		PRINTM(MERROR, "11D: Failed to download domain Info\n");
 
@@ -664,10 +664,8 @@ wlan_11d_send_domain_info(mlan_private *pmpriv, t_void *pioctl_buf)
  *  @return                 MLAN_STATUS_SUCCESS
  */
 static mlan_status
-wlan_11d_set_domain_info(mlan_private *pmpriv,
-			 t_u8 band,
-			 t_u8 country_code[COUNTRY_CODE_LEN],
-			 t_u8 num_sub_band,
+wlan_11d_set_domain_info(mlan_private *pmpriv, t_u8 band,
+			 t_u8 country_code[COUNTRY_CODE_LEN], t_u8 num_sub_band,
 			 IEEEtypes_SubbandSet_t *sub_band_list)
 {
 	mlan_adapter *pmadapter = pmpriv->adapter;
@@ -677,13 +675,13 @@ wlan_11d_set_domain_info(mlan_private *pmpriv,
 	ENTER();
 
 	memset(pmadapter, pdomain, 0, sizeof(wlan_802_11d_domain_reg_t));
-	memcpy(pmadapter, pdomain->country_code, country_code,
-	       COUNTRY_CODE_LEN);
+	memcpy_ext(pmadapter, pdomain->country_code, country_code,
+		   COUNTRY_CODE_LEN, COUNTRY_CODE_LEN);
 	pdomain->band = band;
 	pdomain->no_of_sub_band = num_sub_band;
-	memcpy(pmadapter, pdomain->sub_band, sub_band_list,
-	       MIN(MRVDRV_MAX_SUBBAND_802_11D,
-		   num_sub_band) * sizeof(IEEEtypes_SubbandSet_t));
+	memcpy_ext(pmadapter, pdomain->sub_band, sub_band_list,
+		   num_sub_band * sizeof(IEEEtypes_SubbandSet_t),
+		   MRVDRV_MAX_SUBBAND_802_11D * sizeof(IEEEtypes_SubbandSet_t));
 
 	LEAVE();
 	return ret;
@@ -721,8 +719,8 @@ wlan_11d_is_enabled(mlan_private *pmpriv)
 	ENTER();
 	LEAVE();
 	return (pmpriv->state_11d.enable_11d == ENABLE_11D &&
-		pmpriv->state_11d.user_enable_11d ==
-		ENABLE_11D) ? MTRUE : MFALSE;
+		pmpriv->state_11d.user_enable_11d == ENABLE_11D) ?
+		MTRUE : MFALSE;
 }
 
 /**
@@ -759,9 +757,9 @@ wlan_11d_priv_init(mlan_private *pmpriv)
 	if (!pmpriv->adapter->init_para.cfg_11d)
 		state->user_enable_11d = DEFAULT_11D_STATE;
 	else
-		state->user_enable_11d =
-			(pmpriv->adapter->init_para.cfg_11d ==
-			 MLAN_INIT_PARA_DISABLED) ? DISABLE_11D : ENABLE_11D;
+		state->user_enable_11d = (pmpriv->adapter->init_para.cfg_11d ==
+					  MLAN_INIT_PARA_DISABLED) ?
+			DISABLE_11D : ENABLE_11D;
 
 	LEAVE();
 	return;
@@ -813,10 +811,9 @@ wlan_11d_enable(mlan_private *pmpriv, t_void *pioctl_buf, state_11d_t flag)
 	ENTER();
 
 	/* Send cmd to FW to enable/disable 11D function */
-	ret = wlan_prepare_cmd(pmpriv,
-			       HostCmd_CMD_802_11_SNMP_MIB,
-			       HostCmd_ACT_GEN_SET,
-			       Dot11D_i, (t_void *)pioctl_buf, &enable);
+	ret = wlan_prepare_cmd(pmpriv, HostCmd_CMD_802_11_SNMP_MIB,
+			       HostCmd_ACT_GEN_SET, Dot11D_i,
+			       (t_void *)pioctl_buf, &enable);
 
 	if (ret) {
 		PRINTM(MERROR, "11D: Failed to %s 11D\n",
@@ -872,9 +869,8 @@ wlan_cmd_802_11d_domain_info(mlan_private *pmpriv,
 	pdomain_info->action = wlan_cpu_to_le16(cmd_action);
 	if (cmd_action == HostCmd_ACT_GEN_GET) {
 		/* Dump domain info */
-		pcmd->size =
-			wlan_cpu_to_le16(sizeof(pdomain_info->action) +
-					 S_DS_GEN);
+		pcmd->size = wlan_cpu_to_le16(sizeof(pdomain_info->action) +
+					      S_DS_GEN);
 		HEXDUMP("11D: 802_11D_DOMAIN_INFO", (t_u8 *)pcmd,
 			wlan_le16_to_cpu(pcmd->size));
 		LEAVE();
@@ -883,28 +879,29 @@ wlan_cmd_802_11d_domain_info(mlan_private *pmpriv,
 
 	/* Set domain info fields */
 	domain->header.type = wlan_cpu_to_le16(TLV_TYPE_DOMAIN);
-	memcpy(pmadapter, domain->country_code,
-	       pmadapter->domain_reg.country_code,
-	       sizeof(domain->country_code));
+	memcpy_ext(pmadapter, domain->country_code,
+		   pmadapter->domain_reg.country_code,
+		   sizeof(domain->country_code), sizeof(domain->country_code));
 
 	domain->header.len =
 		((no_of_sub_band * sizeof(IEEEtypes_SubbandSet_t)) +
 		 sizeof(domain->country_code));
 
 	if (no_of_sub_band) {
-		memcpy(pmadapter, domain->sub_band,
-		       pmadapter->domain_reg.sub_band,
-		       MIN(MRVDRV_MAX_SUBBAND_802_11D,
-			   no_of_sub_band) * sizeof(IEEEtypes_SubbandSet_t));
+		memcpy_ext(pmadapter, domain->sub_band,
+			   pmadapter->domain_reg.sub_band,
+			   no_of_sub_band * sizeof(IEEEtypes_SubbandSet_t),
+			   MRVDRV_MAX_SUBBAND_802_11D *
+			   sizeof(IEEEtypes_SubbandSet_t));
 
-		pcmd->size = wlan_cpu_to_le16(sizeof(pdomain_info->action) +
-					      domain->header.len +
-					      sizeof(MrvlIEtypesHeader_t) +
-					      S_DS_GEN);
-	} else {
 		pcmd->size =
 			wlan_cpu_to_le16(sizeof(pdomain_info->action) +
+					 domain->header.len +
+					 sizeof(MrvlIEtypesHeader_t) +
 					 S_DS_GEN);
+	} else {
+		pcmd->size = wlan_cpu_to_le16(sizeof(pdomain_info->action) +
+					      S_DS_GEN);
 	}
 	domain->header.len = wlan_cpu_to_le16(domain->header.len);
 
@@ -938,9 +935,9 @@ wlan_ret_802_11d_domain_info(mlan_private *pmpriv, HostCmd_DS_COMMAND *resp)
 	/* Dump domain info response data */
 	HEXDUMP("11D: DOMAIN Info Rsp Data", (t_u8 *)resp, resp->size);
 
-	no_of_sub_band =
-		(t_u8)((wlan_le16_to_cpu(domain->header.len) - COUNTRY_CODE_LEN)
-		       / sizeof(IEEEtypes_SubbandSet_t));
+	no_of_sub_band = (t_u8)((wlan_le16_to_cpu(domain->header.len) -
+				 COUNTRY_CODE_LEN) /
+				sizeof(IEEEtypes_SubbandSet_t));
 
 	PRINTM(MINFO, "11D Domain Info Resp: number of sub-band=%d\n",
 	       no_of_sub_band);
@@ -1053,9 +1050,9 @@ wlan_11d_parse_domain_info(pmlan_adapter pmadapter,
 		sizeof(IEEEtypes_SubbandSet_t);
 
 	for (j = 0, last_chan = 0; j < no_of_sub_band; j++) {
-
 		if (country_info->sub_band[j].first_chan <= last_chan) {
-			/* Step2&3: Check First Chan Num increment and no overlap */
+			/* Step2&3: Check First Chan Num increment and no
+			 * overlap */
 			PRINTM(MINFO, "11D: Chan[%d>%d] Overlap\n",
 			       country_info->sub_band[j].first_chan, last_chan);
 			continue;
@@ -1066,9 +1063,8 @@ wlan_11d_parse_domain_info(pmlan_adapter pmadapter,
 
 		for (i = 0; idx < MAX_NO_OF_CHAN && i < no_of_chan; i++) {
 			/* Step 4 : Channel is supported? */
-			if (wlan_11d_get_chan
-			    (pmadapter, band, first_chan, i,
-			     &cur_chan) == MFALSE) {
+			if (wlan_11d_get_chan(pmadapter, band, first_chan, i,
+					      &cur_chan) == MFALSE) {
 				/* Chan is not found in UN table */
 				PRINTM(MWARN,
 				       "11D: channel is not supported: %d\n",
@@ -1181,9 +1177,8 @@ wlan_11d_set_universaltable(mlan_private *pmpriv, t_u8 band)
  *                              if chan is known
  */
 t_u8
-wlan_11d_get_scan_type(pmlan_adapter pmadapter,
-		       t_u8 band,
-		       t_u8 chan, parsed_region_chan_11d_t *parsed_region_chan)
+wlan_11d_get_scan_type(pmlan_adapter pmadapter, t_u8 band, t_u8 chan,
+		       parsed_region_chan_11d_t *parsed_region_chan)
 {
 	t_u8 scan_type = MLAN_SCAN_TYPE_PASSIVE;
 
@@ -1248,7 +1243,6 @@ wlan_11d_create_dnld_countryinfo(mlan_private *pmpriv, t_u8 band)
 
 	/* Only valid if 11D is enabled */
 	if (wlan_11d_is_enabled(pmpriv)) {
-
 		PRINTM(MINFO, "11D: Band[%d]\n", band);
 
 		/* Update parsed_region_chan; download domain info to FW */
@@ -1348,15 +1342,15 @@ wlan_11d_parse_dnld_countryinfo(mlan_private *pmpriv,
 
 	/* Only valid if 11D is enabled */
 	if (wlan_11d_is_enabled(pmpriv)) {
-
 		memset(pmadapter, &region_chan, 0,
 		       sizeof(parsed_region_chan_11d_t));
 		memset(pmadapter, &bssdesc_region_chan, 0,
 		       sizeof(parsed_region_chan_11d_t));
 
-		memcpy(pmadapter, &region_chan,
-		       &pmadapter->parsed_region_chan,
-		       sizeof(parsed_region_chan_11d_t));
+		memcpy_ext(pmadapter, &region_chan,
+			   &pmadapter->parsed_region_chan,
+			   sizeof(parsed_region_chan_11d_t),
+			   sizeof(parsed_region_chan_11d_t));
 
 		if (pbss_desc) {
 			/* Parse domain info if available */
@@ -1370,34 +1364,36 @@ wlan_11d_parse_dnld_countryinfo(mlan_private *pmpriv,
 			if (ret == MLAN_STATUS_SUCCESS) {
 				/* Update the channel-power table */
 				for (i = 0;
-				     ((i < bssdesc_region_chan.no_of_chan)
-				      && (i < MAX_NO_OF_CHAN)); i++) {
-
+				     ((i < bssdesc_region_chan.no_of_chan) &&
+				      (i < MAX_NO_OF_CHAN)); i++) {
 					for (j = 0;
-					     ((j < region_chan.no_of_chan)
-					      && (j < MAX_NO_OF_CHAN)); j++) {
+					     ((j < region_chan.no_of_chan) &&
+					      (j < MAX_NO_OF_CHAN)); j++) {
 						/*
-						 * Channel already exists, use minimum
-						 * of existing tx power and tx_power
-						 * received from country info of the
-						 * current AP
+						 * Channel already exists, use
+						 * minimum of existing tx power
+						 * and tx_power received from
+						 * country info of the current
+						 * AP
 						 */
-						if (region_chan.chan_pwr[i].
-						    chan ==
+						if (region_chan.chan_pwr[i]
+						    .chan ==
 						    bssdesc_region_chan.
-						    chan_pwr[j].chan &&
-						    region_chan.chan_pwr[i].
-						    band ==
+						    chan_pwr[j]
+						    .chan &&
+						    region_chan.chan_pwr[i]
+						    .band ==
 						    bssdesc_region_chan.
-						    chan_pwr[j].band) {
-							region_chan.chan_pwr[j].
-								pwr =
+						    chan_pwr[j]
+						    .band) {
+							region_chan.chan_pwr[j]
+								.pwr =
 								MIN(region_chan.
-								    chan_pwr[j].
-								    pwr,
+								    chan_pwr[j]
+								    .pwr,
 								    bssdesc_region_chan.
-								    chan_pwr[i].
-								    pwr);
+								    chan_pwr[i]
+								    .pwr);
 							break;
 						}
 					}
@@ -1487,11 +1483,11 @@ wlan_11d_prepare_dnld_domain_info_cmd(mlan_private *pmpriv)
  *  @return             Pointer to the mapped country code string
  */
 static t_u8 *
-wlan_11d_map_country_code(IN pmlan_adapter pmadapter, IN t_u8 *pcountry_code)
+wlan_11d_map_country_code(pmlan_adapter pmadapter, t_u8 *pcountry_code)
 {
-	/* Since firmware can only recognize EU as ETSI domain and there is no memory left
-	 * for some devices to convert it in firmware, driver need to convert it before
-	 * passing country code to firmware through tlv
+	/* Since firmware can only recognize EU as ETSI domain and there is no
+	 * memory left for some devices to convert it in firmware, driver need
+	 * to convert it before passing country code to firmware through tlv
 	 */
 
 	if (wlan_is_etsi_country(pmadapter, pcountry_code))
@@ -1509,8 +1505,7 @@ wlan_11d_map_country_code(IN pmlan_adapter pmadapter, IN t_u8 *pcountry_code)
  *  @return             MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
  */
 mlan_status
-wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
-			 IN mlan_ioctl_req *pioctl_req)
+wlan_11d_cfg_domain_info(pmlan_adapter pmadapter, mlan_ioctl_req *pioctl_req)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	mlan_private *pmpriv = pmadapter->priv[pioctl_req->bss_index];
@@ -1520,13 +1515,20 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 
 	ENTER();
 
+	if (pmadapter->otp_region && pmadapter->otp_region->force_reg) {
+		PRINTM(MERROR,
+		       "ForceRegionRule is set in the on-chip OTP memory\n");
+		ret = MLAN_STATUS_FAILURE;
+		goto done;
+	}
 	if (!wlan_fw_11d_is_enabled(pmpriv))
 		wlan_11d_enable(pmpriv, MNULL, ENABLE_11D);
 
 	cfg_11d = (mlan_ds_11d_cfg *)pioctl_req->pbuf;
 	domain_info = &cfg_11d->param.domain_info;
-	memcpy(pmadapter, pmadapter->country_code, domain_info->country_code,
-	       COUNTRY_CODE_LEN);
+	memcpy_ext(pmadapter, pmadapter->country_code,
+		   domain_info->country_code, COUNTRY_CODE_LEN,
+		   COUNTRY_CODE_LEN);
 	wlan_11d_set_domain_info(pmpriv, domain_info->band,
 				 wlan_11d_map_country_code(pmadapter,
 							   domain_info->
@@ -1540,9 +1542,8 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 		ret = MLAN_STATUS_PENDING;
 
 	/* Update region code and table based on country code */
-	if (wlan_misc_country_2_cfp_table_code(pmadapter,
-					       domain_info->country_code,
-					       &cfp_bg, &cfp_a)) {
+	if (wlan_misc_country_2_cfp_table_code
+	    (pmadapter, domain_info->country_code, &cfp_bg, &cfp_a)) {
 		PRINTM(MIOCTL, "Country code %c%c not found!\n",
 		       domain_info->country_code[0],
 		       domain_info->country_code[1]);
@@ -1557,8 +1558,8 @@ wlan_11d_cfg_domain_info(IN pmlan_adapter pmadapter,
 	else
 		pmadapter->region_code = 0;
 	if (wlan_set_regiontable(pmpriv, pmadapter->region_code,
-				 pmadapter->config_bands | pmadapter->
-				 adhoc_start_band)) {
+				 pmadapter->config_bands |
+				 pmadapter->adhoc_start_band)) {
 		PRINTM(MIOCTL, "Fail to set regiontabl\n");
 		goto done;
 	}
@@ -1580,8 +1581,8 @@ done:
  *  @return             MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
  */
 mlan_status
-wlan_11d_handle_uap_domain_info(mlan_private *pmpriv,
-				t_u8 band, t_u8 *domain_tlv, t_void *pioctl_buf)
+wlan_11d_handle_uap_domain_info(mlan_private *pmpriv, t_u8 band,
+				t_u8 *domain_tlv, t_void *pioctl_buf)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	mlan_adapter *pmadapter = pmpriv->adapter;
@@ -1594,10 +1595,9 @@ wlan_11d_handle_uap_domain_info(mlan_private *pmpriv,
 	pdomain_tlv = (MrvlIEtypes_DomainParamSet_t *)domain_tlv;
 
 	/* update region code & table based on country string */
-	if (wlan_misc_country_2_cfp_table_code(pmadapter,
-					       pdomain_tlv->country_code,
-					       &cfp_bg,
-					       &cfp_a) == MLAN_STATUS_SUCCESS) {
+	if (wlan_misc_country_2_cfp_table_code
+	    (pmadapter, pdomain_tlv->country_code, &cfp_bg,
+	     &cfp_a) == MLAN_STATUS_SUCCESS) {
 		pmadapter->cfp_code_bg = cfp_bg;
 		pmadapter->cfp_code_a = cfp_a;
 		if (cfp_a)
@@ -1607,18 +1607,18 @@ wlan_11d_handle_uap_domain_info(mlan_private *pmpriv,
 		else
 			pmadapter->region_code = 0;
 		if (wlan_set_regiontable(pmpriv, pmadapter->region_code,
-					 pmadapter->config_bands | pmadapter->
-					 adhoc_start_band)) {
+					 pmadapter->config_bands |
+					 pmadapter->adhoc_start_band)) {
 			ret = MLAN_STATUS_FAILURE;
 			goto done;
 		}
 	}
 
-	memcpy(pmadapter, pmadapter->country_code, pdomain_tlv->country_code,
-	       COUNTRY_CODE_LEN);
-	num_sub_band =
-		((pdomain_tlv->header.len -
-		  COUNTRY_CODE_LEN) / sizeof(IEEEtypes_SubbandSet_t));
+	memcpy_ext(pmadapter, pmadapter->country_code,
+		   pdomain_tlv->country_code, COUNTRY_CODE_LEN,
+		   COUNTRY_CODE_LEN);
+	num_sub_band = ((pdomain_tlv->header.len - COUNTRY_CODE_LEN) /
+			sizeof(IEEEtypes_SubbandSet_t));
 
 	/* TODO: don't just clobber pmadapter->domain_reg.
 	 *       Add some checking or merging between STA & UAP domain_info

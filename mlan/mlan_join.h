@@ -8,7 +8,7 @@
  *  both adhoc and infrastructure networks
  *
  *
- *  Copyright 2014-2020 NXP
+ *  Copyright 2008-2020 NXP
  *
  *  This software file (the File) is distributed by NXP
  *  under the terms of the GNU General Public License Version 2, June 1991
@@ -34,9 +34,9 @@ Change log:
 #define _MLAN_JOIN_H_
 
 /** Size of buffer allocated to store the association response from firmware */
-#define MRVDRV_ASSOC_RSP_BUF_SIZE  500
+#define MRVDRV_ASSOC_RSP_BUF_SIZE 500
 
 /** Size of buffer allocated to store IEs passed to firmware in the assoc req */
-#define MRVDRV_GENIE_BUF_SIZE      256
+#define MRVDRV_GENIE_BUF_SIZE 256
 
 #endif /* _MLAN_JOIN_H_ */

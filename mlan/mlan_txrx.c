@@ -4,7 +4,7 @@
  *  @brief This file contains the handling of TX/RX in MLAN
  *
  *
- *  Copyright 2014-2020 NXP
+ *  Copyright 2009-2021 NXP
  *
  *  This software file (the File) is distributed by NXP
  *  under the terms of the GNU General Public License Version 2, June 1991
@@ -34,7 +34,6 @@ Change Log:
 #include "mlan_fw.h"
 #include "mlan_main.h"
 #include "mlan_wmm.h"
-#include "mlan_sdio.h"
 
 /********************************************************
 			Local Variables
@@ -99,7 +98,8 @@ done:
  *  @param pmbuf   A pointer to the mlan_buffer for process
  *  @param tx_param A pointer to mlan_tx_param structure
  *
- *  @return         MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise failure
+ *  @return         MLAN_STATUS_SUCCESS/MLAN_STATUS_PENDING --success, otherwise
+ * failure
  */
 mlan_status
 wlan_process_tx(pmlan_private priv, pmlan_buffer pmbuf, mlan_tx_param *tx_param)
@@ -111,7 +111,7 @@ wlan_process_tx(pmlan_private priv, pmlan_buffer pmbuf, mlan_tx_param *tx_param)
 	t_u32 sec = 0, usec = 0;
 #endif
 #ifdef STA_SUPPORT
-	TxPD *plocal_tx_pd = MNULL;
+	PTxPD plocal_tx_pd = MNULL;
 #endif
 
 	ENTER();
@@ -126,8 +126,8 @@ wlan_process_tx(pmlan_private priv, pmlan_buffer pmbuf, mlan_tx_param *tx_param)
 		plocal_tx_pd = (TxPD *)(head_ptr + priv->intf_hr_len);
 #endif
 
-	ret = wlan_sdio_host_to_card(pmadapter, MLAN_TYPE_DATA, pmbuf,
-				     tx_param);
+	ret = pmadapter->ops.host_to_card(priv, MLAN_TYPE_DATA, pmbuf,
+					  tx_param);
 done:
 	switch (ret) {
 	case MLAN_STATUS_RESOURCE:
@@ -136,14 +136,13 @@ done:
 		    pmadapter->pps_uapsd_mode &&
 		    (pmadapter->tx_lock_flag == MTRUE)) {
 			pmadapter->tx_lock_flag = MFALSE;
-			plocal_tx_pd->flags = 0;
+			if (plocal_tx_pd != MNULL)
+				plocal_tx_pd->flags = 0;
 		}
 #endif
 		PRINTM(MINFO, "MLAN_STATUS_RESOURCE is returned\n");
 		break;
 	case MLAN_STATUS_FAILURE:
-		pmadapter->data_sent = MFALSE;
-		PRINTM(MERROR, "Error: host_to_card failed: 0x%X\n", ret);
 		pmadapter->dbg.num_tx_host_to_card_failure++;
 		pmbuf->status_code = MLAN_ERROR_DATA_TX_FAIL;
 		wlan_write_data_complete(pmadapter, pmbuf, ret);
@@ -182,8 +181,8 @@ done:
  *  @return			MLAN_STATUS_SUCCESS
  */
 mlan_status
-wlan_write_data_complete(IN pmlan_adapter pmadapter,
-			 IN pmlan_buffer pmbuf, IN mlan_status status)
+wlan_write_data_complete(pmlan_adapter pmadapter,
+			 pmlan_buffer pmbuf, mlan_status status)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	pmlan_callbacks pcb;
@@ -225,11 +224,10 @@ wlan_write_data_complete(IN pmlan_adapter pmadapter,
  *  @return			MLAN_STATUS_SUCCESS
  */
 mlan_status
-wlan_recv_packet_complete(IN pmlan_adapter pmadapter,
-			  IN pmlan_buffer pmbuf, IN mlan_status status)
+wlan_recv_packet_complete(pmlan_adapter pmadapter,
+			  pmlan_buffer pmbuf, mlan_status status)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
-	pmlan_callbacks pcb;
 
 	ENTER();
 
@@ -239,14 +237,13 @@ wlan_recv_packet_complete(IN pmlan_adapter pmadapter,
 		return MLAN_STATUS_FAILURE;
 	}
 
-	pcb = &pmadapter->callbacks;
 	MASSERT(pmbuf->bss_index < pmadapter->priv_num);
 
 	if (pmbuf->pparent) {
-	/** we will free the pparaent at the end of deaggr */
+		/** we will free the pparaent at the end of deaggr */
 		wlan_free_mlan_buffer(pmadapter, pmbuf);
 	} else {
-		wlan_free_mlan_buffer(pmadapter, pmbuf);
+		pmadapter->ops.data_complete(pmadapter, pmbuf, status);
 	}
 
 	LEAVE();
@@ -307,10 +304,9 @@ wlan_cleanup_bypass_txq(mlan_private *priv)
 	ENTER();
 	pmadapter->callbacks.moal_spin_lock(pmadapter->pmoal_handle,
 					    priv->bypass_txq.plock);
-	while ((pmbuf =
-		(pmlan_buffer)util_peek_list(pmadapter->pmoal_handle,
-					     &priv->bypass_txq, MNULL,
-					     MNULL))) {
+	while ((pmbuf = (pmlan_buffer)util_peek_list(pmadapter->pmoal_handle,
+						     &priv->bypass_txq, MNULL,
+						     MNULL))) {
 		util_unlink_list(pmadapter->pmoal_handle, &priv->bypass_txq,
 				 (pmlan_linked_list)pmbuf, MNULL, MNULL);
 		wlan_write_data_complete(pmadapter, pmbuf, MLAN_STATUS_FAILURE);
@@ -337,43 +333,19 @@ wlan_process_bypass_tx(pmlan_adapter pmadapter)
 	pmlan_private priv;
 	int j = 0;
 	ENTER();
-	for (j = 0; j < pmadapter->priv_num; ++j) {
-		priv = pmadapter->priv[j];
-		if (priv) {
-			pmbuf = (pmlan_buffer)util_dequeue_list(pmadapter->
-								pmoal_handle,
-								&priv->
-								bypass_txq,
-								pmadapter->
-								callbacks.
-								moal_spin_lock,
-								pmadapter->
-								callbacks.
-								moal_spin_unlock);
-			if (pmbuf) {
-				PRINTM(MINFO, "Dequeuing bypassed packet %p\n",
-				       pmbuf);
-				/* XXX: nex_pkt_len ??? */
-				tx_param.next_pkt_len = 0;
-				status = wlan_process_tx(pmadapter->
-							 priv[pmbuf->bss_index],
-							 pmbuf, &tx_param);
-
-				if (status == MLAN_STATUS_RESOURCE) {
-					/* Queue the packet again so that it will be TX'ed later */
-					util_enqueue_list_head(pmadapter->
-							       pmoal_handle,
-							       &priv->
-							       bypass_txq,
-							       (pmlan_linked_list)
-							       pmbuf,
-							       pmadapter->
-							       callbacks.
-							       moal_spin_lock,
-							       pmadapter->
-							       callbacks.
-							       moal_spin_unlock);
-				} else {
+	do {
+		for (j = 0; j < pmadapter->priv_num; ++j) {
+			priv = pmadapter->priv[j];
+			if (priv) {
+				pmbuf = (pmlan_buffer)
+					util_dequeue_list(pmadapter->
+							  pmoal_handle,
+							  &priv->bypass_txq,
+							  pmadapter->callbacks.
+							  moal_spin_lock,
+							  pmadapter->callbacks.
+							  moal_spin_unlock);
+				if (pmbuf) {
 					pmadapter->callbacks.
 						moal_spin_lock(pmadapter->
 							       pmoal_handle,
@@ -386,12 +358,56 @@ wlan_process_bypass_tx(pmlan_adapter pmadapter)
 								 priv->
 								 bypass_txq.
 								 plock);
+					PRINTM(MINFO,
+					       "Dequeuing bypassed packet %p\n",
+					       pmbuf);
+					if (wlan_bypass_tx_list_empty
+					    (pmadapter))
+						tx_param.next_pkt_len = 0;
+					else
+						tx_param.next_pkt_len =
+							pmbuf->data_len;
+					status = wlan_process_tx(pmadapter->
+								 priv[pmbuf->
+								      bss_index],
+								 pmbuf,
+								 &tx_param);
+
+					if (status == MLAN_STATUS_RESOURCE) {
+						/* Queue the packet again so
+						 * that it will be TX'ed later
+						 */
+						pmadapter->callbacks.
+							moal_spin_lock
+							(pmadapter->
+							 pmoal_handle,
+							 priv->bypass_txq.
+							 plock);
+						pmadapter->bypass_pkt_count++;
+						util_enqueue_list_head
+							(pmadapter->
+							 pmoal_handle,
+							 &priv->bypass_txq,
+							 (pmlan_linked_list)
+							 pmbuf,
+							 pmadapter->callbacks.
+							 moal_spin_lock,
+							 pmadapter->callbacks.
+							 moal_spin_unlock);
+						pmadapter->callbacks.
+							moal_spin_unlock
+							(pmadapter->
+							 pmoal_handle,
+							 priv->bypass_txq.
+							 plock);
+					}
+					break;
+				} else {
+					PRINTM(MINFO, "Nothing to send\n");
 				}
-				break;
-			} else {
-				PRINTM(MINFO, "Nothing to send\n");
 			}
 		}
-	}
+	} while (!pmadapter->data_sent && !pmadapter->tx_lock_flag &&
+		 !wlan_bypass_tx_list_empty(pmadapter));
 	LEAVE();
 }

@@ -4,7 +4,7 @@
  *  function declarations of 802.11h
  *
  *
- *  Copyright 2014-2020 NXP
+ *  Copyright 2008-2020 NXP
  *
  *  This software file (the File) is distributed by NXP
  *  under the terms of the GNU General Public License Version 2, June 1991
@@ -30,17 +30,17 @@ Change Log:
 #define _MLAN_11H_
 
 /** 11H OID bitmasks */
-#define ENABLE_11H_MASK         MBIT(0)
-#define MASTER_RADAR_DET_MASK   MBIT(1)
-#define SLAVE_RADAR_DET_MASK    MBIT(2)
+#define ENABLE_11H_MASK MBIT(0)
+#define MASTER_RADAR_DET_MASK MBIT(1)
+#define SLAVE_RADAR_DET_MASK MBIT(2)
 
 /** DFS Master Radar Detect global enable */
-#define DFS_MASTER_RADAR_DETECT_EN  (MTRUE)
+#define DFS_MASTER_RADAR_DETECT_EN (MTRUE)
 /** DFS Slave Radar Detect global enable */
-#define DFS_SLAVE_RADAR_DETECT_EN   (MFALSE)
+#define DFS_SLAVE_RADAR_DETECT_EN (MFALSE)
 
-#define CHANNEL_OFFSET_MASK      0x30
-#define CHANNEL_BANDWIDTH_MASK   0x0C
+#define CHANNEL_OFFSET_MASK 0x30
+#define CHANNEL_BANDWIDTH_MASK 0x0C
 
 /**
  *  11H APIs
@@ -104,17 +104,14 @@ extern t_s32 wlan_11h_issue_radar_detect(mlan_private *priv,
 extern mlan_status wlan_11h_check_chan_report(mlan_private *priv, t_u8 chan);
 
 /** Add any 11h TLVs necessary to complete an adhoc start command */
-extern t_s32 wlan_11h_process_start(mlan_private *priv,
-				    t_u8 **ppbuffer,
+extern t_s32 wlan_11h_process_start(mlan_private *priv, t_u8 **ppbuffer,
 				    IEEEtypes_CapInfo_t *pcap_info,
 				    t_u32 channel,
 				    wlan_11h_bss_info_t *p11h_bss_info);
 
 /** Add any 11h TLVs necessary to complete a join command (adhoc or infra) */
-extern t_s32 wlan_11h_process_join(mlan_private *priv,
-				   t_u8 **ppbuffer,
-				   IEEEtypes_CapInfo_t *pcap_info,
-				   t_u8 band,
+extern t_s32 wlan_11h_process_join(mlan_private *priv, t_u8 **ppbuffer,
+				   IEEEtypes_CapInfo_t *pcap_info, t_u8 band,
 				   t_u32 channel,
 				   wlan_11h_bss_info_t *p11h_bss_info);
 
@@ -137,24 +134,33 @@ extern mlan_status wlan_11h_handle_event_chanswann(mlan_private *priv);
 
 /** Handler for EVENT_CHANNEL_REPORT_RDY */
 extern mlan_status wlan_11h_handle_event_chanrpt_ready(mlan_private *priv,
-						       mlan_event *pevent);
+						       mlan_event *pevent,
+						       t_u8 *radar_chan);
+
+/** Debug output for EVENT_RADAR_DETECTED */
+mlan_status wlan_11h_print_event_radar_detected(mlan_private *priv,
+						mlan_event *pevent,
+						t_u8 *radar_chan);
 
 #ifdef DFS_TESTING_SUPPORT
+t_s32 wlan_11h_cancel_radar_detect(mlan_private *priv);
 /** Handler for DFS_TESTING IOCTL */
 extern mlan_status wlan_11h_ioctl_dfs_testing(pmlan_adapter pmadapter,
 					      pmlan_ioctl_req pioctl_req);
-extern mlan_status wlan_11h_ioctl_get_channel_nop_info(pmlan_adapter pmadapter,
-						       pmlan_ioctl_req
-						       pioctl_req);
+extern mlan_status
+
+wlan_11h_ioctl_channel_nop_info(pmlan_adapter pmadapter,
+				pmlan_ioctl_req pioctl_req);
 #endif
 
 extern mlan_status
+ wlan_11h_ioctl_dfs_chan_report(mlan_private *priv, pmlan_ioctl_req pioctl_req);
+extern mlan_status wlan_11h_ioctl_chan_switch_count(pmlan_adapter pmadapter,
+						    pmlan_ioctl_req pioctl_req);
 
-wlan_11h_ioctl_dfs_cancel_chan_report(mlan_private *priv,
-				      pmlan_ioctl_req pioctl_req);
-extern
-mlan_status wlan_11h_ioctl_chan_switch_count(pmlan_adapter pmadapter,
-					     pmlan_ioctl_req pioctl_req);
+/** get/set dfs w53 cfg */
+mlan_status wlan_11h_ioctl_dfs_w53_cfg(pmlan_adapter pmadapter,
+				       pmlan_ioctl_req pioctl_req);
 
 /** Check if channel is under a NOP duration (should not be used) */
 extern t_bool wlan_11h_is_channel_under_nop(mlan_adapter *pmadapter,
@@ -165,6 +171,8 @@ extern t_bool wlan_11h_radar_detected_tx_blocked(mlan_adapter *pmadapter);
 
 /** Callback for RADAR_DETECTED (for UAP cmdresp) */
 extern mlan_status wlan_11h_radar_detected_callback(t_void *priv);
+/** set dfs check channel */
+void wlan_11h_set_dfs_check_chan(mlan_private *priv, t_u8 chan);
 
 /** Handler for RADAR_DETECTED */
 extern mlan_status wlan_11h_radar_detected_handling(mlan_adapter *pmadapter,
@@ -177,12 +185,11 @@ mlan_status wlan_11h_remove_custom_ie(mlan_adapter *pmadapter,
 extern mlan_status wlan_11h_dfs_event_preprocessing(mlan_adapter *pmadapter);
 
 /** DFS switch to non-DFS channel */
-extern mlan_status wlan_11h_switch_non_dfs_chan(mlan_private *priv,
-						Band_Config_t bandcfg,
-						t_u8 *chan);
+extern mlan_status wlan_11h_switch_non_dfs_chan(mlan_private *priv, t_u8 *chan);
 
-extern void wlan_11h_update_bandcfg(IN Band_Config_t *uap_band_cfg,
-				    IN t_u8 new_channel);
+extern void wlan_11h_update_bandcfg(mlan_private *pmpriv,
+				    Band_Config_t *uap_band_cfg,
+				    t_u8 new_channel);
 
 /** function checks if interface is active. **/
 extern t_bool wlan_is_intf_active(mlan_private *pmpriv);
