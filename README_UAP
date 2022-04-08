@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright 2014-2020 NXP
+ Copyright 2009-2021 NXP
 
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src.
 		make [clean] build
 	The driver binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel from 2.6.32 to 5.5.2 .
+	The driver code supports Linux kernel from 2.6.32 to 5.15.
 
 2) FOR DRIVER INSTALL
 
@@ -26,17 +26,17 @@
 
 		max_uap_bss: Maximum number of uAP BSS (default 1, max 2)
 		uap_name: Name of the uAP interface (default: "uap")
-	   For example, to install SD8787 driver,
+	   For example, to install SD8887 driver,
 	   To load driver in uAP only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=2 [fw_name=nxp/sd8787_uapsta.bin]
+		insmod sd8887.ko drv_mode=2 [fw_name=nxp/sd8887_uapsta.bin]
 	   To switch mode between STA only, uAP only and uAPSTA in run time,
-		echo drv_mode=1 > /proc/mwlan/config		// STA mode
-		echo drv_mode=2 > /proc/mwlan/config		// uAP mode
-		echo drv_mode=3 > /proc/mwlan/config		// uAPSTA mode
+		echo drv_mode=1 > /proc/mwlan/adapterX/config		// STA mode
+		echo drv_mode=2 > /proc/mwlan/adapterX/config		// uAP mode
+		echo drv_mode=3 > /proc/mwlan/adapterX/config		// uAPSTA mode
 	c) Uninstall uAP driver,
 		ifconfig uapX down
-		rmmod sd8xxx
+		rmmod sdxxx
 		rmmod mlan
 
 	To load driver with MFG firmware file, use mfg_mode=1 when insmod WLAN driver and
@@ -53,18 +53,22 @@
 	  shutdown_hs=1|0 <Enable HS when shutdown | No HS when shutdown (default)>
 	  cfg_11d=0|1|2 <use MLAN default | enable 11d | disable 11d>
 	  dts_enable=0|1 <Disable DTS | Enable DTS (default)>
+	  fw_name = <FW file name>
+		e.g. copy pcieuart9098_combo_v1.bin to firmware directory, fw_name=nxp/pcieuart9098_combo_v1.bin
 	  hw_test=0|1 <Disable hardware test (default) | Enable hardware test>
 	  fw_serial=0|1 <support parallel download FW | support serial download FW (default)>
 	  req_fw_nowait=0|1 <use request_firmware API (default) | use request_firmware_nowait API>
-	  slew_rate=0|1|2|3 <0 is the slowest slew rate and 03 has the highest slew rate (default)>
+	  slew_rate: Slew Rate Control value = 0|1|2|3 (0 is the slowest slew rate and 03 has the highest slew rate (default))
 	  init_cfg=<init config (MAC addresses, registers etc.) file name>
 		e.g. copy init_cfg.conf to firmware directory, init_cfg=nxp/init_cfg.conf
 	  cal_data_cfg=<CAL data config file name>
 		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=nxp/cal_data.conf
 	  txpwrlimit_cfg=<Tx power limit config file name>
 		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=nxp/txpwrlimit_cfg_set.conf
+	  cntry_txpwr=<Enable setting tx power table of country | Disable setting tx power table of country (default)>
 	  init_hostcmd_cfg=<init hostcmd config file name>
 		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=nxp/init_hostcmd_cfg.conf
+	  sdio_rx_aggr=1|0 <Enable SDIO rx aggr (default) | Disable SDIO rx aggr>
 	  cfg80211_wext=<bit mask of CFG80211 and WEXT control>
 		Bit 0: STA WEXT
 		Bit 1: uAP WEXT
@@ -80,13 +84,44 @@
 	  low_power_mode_enable=0|1 <disable low power mode (default)| enable low power mode>
 	  When low power mode is enabled, the output power will be clipped at ~+10dBm and the
 	  expected PA current is expected to be in the 80-90 mA range for b/g/n modes
+	  max_wfd_bss: Maximum number of WIFIDIRECT BSS (default 1, max 1)
+	  wfd_name: Name of the WIFIDIRECT interface (default: "wfd")
+	  max_vir_bss: Number of Virtual interfaces (default 0)
+	  nan_name: Name of the NAN interface (default: "nan")
+	  max_nan_bss: Number of NAN interfaces (default 1)
+	  max_11p_bss = <Max number of 802_11P interfaces (default 1)>
+	  start_11ai_scan: Enable/disable 11ai bgscan (default 0, to enable:1, to disable:0)
+	 dpd_data_cfg=<DPD data config file name>
+	   e.g. copy dpd_data.conf to firmware directory, dpd_data_cfg=nxp/dpd_data.conf
+	  pcie_int_mode=0 <Legacy mode(default)>
+	wakelock_timeout=<set wakelock_timeout value (ms)>
+	pmic=0|1 <No pmic configure cmd sent to firmware | Send pmic configure cmd to firmware>
+	indication_gpio=0xXY <GPIO to indicate wakeup source and its level; high four bits X:
+                  level(0/1) for normal wakeup; low four bits Y: GPIO pin number. This parameter
+                  only works with specific board and firmware.>
+	hs_wake_interval=<Host sleep wakeup interval,it will round to nearest multiple dtim*beacon_period in fw>
+	disconnect_on_suspend=0|1 <Disable disconnect wifi on suspend (default) | Enable disconnect wifi on suspend>
+	fixed_beacon_buffer=0|1 <allocate default buffer size (default) | allocate max buffer size>
+	GoAgeoutTime=0|x <use default ageout time (default) | set Go age out time xTU(TU 100ms)>
+	multi_dtim=0|x <use default DTIM interval(default) | set x*beacon_period as DTIM interval>
+	inact_tmo=0|x <use default IEEE ps inactivity timout value (default) | use IEEE ps inactivity timeout value x ms>
+	drcs_chantime_mode=0|x <channel time and mode for DRCS, use default value (default) | use setting value>
+	  Bit31~Bit24:Channel time for channel index0;
+	  Bit23~Bit16:mode for channel index0; 0|1 <PM1 | Null2Self>
+	  Bit15~Bit8:Channel time for channel index1;
+	  Bit7~Bit0:mode for channel index1; 0|1 <PM1 | Null2Self>
+	uap_max_sta: Maximum number of STA for UAP/GO (default 0, max 10)
+	host_mlme=0|1 <Disable Host MLME support (default)| Enable Host MLME support>
+	country_ie_ignore=0|1 <Follow countryIE from AP and beacon hint enable (default) | Ignore countryIE from AP and beacon hint disable>
+	beacon_hints=0|1 <enable beacon hints(default) | disable beacon hints>
+    wacp_mode=0|1|2 <disable WACP default | WACP mode 1 | WACP mode 2>
 
 	Note: On some platforms (e.g. PXA910/920) double quotation marks ("") need to used
 	for module parameters.
-		insmod sd8xxx.ko "<para1> <para2> ..."
+		insmod sdxxx.ko "<para1> <para2> ..."
 
 3) FOR DRIVER PROC & DEBUG
-	The following info are provided in /proc/mwlan/uapX/info.
+	The following info are provided in /proc/mwlan/adapterX/uapY/info.
 
 	driver_name = "uap"
 	driver_version = <driver version>
@@ -106,7 +141,7 @@
 	carrier "on" | "off"
 	tx queue "stopped" | "started"
 
-	The following debug info are provided in /proc/mwlan/uapX/debug.
+	The following debug info are provided in /proc/mwlan/adapterX/uapY/debug.
 
 	drvdbg = <bit masks of driver debug message control>
 		bit 0:  MMSG  		PRINTM(MMSG,...)
@@ -182,7 +217,7 @@
 	hs_force_count = <number of forced suspends>
 
 	Example:
-		echo "drvdbg=0x7" > /proc/mwlan/uapX/debug	#enable MMSG,MFATAL,MERROR messages
+		echo "drvdbg=0x7" > /proc/mwlan/adapterX/uapY/debug	#enable MMSG,MFATAL,MERROR messages
 
 	Use dmesg or cat /var/log/debug to check driver debug messages.
 
@@ -197,7 +232,7 @@
    Host software will then need to re-download firmware if required.
 
    Usage:
-	echo "soft_reset=1" > /proc/mwlan/config
+	echo "soft_reset=1" > /proc/mwlan/adapterX/config
 
 ===============================================================================
 
@@ -238,8 +273,10 @@ sta_list
 sta_deauth <STA_MAC_ADDRESS>
 sta_deauth_ext <STA_MAC_ADDRESS> <REASON_CODE>
 radioctrl [0|1]
-txratecfg [l] [m] [n]
+txratecfg [l] [m] [n] [o]
 pscfg [MODE] [CTRL INACTTO MIN_SLEEP MAX_SLEEP MIN_AWAKE MAX_AWAKE]
+mic_err <STA_MAC_ADDRESS>
+key_material <MAC_ADDRESS> <KEY> [KEY_ID]
 sys_cfg_custom_ie [INDEX] [MASK] [IEBuffer]
 coex_config [CONFIG_FILE_NAME]
 hscfg [condition [[GPIO# [gap]]]]
@@ -267,7 +304,7 @@ hostcmd <txpwrlimit_cfg.conf> txpwrlimit_2g_cfg_set
 hostcmd <txpwrlimit_cfg.conf> txpwrlimit_5g_cfg_set
 tx_data_pause [ENABLE][TX_BUF_CNT]
 vhtcfg <j> <k> [l] [m] [n] [o]
-dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num>]
+dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num><cac_restart>]
 cscount [<channel_switch_count>]
 mgmtframectrl [MASK]
 
@@ -299,7 +336,7 @@ sys_cfg_ps_sta_ageout_timer [PS_STA_AGEOUT_TIMER]
 sys_cfg_auth [AUTH_MODE]
 sys_cfg_protocol [PROTOCOL] [AKM_SUITE]
 sys_cfg_pmf [MFPC] [MFPR]
-sys_cfg_wep_key [INDEX ISDEFAULT KEY]
+sys_cfg_wep_key [INDEX ISDEFAULT KEY] (use of WEP/TKIP is not recommended anymore)
 sys_cfg_cipher [PAIRWISE_CIPHER GROUP_CIPHER]
 sys_cfg_pwk_cipher [<PROTOCOL>] [PAIRWISE_CIPHER]
 sys_cfg_gwk_cipher [GROUP_CIPHER]
@@ -320,6 +357,7 @@ cfg_data <type> [*.conf]
 sys_cfg_80211d [state STATE] [country COUNTRY]
 uap_stats
 sys_cfg_restrict_client_mode [<ENABLE> [MODE_CONFIG]]
+sys_cfg_wacp_mode [Mode]
 
 -------------------
 Details of Commands
@@ -428,7 +466,7 @@ sta_list
     "STA <STA_NUM> information:
      ==========================
      MAC Address: <STA MAC address>
-     Power mfg status: active|power save
+     Power Mgmt status: active|power save
      Rssi:  <RSSI_VALUE>"
 
 sta_deauth
@@ -449,9 +487,12 @@ radioctrl
 
 txratecfg
 ----------
-    "./uaputl.exe txratecfg [l] [m] [n]"
+    "./uaputl.exe txratecfg [l] [m] [n] [o]"
 
     This command is used to set/get the transmit data rate.
+
+    Note:
+    1) Parameter [o] is optional. If [o] is not given, it will be set as 0xffff.
 
     Where
         [l] is <format>
@@ -459,6 +500,7 @@ txratecfg
             0:    LG
             1:    HT
             2:    VHT
+
             0xff: Auto
 
         [m] is <index>
@@ -503,11 +545,79 @@ txratecfg
             1    NSS1
             2    NSS2
 
+    [o] is <rate setting, only support 9098/9097/9xxx chips>
+        Bit0 - 1: indicate preambleType
+          For legacy 11b: preemble type
+             00    = long
+             01    = short
+             10/11  = reserved
+          For legacy 11g: reserved
+          For 11n: Green field PPDU indicator
+             00 = HT-mix
+             01 = HT-GF
+             10/11 = reserved.
+          For 11ac: reserved.
+          For 11ax:
+             00 = HE-SU
+             10 = HE-EXT-SU
+             Others are reserved
+
+        Bit 2 - 4 : indicate BW:
+          For HE ER:
+            0 = 242-tone RU
+            1 =  upper frequency 106-tone RU within the primary 20 MHz
+          Otherwise:
+            0 = 20 MHz
+            1 = 40 MHz
+            2 = 80 MHz
+            3 = 160 MHz
+
+        Bit 5 -6: indicate LTF + GI size
+          For HT:
+            0 = normal
+            1 = Short GI
+          For VHT:
+            01 = Short GI
+            11 = Short GI and Nsym mod 10=9
+            00 = otherwise
+          For HE:
+            0 = 1xHELTF + GI0.8us
+            1 = 2xHELTF + GI0.8us
+            2 = 2xHELTF + GI1.6us
+            3 = 4xHELTF + GI0.8us if DCM = 0 and STBC = 0
+                4xHELTF + GI3.2us, otherwise.
+
+        Bit 7: Indicate  STBC:
+            0 = no STBC
+            1 = STBC
+
+        Bit 8: indicate DCM:
+            0 = no DCM
+            1 = DCM
+
+        Bit 9: indicate coding:
+            0 = BCC
+            1 = LDPC
+
+        Bit 10 - 11: reserved.
+
+        Bit 12 - 13: Indicate maxPE
+            Max packet extension
+            0 - 9 usec
+            1 - 8 usec
+            2 - 16 usec.
+
+        Bit 14 - 15: reserved.
+
+        0xffff: Auto
+
     Examples:
         ./uaputl.exe txratecfg 0 3        : Set fixed Tx rate to 11 Mbps
         ./uaputl.exe txratecfg 0 11       : Set fixed Tx rate to 54 Mbps
         ./uaputl.exe txratecfg 1 3        : Set fixed Tx rate to MCS3
         ./uaputl.exe txratecfg 2 3 2    : Set fixed Tx rate to MCS3 for NSS2
+        ./uaputl.exe txratecfg 3 5 2 0x2282   : Set 11AX fixed Tx rate to MCS5 for NSS2, and Preamble type is 2, BW is 0, LTF + GI size 0
+                                                 STBC is 1, DMC is 0, Coding is 1, maxPE is 2.
         ./uaputl.exe txratecfg 0xff     : Disable fixed rate and uses auto rate
         ./uaputl.exe txratecfg          : Read the current data rate setting
 
@@ -691,7 +801,7 @@ sys_cfg_channel_ext
 
     Example:
         ./uaputl.exe sys_cfg_channel_ext 6
-Set AP radio channel to 6, and no secondary channel.
+                Set AP radio channel to 6, and no secondary channel.
 
         ./uaputl.exe sys_cfg_channel_ext 11 0 0
                 Set AP radio channel to 11 in 2.4GHz band with Manual Channel Select.
@@ -753,8 +863,8 @@ sys_cfg_rates_ext
     A rate with MSB bit is basic rate, i.e 0x82 is basic rate.
     If only operational rates is provided, MCBC rate and unicast rate will be set to auto.
 
-    Valid rates: 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108
-    Non-Basic rates: 0x02, 0x04, 0x0b, 0x16, 0x0C, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c
+    Valid rates: 2, 4, 11, 13, 22, 12, 18, 24, 36, 48, 72, 96, 108
+    Non-Basic rates: 0x02, 0x04, 0x0b, 0x0d, 0x16, 0x0C, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c
     Basic rates: 0x82, 0x84, 0x8b, 0x96, 0x8C, 0x92, 0x98, 0xA4, 0xB0, 0xC8, 0xE0, 0xEc
     Rates 2, 4, 11 and 22 (in units of 500 Kbps) must be present in either of
     basic or non-basic rates. If OFDM rates are enabled then 12, 24 and 48 (in
@@ -827,11 +937,19 @@ sys_cfg_preamble_ctl
 --------------------
     "./uaputl.exe sys_cfg_preamble_ctl"
 
-    This command is used to get type of preamble.
+    This command is used to set/get type of preamble.
+
+    The supported options are:
+	Preamble: 0 - Auto/Default
+		  1 - Short Preamble
+		  2 - Long Preamble
 
     Example:
 	./uaputl.exe sys_cfg_preamble_ctl
 		Get AP preamble setting
+
+	./uaputl.exe sys_cfg_premable_ctl 2
+		Set AP preamble setting to Long premable
 
 sys_cfg_bss_status
 --------------------
@@ -930,8 +1048,8 @@ sys_cfg_tx_beacon_rate
     rates, only zero or rates currently configured are allowed.
 
 	Following is the list of supported rates in units of 500 Kbps:
-	    2,    4,    11,   22,   12,   18,   24,   36,   48,   72,   96,   108
-	    0x02, 0x04, 0x0b, 0x16, 0x0C, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c
+	    2,    4,    11,   13,  22,   12,   18,   24,   36,   48,   72,   96,   108
+	    0x02, 0x04, 0x0b, 0xd, 0x16, 0x0C, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c
 
     Example:
 	./uaputl.exe sys_cfg_tx_beacon_rate 0x04
@@ -1075,9 +1193,9 @@ sys_cfg_protocol
 	PROTOCOL:
 			1		 No RSN
 			2		WEP Static
-			8		  WPA
+			8		  WPA	// use of WPA/TKIP is not recommended anymore
 			32		  WPA2
-			40		 WPA, WPA2 Mixed Mode
+			40		 WPA, WPA2 Mixed Mode // use of WPA/TKIP is not recommended anymore
     empty - Get current encryption protocol
 
     AKM_SUITE:
@@ -1097,7 +1215,7 @@ sys_cfg_protocol
         Set AP encryption protocol to WPA2 and AKM SUITE to PSK and PSK SHA256
 
     ./uaputl.exe sys_cfg_protocol 40 0x100
-        Set AP encryption protocol to WPA+WPA2 and AKM SUITE to PSK SHA256
+        Set AP encryption protocol to WPA+WPA2 and AKM SUITE to PSK SHA256 // use of WPA/TKIP is not recommended anymore
 
 sys_cfg_pmf
 -----------
@@ -1120,15 +1238,33 @@ sys_cfg_pmf
     ./uaputl.exe sys_cfg_pmf
         Get AP's PMF params settings.
 
-sys_cfg_wep_key
+sys_cfg_ext_cap_len
+-------------------
+    "./uaputl.exe sys_cfg_ext_cap_len [length]"
+
+    This command is used to set or get AP extended capabilities IE Length.
+
+    Default length value is 10. It can be changed to 8 by the command.
+
+    Example:
+    ./uaputl.exe sys_cfg_ext_cap_len 8
+        Set AP's extended capabilities IE Length to 8.
+
+    ./uaputl.exe sys_cfg_ext_cap_len 5
+        Invalid length value.
+
+    ./uaputl.exe sys_cfg_ext_cap_len
+        Get AP's extended capabilities IE Length.
+
+sys_cfg_wep_key  // (use of WEP/TKIP is not recommended anymore)
 ---------------
-    "./uaputl.exe sys_cfg_wep_key [INDEX ISDEFAULT Key_0]
+    "./uaputl.exe sys_cfg_wep_key [INDEX ISDEFAULT Key_0]  // (use of WEP/TKIP is not recommended anymore)
                                   [INDEX ISDEFAULT Key_1]
                                   [INDEX ISDEFAULT Key_2]
                                   [INDEX ISDEFAULT Key_3]
                                   [INDEX]"
 
-    This command is used to set or get the WEP key settings.
+    This command is used to set or get the WEP (use of WEP/TKIP is not recommended anymore) key settings.
 
     The supported options are:
         INDEX:       0 - KeyIndex is 0
@@ -1139,22 +1275,22 @@ sys_cfg_wep_key
 		     1: KeyIndex is the default transmit key
 
         KEY_* :      Key value.
-        empty - Get current WEP key settings for all the keys
+        empty - Get current WEP key settings for all the keys (use of WEP/TKIP is not recommended anymore)
         INDEX - Only INDEX will get the key setting for the particular
                 KeyIndex.
 
     Example:
-	./uaputl.exe sys_cfg_wep_key 0 1 55555
+	./uaputl.exe sys_cfg_wep_key 0 1 55555 (use of WEP/TKIP is not recommended anymore)
 		Set AP's default transmit key to "55555", key index is 0.
 
-    ./uaputl.exe sys_cfg_wep_key 0 1 12345678901234567890123456
+    ./uaputl.exe sys_cfg_wep_key 0 1 12345678901234567890123456 (use of WEP/TKIP is not recommended anymore)
         Set AP's default transmit key to "12345678901234567890123456", key index is 0.
 
-	./uaputl.exe sys_cfg_wep_key
-		Get AP all the WEP keys settings.
+	./uaputl.exe sys_cfg_wep_key  (use of WEP/TKIP is not recommended anymore)
+		Get AP all the WEP keys settings.  (use of WEP/TKIP is not recommended anymore)
 
-	./uaputl.exe sys_cfg_wep_key 1
-		Get WEP key setting for the KeyIndex = 1.
+	./uaputl.exe sys_cfg_wep_key 1  (use of WEP/TKIP is not recommended anymore)
+		Get WEP key setting for the KeyIndex = 1.  (use of WEP/TKIP is not recommended anymore)
 
 sys_cfg_cipher
 --------------
@@ -1165,12 +1301,12 @@ sys_cfg_cipher
     The supported options are:
 	PAIRWISE_CIPHER:
 			0		  None
-			4		  TKIP
+			4		  TKIP	 //use of WEP/TKIP is not recommended anymore
 			8		 AES CCMP
-			12		 AES CCMP + TKIP
+			12		 AES CCMP + TKIP //use of WEP/TKIP is not recommended anymore
         GROUP_CIPHER:
 			0		  None
-			4		  TKIP
+			4		  TKIP	 //use of WEP/TKIP is not recommended anymore
 			8		 AES CCMP
     	empty - Get current key types
 
@@ -1179,7 +1315,7 @@ sys_cfg_cipher
 
     Example:
 	./uaputl.exe sys_cfg_cipher 4 4
-		Set AP's pairwise and group key's type to TKIP.
+		Set AP's pairwise and group key's type to TKIP.  //use of WEP/TKIP is not recommended anymore
 
 	./uaputl.exe sys_cfg_cipher
 		Get AP's key types for the pairwise and group key.
@@ -1193,20 +1329,20 @@ sys_cfg_pwk_cipher
     The supported options are:
         PROTOCOL:
                         0                None
-                        8                 WPA
+                        8                 WPA // use of WPA/TKIP is not recommended anymore
                         32                WPA2
         PAIRWISE_CIPHER:
                         0                 None
-                        4                 TKIP
+                        4                 TKIP //use of WEP/TKIP is not recommended anymore
                         8                AES CCMP
-                        12               AES CCMP + TKIP
+                        12               AES CCMP + TKIP //use of WEP/TKIP is not recommended anymore
         WPA/TKIP cipher cannot be used when uAP operates in 802.11n mode.
         If only PROTOCOL is provided, pairwise cipher for that protocol is displayed.
         empty - Get protocol and corresponding pairwise cipher settings.
 
     Example:
         ./uaputl.exe sys_cfg_pwk_cipher 8 4
-                Set AP's pairwise cipher to TKIP for WPA protocol.
+                Set AP's pairwise cipher to TKIP ( use of WEP/TKIP is not recommended anymore) for WPA protocol. // use of WPA/TKIP is not recommended anymore
 
         ./uaputl.exe sys_cfg_pwk_cipher 32
                 Get AP's pairwise cipher for WPA2 protocol.
@@ -1223,7 +1359,7 @@ sys_cfg_gwk_cipher
     The supported options are:
         GROUP_CIPHER:
                         0                 None
-                        4                 TKIP
+                        4                 TKIP //use of WEP/TKIP is not recommended anymore
                         8                AES CCMP
         empty - Get group cipher settings.
 
@@ -1242,7 +1378,7 @@ sys_cfg_group_rekey_timer
 
     The supported options are:
         GROUP_REKEY_TIMER is represented in seconds. This is only applicable
-        		 if the protocol is WPA or WPA2. Value of 0 will disable group re-key.
+        		 if the protocol is WPA or WPA2. Value of 0 will disable group re-key. // use of WPA/TKIP is not recommended anymore
 
         empty - Get current group rekey timer
 
@@ -1257,18 +1393,18 @@ sys_cfg_wpa_passphrase
 ----------------------
     "./uaputl.exe sys_cfg_wpa_passphrase [PASSPHRASE]"
 
-    This command is used to set or get the WPA or WPA2 passphrase.
+    This command is used to set or get the WPA or WPA2 passphrase. // use of WPA/TKIP is not recommended anymore
 
-    If no arguments are given, this command returns the current WPA or WPA2
+    If no arguments are given, this command returns the current WPA or WPA2 // use of WPA/TKIP is not recommended anymore
     passphrase.
     While setting, the maximum length of the passphrase can be 64 characters.
 
     Example:
 	./uaputl.exe sys_cfg_wpa_passphrase 1234567890
-		Set AP's WPA or WPA2 passphrase to "1234567890"
+		Set AP's WPA or WPA2 passphrase to "1234567890" // use of WPA/TKIP is not recommended anymore
 
 	./uaputl.exe sys_cfg_wpa_passphrase
-		Get AP's WPA or WPA2 passphrase.
+		Get AP's WPA or WPA2 passphrase. // use of WPA/TKIP is not recommended anymore
 
 sys_cfg_max_sta_num
 -------------------
@@ -1291,6 +1427,7 @@ sys_cfg_retry_limit
     "./uaputl.exe sys_cfg_retry_limit [RETRY_LIMIT]"
 
     This command is used to set or get the retry limit to use for packet transmissions.
+
     The maximum retry_limit allowed is 14.
 
     If no arguments are given, this command returns the current retry limit value.
@@ -1676,6 +1813,36 @@ sta_deauth_ext
         ./uaputl.exe sta_deauth_ext 00:50:43:20:34:58  4
             deauth station 00:50:43:20:34:58 with IEEE reason code 4 (Disassociated due to inactivity)
 
+mic_err
+-------
+    "./uaputl.exe mic_err <STA_MAC_ADDRESS>"
+
+    This command is used to report station mic error.
+
+    Example:
+        ./uaputl.exe mic_err 00:50:43:20:34:58
+            report mic err for station 00:50:43:20:34:58
+
+key_material
+------------
+    "./uaputl.exe key_material <MAC_ADDRESS> <KEY> [KEY_ID]"
+
+    This command is used to set key. Get operation is not supported.
+
+        MAC_ADDRESS: station mac address while setting station unicast key
+                     ff:ff:ff:ff:ff:ff while setting multicast key
+
+        KEY: hex string, allowed length should be 32 or 64.
+        KEY_ID: default value is 0.
+
+    Example:
+        ./uaputl.exe key_material ff:ff:ff:ff:ff:ff 12345678901234567890123456789012 1
+            set group key, key value is "12345678901234567890123456789012", key id is 1
+
+        ./uaputl.exe key_material 00:50:43:20:34:58 1234567890123456789012345678901234567890123456789012345678901234
+            set station 00:50:43:20:34:58 unicast key,
+            key value is "1234567890123456789012345678901234567890123456789012345678901234"
+
 sys_cfg_custom_ie
 -----------------
     "./uaputl.exe sys_cfg_custom_ie [INDEX] [MASK] [IEBuffer]"
@@ -1713,7 +1880,7 @@ sys_cfg_custom_ie
 		Get IE buffer, subtype mask settings for all indices.
 
 	./uaputl.exe sys_cfg_custom_ie 1
-		Get IE buffer and subtype mask WEP key setting for the Index = 1.
+		Get IE buffer and subtype mask WEP key (use of WEP/TKIP is not recommended anymore) setting for the Index = 1.
 
 	./uaputl.exe sys_cfg_custom_ie 2 0
 		Clear IE buffer and mask value for Index = 2.
@@ -2077,6 +2244,20 @@ addbareject
 
         Note:- This command should only be issued in disconnected state.
 
+sys_cfg_wacp_mode
+-----------------
+    "./uaputl.exe sys_cfg_wacp_mode [MODE]"
+
+    This commands is used to configure WACP mode.
+
+    <MODE>       0 - default mode, disable WACP
+                 1 - enable WACP mode 1
+                 2 - enable WACP mode 2
+
+    Examples:
+   ./uaputl.exe sys_cfg_wacp_mode 1   : Enable WACP Mode 1
+   ./uaputl.exe sys_cfg_wacp_mode 0   : Disable WACP Mode
+
 httxbfcfg
 ---------
 	"./uaputl.exe httxbfcfg <ACTION> [ACT_DATA]"
@@ -2123,13 +2304,7 @@ httxcfg
 
 	where <m> is <txcfg>
 	This is a bitmap and should be used as following
-		Bit 15-10: Reserved set to 0
-        Bit 9-8: Rx STBC set to 0x01
-        BIT9 BIT8  Description
-        0    0     No spatial streams
-        0    1     One spatial streams supported
-        1    0     Reserved
-        1    1     Reserved
+		Bit 15-8: Reserved set to 0
 		Bit 7: STBC enable/disable
 		Bit 6: Short GI in 40 Mhz enable/disable
 		Bit 5: Short GI in 20 Mhz enable/disable
@@ -2349,14 +2524,14 @@ vhtcfg
 
 dfstesting
 ----------
-  "./uaputl.exe dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num>]"
+  "./uaputl.exe dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num><cac_restart>]"
 
     This command is used to set/get DFS testing settings.
 
     The supported option are:
-        <user_cac_pd>: user-configured Channel Availability Check in msec
-                       0 = disable, use default period (60000)
-                       1-65535 = enable with that period
+        <user_cac_pd>: user-configured Channel Availability Check in sec
+                       0 = disable, use default period (60 seconds)
+                       1-1800 = enable with that period
         <user_nop_pd>: user-configured Non-Occupancy Period in sec
                        0 = disable, use default period (1800)
                        1-65535 = enable with that period
@@ -2366,12 +2541,14 @@ dfstesting
                           0 = disable, 1-255 = enable with that channel
                           (channel validity for region, etc. is not checked)
                           (only takes effect if no_chan_change = 0)
+        <cac_restart> after CAC success, driver auto restart CAC again
 
     Example:
-    ./uaputl.exe dfstesting             : Get current dfstesting settings
-    ./uaputl.exe dfstesting 2000 0 0 0  : user_cac=2sec, others disabled/default
-    ./uaputl.exe dfstesting 0 0 1 0     : only no_chan_change enabled
-    ./uaputl.exe dfstesting 0 120 0 64  : user_nop=2min, force chan 64 on radar
+    ./uaputl.exe dfstesting               : Get current dfstesting settings
+    ./uaputl.exe dfstesting 60 0 0 0 0    : user_cac=60sec, others disabled/default
+    ./uaputl.exe dfstesting 0 0 1 0 0     : only no_chan_change enabled
+    ./uaputl.exe dfstesting 0 120 0 64 0  : user_nop=2min, force chan 64 on radar
+    ./uaputl.exe dfstesting 60 0 0 0 1    : user_cac=60sec, restart cac after success
 
 cscount
 ---------------
@@ -2478,6 +2655,62 @@ uap_oper_ctrl
 
 		./uaputl.exe uap_oper_ctrl
 		Get current uap operation control setting.
+
+band_steering_cfg
+-----------------
+	"./uaputl.exe band_steering_cfg [state STATE] [block_2g_prb_req NUMBER_OF_PRB_REQ_TO_BLOCK] [max_btm_req_allowed MAX_BTM_REQ_ALLOWED_FOR_2G_STICKY_STA]"
+
+	This command is used to set/get band steering configuration.
+	If no arguments are given, this command returns the current configuration.
+
+	The supported options are:
+		<state> :  0  disable band steering feature
+				   1  enable band steering feature
+		<block_2g_prb_req> This parameter specifies the number of probe requests to block before allowing response for the STA.
+
+		Example:
+		./uaputl.exe band_steering_cfg
+		This will return the current values for "state" and "block_2g_prb_req".
+
+		./uaputl.exe band_steering_cfg state 1 block_2g_prb_req 5
+		This will send probe response for 6th probe requests after denying response for first 5 probe requests.
+
+		./uaputl.exe band_steering_cfg state 1 max_btm_req_allowed 5
+		This will send max 5 bss_transition requests to station.
+
+		./uaputl.exe band_steering_cfg state 0
+		This will disable the band steering feature.
+
+		./uaputl.exe band_steering_cfg state 1 block_2g_prb_req 6 max_btm_req_allowed 6
+		This will send probe response for 6th probe requests after denying response for first 5 probe requests and will send max 5 bss_transition requests to station.
+
+beacon_stuck_detect
+-----------------
+        "./uaputl.exe beacon_stuck_detect [beacon_stuck_detect_count] [recovery_confirm_count]"
+
+        This command is used to set/get beacon stuck detect mechanism configuration.
+        If no arguments are given, this command returns the current configuration.
+
+        The supported options are:
+                <beacon_stuck_detect_count> :
+                        This parameter specifies number of beacon interval after which FW will check
+                        for beacon Tx status. Value should be between 0 to 60. Default value is 20.
+
+                <recovery_confirm_count> :
+                        This parameter specifies upon doing MAC reset, number of beacon interval
+                        after which FW will check for recovery status. Value should be between 0 to 60.
+                        Default value is 5. Also value should be less than beacon_stuck_detect_count.
+
+                Example:
+                ./uaputl.exe beacon_stuck_detect
+                This will return the current values for "beacon_stuck_detect_count" and "recovery_confirm_count".
+
+                ./uaputl.exe beacon_stuck_detect 20  5
+                This will set beacon_stuck_detect_count to 20 and recovery_confirm_count to 5.
+
+                ./uaputl.exe beacon_stuck_detect 0  0
+                Disable the beacon stuck detect meachanism.
+
 ===============================================================================
         U S E R  M A N U A L  F O R  MLANEVENT
 
@@ -2610,9 +2843,9 @@ apcfg
 
 	Where the parameters are:
 		SSID:       Set SSID to be used in beacon and probe response
-		[SEC]:      Security modes - open, wep128, wpa-psk or wpa2-psk
-		            11n will be auto disabled in wep128 and wpa-psk mode
-		[KEY]:      Encrypted key for wep128, wpa-psk or wpa2-psk, minimum 8 chars
+		[SEC]:      Security modes - open, wep128 (use of WEP/TKIP is not recommended anymore), wpa-psk or wpa2-psk // use of WPA/TKIP is not recommended anymore
+		            11n will be auto disabled in wep128 (use of WEP/TKIP is not recommended anymore) and wpa-psk mode
+		[KEY]:      Encrypted key for wep128 (use of WEP/TKIP , WPA/TKIP is not recommended anymore), wpa-psk or wpa2-psk, minimum 8 chars
 		[CHANNEL]:  Channel to be selected
 		[MAX_SCB]:  Maximum STA number
 		[END]:      Optional termination in ASCII string

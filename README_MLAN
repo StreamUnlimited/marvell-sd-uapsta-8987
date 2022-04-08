@@ -1,7 +1,7 @@
 ===============================================================================
 			U S E R  M A N U A L
 
- Copyright 2014-2020 NXP
+ Copyright 2008-2021 NXP
 
 
 1) FOR DRIVER BUILD
@@ -9,7 +9,7 @@
 	Goto source code directory wlan_src/.
 	make [clean] build
 	The driver and utility binaries can be found in ../bin_xxxx directory.
-	The driver code supports Linux kernel from 2.6.32 to 5.5.2 .
+	The driver code supports Linux kernel from 2.6.32 to 5.15.
 
 2) FOR DRIVER INSTALL
 
@@ -34,25 +34,25 @@
 		nan_name: Name of the NAN interface (default: "nan")
 		max_nan_bss: Number of NAN interfaces (default 1)
                 start_11ai_scan: Enable/disable 11ai bgscan (default 0, to enable:1, to disable:0)
-	   For example, to install SD8787 driver,
+	   For example, to install SD8887 driver,
 		insmod mlan.ko
-		insmod sd8787.ko [drv_mode=3] [fw_name=nxp/sd8787_uapsta.bin]
+		insmod sd8887.ko [drv_mode=3] [fw_name=nxp/sd8887_uapsta.bin]
 	   To load driver in STA only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=1 [fw_name=nxp/sd8787_uapsta.bin]
+		insmod sd8887.ko drv_mode=1 [fw_name=nxp/sd8887_uapsta.bin]
 	   To load driver in uAP only mode,
 		insmod mlan.ko
-		insmod sd8787.ko drv_mode=2 [fw_name=nxp/sd8787_uapsta.bin]
+		insmod sd8887.ko drv_mode=2 [fw_name=nxp/sd8887_uapsta.bin]
 
 	   To switch mode between STA only, uAP only and uAPSTA etc. in run time,
-		echo drv_mode=1 > /proc/mwlan/config		// STA mode
-		echo drv_mode=2 > /proc/mwlan/config		// uAP mode
-		echo drv_mode=3 > /proc/mwlan/config		// STA+uAP mode
-		echo drv_mode=7 > /proc/mwlan/config		// STA+uAP+WIFIDIRECT mode
+		echo drv_mode=1 > /proc/mwlan/adapterX/config		// STA mode
+		echo drv_mode=2 > /proc/mwlan/adapterX/config		// uAP mode
+		echo drv_mode=3 > /proc/mwlan/adapterX/config		// STA+uAP mode
+		echo drv_mode=7 > /proc/mwlan/adapterX/config		// STA+uAP+WIFIDIRECT mode
 	c) Uninstall WLAN driver,
 		ifconfig mlanX down
 		ifconfig uapX down
-		rmmod sd8xxx
+		rmmod sdxxx
 		rmmod mlan
 
 	To load driver with MFG firmware file, use mfg_mode=1 when insmod WLAN driver and
@@ -63,35 +63,49 @@
 	  dev_cap_mask=<Bit mask of the device capability>
 	  mac_addr=xx:xx:xx:xx:xx:xx <override the MAC address (in hex)>
 	  auto_ds=0|1|2 <use MLAN default | enable auto deepsleep | disable auto deepsleep>
+	  ext_scan=0|1|2 <use MLAN default | Enable Extended Scan| Enable Enhanced Extended Scan>
+      net_rx=0|1 <use netif_rx_ni in rx | use netif_receive_skb in rx>
+      amsdu_deaggr=0|1 <default | Try avoid buf copy in amsud deaggregation>
+
+	  max_11p_bss = <Max number of 802_11P interfaces (default 1)>
 	  ps_mode=0|1|2 <use MLAN default | enable IEEE PS mode | disable IEEE PS mode>
-	  p2p_enh=0|1 <Disable enhanced P2P (default) | Enable enhanced P2P>
+	  sched_scan=0|1 <disable sched_scan | enable sched_scan default>
 	  max_tx_buf=2048|4096|8192 <maximum AMSDU Tx buffer size>
 	  pm_keep_power=1|0 <PM keep power in suspend (default) | PM no power in suspend>
 	  shutdown_hs=1|0 <Enable HS when shutdown | No HS when shutdown (default)>
 	  cfg_11d=0|1|2 <use MLAN default | enable 11d | disable 11d>
 	  dts_enable=0|1 <Disable DTS | Enable DTS (default)>
+	  fw_name = <FW file name>
+		e.g. copy pcieuart9098_combo_v1.bin to firmware directory, fw_name=nxp/pcieuart9098_combo_v1.bin
+	  hw_name = <hardware name>
 	  hw_test=0|1 <Disable hardware test (default) | Enable hardware test>
 	  fw_serial=0|1 <support parallel download FW | support serial download FW (default)>
 	  req_fw_nowait=0|1 <use request_firmware API (default) | use request_firmware_nowait API>
-	  slew_rate=0|1|2|3 <0 is the slowest slew rate and 03 has the highest slew rate (default)>
+      dfs53cfg=0|1|2 <use Fw Default | New W53 | Old W53>
+	  slew_rate: Slew Rate Control value = 0|1|2|3 (0 is the slowest slew rate and 03 has the highest slew rate (default))
 	  init_cfg=<init config (MAC addresses, registers etc.) file name>
 		e.g. copy init_cfg.conf to firmware directory, init_cfg=nxp/init_cfg.conf
 	  cal_data_cfg=<CAL data config file name>
 		e.g. copy cal_data.conf to firmware directory, cal_data_cfg=nxp/cal_data.conf
+	 dpd_data_cfg=<DPD data config file name>
+	   e.g. copy dpd_data.conf to firmware directory, dpd_data_cfg=nxp/dpd_data.conf
 	  txpwrlimit_cfg=<Tx power limit config file name>
 		e.g. copy txpwrlimit_cfg_set.conf to firmware directory, txpwrlimit_cfg=nxp/txpwrlimit_cfg_set.conf
       cntry_txpwr=0|1|2
                   0: Disable setting tx power table of country (default)
                   1: Enable setting tx power table of country
-                  2: Enable setting tx power table of country and only allow use the channel in tx power table
+                  2: Enable setting rgpower table of country
 	  init_hostcmd_cfg=<init hostcmd config file name>
 		e.g. copy init_hostcmd_cfg.conf to firmware directory, init_hostcmd_cfg=nxp/init_hostcmd_cfg.conf
+	  band_steer_cfg=<band steer config file name>
+		e.g. generate bscfg.conf by band_steer_cfg.conf, then copy bscfg.conf to firmware directory, band_steer_cfg=nxp/bscfg.conf
+	  sdio_rx_aggr=1|0 <Enable SDIO rx aggr (default) | Disable SDIO rx aggr>
 	  cfg80211_wext=<bit mask of CFG80211 and WEXT control>
 		Bit 0: STA WEXT
 		Bit 1: uAP WEXT
 		Bit 2: STA CFG80211
 		Bit 3: uAP CFG80211
-	  cfg80211_drcs=1|0 <Enable DRCS support | Disable DRCS support (default)>
+	  cfg80211_drcs=1|0 <Enable DRCS support (default) | Disable DRCS support>
 	  reg_alpha2=<Regulatory alpha2 (default NULL)>
 	  wq_sched_prio: Priority for work queue
 	  wq_sched_policy: Scheduling policy for work queue
@@ -103,19 +117,37 @@
 	  low_power_mode_enable=0|1 <disable low power mode (default)| enable low power mode>
 	  When low power mode is enabled, the output power will be clipped at ~+10dBm and the
 	  expected PA current is expected to be in the 80-90 mA range for b/g/n modes
-	  indication_gpio=0xXY <GPIO to indicate wakeup source and its level; high four bits X:
+	wakelock_timeout=<set wakelock_timeout value (ms)>
+	pmic=0|1 <No pmic configure cmd sent to firmware | Send pmic configure cmd to firmware>
+	indication_gpio=0xXY <GPIO to indicate wakeup source and its level; high four bits X:
                   level(0/1) for normal wakeup; low four bits Y: GPIO pin number. This parameter
                   only works with specific board and firmware.>
-      napi=0|1 <disable napi | enable napi>
+	hs_wake_interval=<Host sleep wakeup interval,it will round to nearest multiple dtim*beacon_period in fw>
+	disconnect_on_suspend=0|1 <Disable disconnect wifi on suspend (default) | Enable disconnect wifi on suspend>
+	napi=0|1 <disable napi | enable napi>
+	fixed_beacon_buffer=0|1 <allocate default buffer size (default) | allocate max buffer size>
+	GoAgeoutTime=0|x <use default ageout time (default) | set Go age out time xTU(TU 100ms)>
+	multi_dtim=0|x <use default DTIM interval(default) | set x*beacon_period as DTIM interval>
+	inact_tmo=0|x <use default IEEE ps inactivity timout value (default) | use IEEE ps inactivity timeout value x ms>
+	drcs_chantime_mode=0|x <channel time and mode for DRCS, use default value (default) | use setting value>
+	  Bit31~Bit24:Channel time for channel index0;
+	  Bit23~Bit16:mode for channel index0; 0|1 <PM1 | Null2Self>
+	  Bit15~Bit8:Channel time for channel index1;
+	  Bit7~Bit0:mode for channel index1; 0|1 <PM1 | Null2Self>
+	uap_max_sta: Maximum number of STA for UAP/GO (default 0, max 10)
+	host_mlme=0|1 <Operate in non-host_mlme mode (default)| Operate in host_mlme mode>
+	for supplicant/authenticator running on host side, WPA3 support is available only in host_mlme mode
+	country_ie_ignore=0|1 <Follow countryIE from AP and beacon hint enable (default) | Ignore countryIE from AP and beacon hint disable>
+	beacon_hints=0|1 <enable beacon hints(default) | disable beacon hints>
 
 	Note: On some platforms (e.g. PXA910/920) double quotation marks ("") need to used
 	for module parameters.
-		insmod sd8xxx.ko "<para1> <para2> ..."
+		insmod sdxxx.ko "<para1> <para2> ..."
 
 3) FOR DRIVER PROC & DEBUG
 
-	The following info are provided in /proc/net/mwlan/mlanX|uapX|wfdX/info,
-	on kernel 2.6.24 or later, the entry is /proc/mwlan/mlanX|uapX|wfdX/info.
+	The following info are provided in /proc/net/mwlan/adapterX/mlanY|uapY|wfdY/info,
+	on kernel 2.6.24 or later, the entry is /proc/mwlan/adapterX/mlanY|uapY|wfdY/info.
 
 	driver_name = "wlan" or "uap"
 	driver_version = <chip id, firmware version and driver version>
@@ -139,10 +171,10 @@
 	num_rx_pkts_err = <number of Rx packets failed to receive from device>
 	carrier "on" | "off"
 	tx queue "stopped" | "started"
-	tkip_mic_failures = 0                           // Only for uAP
+	tkip_mic_failures = 0                           // Only for uAP (use of WEP/TKIP is not recommended anymore)
 	ccmp_decrypt_errors = 0                         // Only for uAP
-	wep_undecryptable_count = 0                     // Only for uAP
-	wep_icv_error_count = 0                         // Only for uAP
+	wep_undecryptable_count = 0                     // Only for uAP  (use of WEP/TKIP is not recommended anymore)
+	wep_icv_error_count = 0                         // Only for uAP  (use of WEP/TKIP is not recommended anymore)
 	decrypt_failure_count = 0                       // Only for uAP
 	mcast_tx_count = 0                              // Only for uAP
 	failed_count = 0                                // Only for uAP
@@ -156,11 +188,11 @@
 	mcast_rx_frame_count = 0                        // Only for uAP
 	fcs_error_count = 0                             // Only for uAP
 	tx_frame_count = 0                              // Only for uAP
-	rsna_tkip_cm_invoked = 0                        // Only for uAP
+	rsna_tkip_cm_invoked = 0                        // Only for uAP  (use of WEP/TKIP is not recommended anymore)
 	rsna_4way_hshk_failures = 0                     // Only for uAP
 
-	The following debug info are provided in /proc/net/mwlan/mlanX|uapX|wfdX/debug,
-	on kernel 2.6.24 or later, the entry is /proc/mwlan/mlanX|uapX|wfdX/debug.
+	The following debug info are provided in /proc/net/mwlan/adapterX/mlanY|uapY|wfdY/debug,
+	on kernel 2.6.24 or later, the entry is /proc/mwlan/adapterX/mlanY|uapY|wfdY/debug.
 
 	drvdbg = <bit mask of driver debug message control>
 	wmm_ac_vo = <number of packets sent to device from WMM AcVo queue>
@@ -232,7 +264,7 @@
 
 	Issue SDIO cmd52 read/write through proc.
 	Usage:
-		echo "sdcmd52rw=<func> <reg> [data]" > /proc/mwlan/config
+		echo "sdcmd52rw=<func> <reg> [data]" > /proc/mwlan/adapterX/config
 	where the parameters:
 		func: The function number to use (0-7)
 		reg:  The address of the register
@@ -241,16 +273,16 @@
 		And there is a limitation for function 0 write, only vendor specific CCCR
 		registers (0xf0 -0xff) are permiited.
 	Examples:
-		echo "sdcmd52rw= 0 4" > /proc/mwlan/config      # read func 0 address 4
-		cat /proc/mwlan/config                          # display the register value
-		echo "sdcmd52rw= 1 3 0xf" > /proc/mwlan/config  # write 0xf to func 1 address 3
+		echo "sdcmd52rw= 0 4" > /proc/mwlan/adapterX/config      # read func 0 address 4
+		cat /proc/mwlan/adapterX/config                          # display the register value
+		echo "sdcmd52rw= 1 3 0xf" > /proc/mwlan/adapterX/config  # write 0xf to func 1 address 3
 
 	Issue debug_dump command through proc.
 	Usage:
-		echo "debug_dump" > /proc/mwlan/config
+		echo "debug_dump" > /proc/mwlan/adapterX/config
 
 	Examples:
-		echo "debug_dump" > /proc/mwlan/config      # dump driver internal debug status.
+		echo "debug_dump" > /proc/mwlan/adapterX/config      # dump driver internal debug status.
 
 	Use dmesg or cat /var/log/debug to check driver debug messages.
 	To log driver debug messages to file,
@@ -268,47 +300,68 @@
 
 4) FOR FW RELOAD
     a) Enable parallel firmware download in driver parameter
-       insmod sd8xxx.ko fw_serial=0
+       insmod sdxxx.ko fw_serial=0
 
     b) default fw name for parallel firmware download
        sd8887_wlan_a2.bin
 
     c) Trigger FW reload
-       echo "fw_reload=1" > /proc/mwlan/config   trigger inband firmware reset and reload firmware
-       echo "fw_reload=2" > /proc/mwlan/config   trigger firmware reload
-       echo "fw_reload=3" > /proc/mwlan/config   set firmware reload flag in driver.
+       echo "fw_reload=1" > /proc/mwlan/adapterX/config   trigger inband firmware reset and reload firmware
+       echo "fw_reload=2" > /proc/mwlan/adapterX/config   trigger firmware reload
+       echo "fw_reload=3" > /proc/mwlan/adapterX/config   set firmware reload flag in driver.
 
     (Note: This feature will be supported on Robin3 and KF2.
            For CAC-A2, it only work with the board which supports parallel fw download)
-
 
 
 ===============================================================================
         U S E R  M A N U A L  F O R  MLANUTL
 
 NAME
-    mlanutl - configure the additional parameters available for NXP mdriver.
+	mlanutl - configure the additional parameters available for NXP mdriver.
 
 SYNOPSIS
-    mlanutl -v
-    mlanutl <mlanX|uapX|wfdx> <command> [parameters] ...
+	mlanutl -v
+	mlanutl <mlanX|uapX|wfdx> <command> [parameters] ...
 
-	mlanutl mlanX 11dcfg
-	mlanutl mlanX 11dclrtbl
+	mlanutl mlanX verext
+	mlanutl mlanX version
+	mlanutl mlanX hostcmd <conf> generate_raw <raw_data_file>
+	mlanutl mlanX hostcmd <send_om.conf> send_om_set
+	mlanutl mlanX getdatarate
+	mlanutl uapX getdatarate
+	mlanutl mlanX drvdbg [n]
+	mlanutl mlanX getlog
+	mlanutl mlanX getsignal [m] [n]
+	mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
+	mlanutl mlanX aggrpriotbl [<m0> <n0> <m1> <n1> ... <m7> <n7>]
+	mlanutl uapX aggrpriotbl [<m0> <n0> <m1> <n1> ... <m7> <n7>]
 	mlanutl mlanX addbapara [<m> <n> <o> <p> <q>]
 	mlanutl uapX addbapara [<m> <n> <o> <p> <q>]
 	mlanutl mlanX addbareject [<m0> <m1> ... <m7>]
 	mlanutl uapX addbareject [<m0> <m1> ... <m7>]
+	mlanutl mlanX dyn_bw [n]
+	mlanutl mlanX vhtcfg <j> <k> [l] [m] [n] [o]
+	mlanutl uapX vhtcfg <j> <k> [l] [m] [n] [o]
+	mlanutl mlanX httxcfg [<m>] [<n>]
+	mlanutl mlanX htcapinfo [<m>] [<n>]
+	mlanutl mlanX txratecfg [l] [m] [n] [o]
+	mlanutl uapX txratecfg [l] [m] [n] [o]
+	mlanutl mlanX hssetpara condition [GPIO# [gap]] [ind_GPIO# [level]]
+	mlanutl mlanX mefcfg <mef.conf>
+	mlanutl mlanX 11dcfg
+	mlanutl mlanX 11dclrtbl
 	mlanutl mlanX addts <filename.conf> <section# of tspec> <timeout in ms>
-	mlanutl mlanX aggrpriotbl [<m0> <n0> <m1> <n1> ... <m7> <n7>]
-	mlanutl uapX aggrpriotbl [<m0> <n0> <m1> <n1> ... <m7> <n7>]
 	mlanutl mlanX amsduaggrctrl <n>
+
+	mlanutl mlanX min_ba_threshold <n>
 	mlanutl mlanX antcfg [m]
 	mlanutl mlanX arpfilter <arpfilter.conf>
 	mlanutl mlanX assocessid <"[essid]">
 	mlanutl mlanX assocessid_bssid <"[bssid] [essid]">
 	mlanutl mlanX associate "<bssid> <ssid>"
-    mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
+    mlanutl mlanX get_chnrgpwr [save_region_channel_power_data_file]
+    mlanutl mlanX comparergpwr <uncompressed file> [target_file]
     mlanutl mlanX comparetrpc <target_file> <src_file> [display]
     mlanutl mlanX getcfgchanlist
 	mlanutl mlanX authtype [n]
@@ -322,11 +375,8 @@ SYNOPSIS
 	mlanutl mlanX coex_rx_winsize [m]
 	mlanutl mlanX countrycode [l]
 
-	mlanutl	mlanX cfpinfo
+	mlanutl mlanX cfpinfo
 	mlanutl uapX cfpinfo
-
-	mlanutl	mlanX acs [<chX> <chY> ... <chZ>]
-	mlanutl	uapX acs [<chX> <chY> ... <chZ>]
 
 	mlanutl mlanX customie [[[<index>] <mask>] <IEBuffer>]
 	mlanutl mlanX deauth [l]
@@ -335,16 +385,11 @@ SYNOPSIS
 	mlanutl mlanX delba <l> [<m> <n>]
 	mlanutl uapX delba <l> [<m> <n>]
 	mlanutl mlanX delts <filename.conf> <section# of tspec>
-	mlanutl mlanX dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num>]
-	mlanutl mlanX drvdbg [n]
+	mlanutl mlanX dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num><cac_restart>]
+	mlanutl uapX clear_nop
 	mlanutl mlanX extcapcfg [<ext_cap>]
 	mlanutl mlanX fwmacaddr [mac_addr]
-	mlanutl mlanX getdatarate
-	mlanutl uapX getdatarate
-	mlanutl mlanX getlog
 	mlanutl mlanX getscantable [ARGS]
-	mlanutl mlanX getsignal [m] [n]
-        mlanutl mlanX dyn_bw [n]
 	mlanutl uapX getstalist
 	mlanutl uapX channel_switch <switch mode> <oper class> <new channel> <switch count> <bandwidth>
 	mlanutl mlanX hostcmd <11n_2040coex.conf> 2040coex
@@ -363,7 +408,11 @@ SYNOPSIS
 	mlanutl mlanX hostcmd <robust_btc.conf> mode_timeshare
 	mlanutl mlanX hostcmd <robust_btc.conf> mode_spatial
 	mlanutl mlanX hostcmd <robust_btc.conf> mode_none
+	mlanutl mlanX hostcmd <robust_btc.conf> mode_bca
 	mlanutl mlanX hostcmd <robust_btc.conf> gpio_cfg
+	mlanutl mlanX hostcmd <robust_btc.conf> external_coex_config
+	mlanutl mlanX hostcmd <robust_btc.conf> external_coex_pta_config
+	mlanutl mlanX hostcmd <robust_btc.conf> external_coex_uart_config
 	mlanutl mlanX hostcmd <robust_btc.conf> generictime
 	mlanutl mlanX hostcmd <robust_btc.conf> a2dptime
 	mlanutl mlanX hostcmd <robust_btc.conf> inquirytim
@@ -385,27 +434,24 @@ SYNOPSIS
 	mlanutl mlanX hostcmd <fwdump.conf> fwdump
 
 	mlanutl mlanX hscfg [condition [[GPIO# [gap]]]] [ind_GPIO# [level]]
-	mlanutl mlanX hssetpara condition [GPIO# [gap]] [ind_GPIO# [level]]
 	mlanutl mlanX mgmtfilter <mgmtfilter.conf>
 	mlanutl mlanX auto_arp [n]
-	mlanutl mlanX htcapinfo [<m>] [<n>]
 	mlanutl mlanX httxbfcap [cap]
 	mlanutl mlanX httxbfcfg "<action>[;GlobalData/tsData/interval/txPeerData/snrData]"
-	mlanutl mlanX httxcfg [<m>] [<n>]
 	mlanutl mlanX inactivityto <n> <m> <l> [k]
 	mlanutl mlanX ipaddr ["<op>;<ipaddr>"]
 	mlanutl mlanX linkstats
 	mlanutl mlanX listeninterval [l]
 	mlanutl mlanX macctrl [n]
 	mlanutl uapX macctrl [n]
-	mlanutl mlanX mefcfg <mef.conf>
 	mlanutl mlanX memrdwr <address> [value]
 	mlanutl mlanX miracastcfg [l] [m] [n]
 	mlanutl mlanX mgmtframectrl [<mask>]
 	mlanutl uapX mgmtframectrl [<mask>]
 	mlanutl mlanX mgmtframetx <mgmt_frame.conf>
 	mlanutl mlanX mpactrl [tx_ena] [rx_ena] [tx_size] [rx_size] [tx_ports] [rx_ports]
-    mlanutl mlanX netmon [<act> [<filter> <band> <chan> <opt>]]
+	mlanutl mlanX netmon [<act> [<filter> <band> <chan> <opt>]]
+	mlanutl mlanX monitormode [l]
 	mlanutl mlanX offchannel [<l> <m> <n> <bandwidth>]
 	mlanutl mlanX otpuserdata <l>
 	mlanutl mlanX pb_bypass [data_1, data_2, ... data_n]
@@ -414,6 +460,7 @@ SYNOPSIS
 	mlanutl mlanX pscfg [k] [d] [l] ...
 	mlanutl mlanX bcntimeoutcfg [l] [m] [o] [p]
 	mlanutl mlanX psmode [l]
+
         mlanutl <interface> robustcoex <gpiocfg> [Enable/Disable] [gpionum] [gpiopolarity]
 	mlanutl mlanX qconfig def [Queue Id: 0-3]
 	mlanutl mlanX qconfig get [Queue Id: 0-3]
@@ -427,7 +474,7 @@ SYNOPSIS
 	mlanutl mlanX regrdwr <type> <offset> [value]
 	mlanutl mlanX rejectaddbareq [conditions]
 	mlanutl uapX rejectaddbareq [conditions]
-	mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext]
+	mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext] [gap]
 	mlanutl mlanX sdcmd52rw <FN no.> <address> [data]
 	mlanutl mlanX sdcmd53rw <FN no.> <address> <mode> <blksize> <blknum> [data1] ... [dataN]
 	mlanutl mlanX sdioclock <n>
@@ -436,16 +483,11 @@ SYNOPSIS
 	mlanutl mlanX sleepparams [<p1> <p2> <p3> <p4> <p5> <p6>]
 	mlanutl mlanX sleeppd [n]
 	mlanutl mlanX sysclock [clk1] [clk2] [clk3] [clk4]
-	mlanutl mlanX tcpackenh [l]
+	mlanutl mlanX tcpackenh [l] [m]
+	mlanutl mlanX thermal
 	mlanutl mlanX ts_status
 	mlanutl mlanX tsf
 	mlanutl mlanX txbufcfg
-	mlanutl mlanX txratecfg [l] [m] [n]
-	mlanutl uapX txratecfg [l] [m] [n]
-    mlanutl mlanX verext
-    mlanutl mlanX version
-	mlanutl mlanX vhtcfg <j> <k> [l] [m] [n] [o]
-	mlanutl uapX vhtcfg <j> <k> [l] [m] [n] [o]
 	mlanutl mlanX wakeupreason
 	mlanutl uapX wakeupreason
 	mlanutl mlanX warmreset
@@ -469,12 +511,26 @@ SYNOPSIS
         mlanutl <interface> dot11p_txrx <send/recv> <options>
 
         mlanutl <interface> fwwakeupmethod <method> <GPIO_pin>
-        mlanutl <interface> tx_ampdu_prot_mode [mode]
+
         mlanutl uapX ctrldeauth <n>
 
         mlanutl mlanX/uapX bootsleep <1/0>
 
-		mlanutl mlanX csi [disable] [csi file]
+        mlanutl mlanX csi <disable/enable (config file)>
+
+        mlanutl mlanX arb [mode]
+
+        mlanutl <interface> rx_abort_cfg [enable] [rssi_threshold]
+        mlanutl <interface> rx_abort_cfg_ext [enable] [margin ceil_thresh]
+        mlanutl <interface> tx_ampdu_prot_mode [mode]
+        mlanutl <interface> rate_adapt_cfg [low_thresh high_thresh timer_interval]
+        mlanutl <interface> cck_desense_cfg [mode] [margin ceil_thresh] [num_on_intervals num_off_intervals]
+        mlanutl mlanX/uapX lpm [mode]
+        mlanutl <interface> dot11mc_unassoc_ftm_cfg [enable]
+        mlanutl mlanX/uapX clocksync [j][k] [l] [m] [n]
+        mlanutl mlanX/uapX gettsfinfo [j]
+        mlanutl uapX transchan [j]
+        mlanutl mlanX ips_cfg [1/0]
 
 DESCRIPTION
 	Those commands are used to send additional commands to the NXP MLAN
@@ -483,22 +539,303 @@ DESCRIPTION
 	The mlanX parameter specifies the network device that is to be used to
 	perform this command on. It could be mlan0, mlan1 etc.
 
-11dcfg
-	This command is used to control 11D. No argument is used to get.
-
-	where value of n is:
-		0   -- Disable
-		1   -- Enable
-
-	Examples:
-		mlanutl mlan0 11dcfg 1           : Enable 11D
-		mlanutl mlan0 11dcfg             : Get 11D status
-
-11dclrtbl
-	This command is used to clear the 11D channel table.
+verext
+	Retrieve and display an extended version string from the firmware
 
 	Usage:
-		mlanutl mlanX 11dclrtbl
+		mlanutl mlanX verext [#]
+
+	where [#] is an optional argument to retrieve a specific version string,
+	omission of the argument retrieves the 0 indexed string.
+
+version
+	This is used to get the current version of the driver and the firmware.
+
+drvdbg
+	This command is used to set/get the bit masks of driver debug message control.
+
+	Usage:
+		mlanutl mlanX drvdbg [n]
+
+	Where the parameter <n> is the generic debug message control bit mask.
+	The following types of driver debug messages can be dynamically enabled or
+	disabled by setting or clearing the corresponding bits,
+		bit 0:  MMSG            PRINTM(MMSG,...)
+		bit 1:  MFATAL          PRINTM(MFATAL,...)
+		bit 2:  MERROR          PRINTM(MERROR,...)
+		bit 3:  MDATA           PRINTM(MDATA,...)
+		bit 4:  MCMND           PRINTM(MCMND,...)
+		bit 5:  MEVENT          PRINTM(MEVENT,...)
+		bit 6:  MINTR           PRINTM(MINTR,...)
+		bit 7:  MIOCTL          PRINTM(MIOCTL,...)
+		...
+		bit 16: MDAT_D          PRINTM(MDAT_D,...), DBG_HEXDUMP(MDAT_D,...)
+		bit 17: MCMD_D          PRINTM(MCMD_D,...), DBG_HEXDUMP(MCMD_D,...)
+		bit 18: MEVT_D          PRINTM(MEVT_D,...), DBG_HEXDUMP(MEVT_D,...)
+		bit 19: MFW_D           PRINTM(MFW_D,...),  DBG_HEXDUMP(MFW_D,...)
+		bit 20: MIF_D           PRINTM(MIF_D,...),  DBG_HEXDUMP(MIF_D,...)
+		...
+		bit 28: MENTRY          PRINTM(MENTRY,...), ENTER(), LEAVE()
+		bit 29: MWARN           PRINTM(MWARN,...)
+		bit 30: MINFO           PRINTM(MINFO,...)
+
+	If CONFIG_DEBUG=2, all kinds of debug messages can be configured.
+
+	If CONFIG_DEBUG=1, all kinds of debug messages can be configured except
+	for MENTRY, MWARN and MINFO. By default MMSG, MFATAL and MERROR are enabled.
+
+	Some special debug messages,
+		'*'             // MLAN driver ISR is called (bit 6 MINTR enabled)
+		'|'             // PS awake event is received (bit 5 MEVENT enabled)
+		'_'             // PS sleep event is received (bit 5 MEVENT enabled)
+		'+'             // PS sleep confirm is sent (bit 5 MEVENT enabled)
+
+	Examples:
+		mlanutl mlan0 drvdbg             : Get the current driver debug masks
+		mlanutl mlan0 drvdbg 0           : Disable all the debug messages
+		mlanutl mlan0 drvdbg 7           : Enable MMSG, MFATAL and MERROR messages
+		mlanutl mlan0 drvdbg 0x20037     : Enable MMSG, MFATAL, MEEROR,
+		                                   MCMND, MEVENT and MCMD_D messages
+		mlanutl mlan0 drvdbg -1          : Enable all the debug messages
+
+hostcmd generate_raw
+	This command is used to generate the raw data(hostcommand block) for
+	hostcommand in <conf_file> and write that to file <raw_data_file>
+
+	Usage:
+		mlanutl mlanX hostcmd <conf_file> generate_raw <raw_data_file>
+
+hostcmd send_om_set
+	This command is used to configure the STAUT to include OM control subfield
+
+	Usage:
+		mlanutl mlanX hostcmd <send_om.conf> send_om_set
+
+getdatarate
+	This command is used to get the data rate being used in last Tx
+	packet and last Rx packet.
+
+getlog
+	This command is used to get the statistics available in the station.
+	Following stats are displayed:-
+	dot11MulticastTransmittedFrameCount	Increments when the multicast bit is set in the destination
+						MAC address of a successfully transmitted MSDU
+
+	dot11FailedCount			Increments when an MSDU is not transmitted successfully
+
+	dot11RetryCount				Increments when an MSDU is successfully transmitted after one
+						or more retransmissions
+
+	dot11MultipleRetryCount			Increments when an MSDU is successfully transmitted after more
+						than one retransmission
+
+	dot11FrameDuplicateCount		Increments when a frame is received that the Sequence Control
+						field is indicating a duplicate count
+
+	dot11RTSSuccessCount			Increments when a CTS is received in response to an RTS
+
+	dot11RTSFailureCount			Increments when a CTS is not received in response to an RTS
+
+	dot11ACKFaliureCount			Increments when an ACK is not received when expected
+
+	dot11ReceivedFragmentCount		Increments for each successfully received MPDU of type Data or Management
+
+	dot11MulticastReceivedFrameCount	Increments when a MSDU is received with the multicast bit set in the destination MAC address
+
+	dot11FCSErrorCount			Increments when an FCS error is detected in a received MPDU
+
+	dot11TransmittedFrameCount		Increments for each successfully transmitted MSDU
+
+	dot11WeplcvErrCnt			Increment when WEP  (use of WEP/TKIP is not recommended anymore)decryption error for key index 0.3
+
+	beaconReceivedCnt			Increments when received beacon
+
+	beaconMissedCnt				Increments when beacon missed
+
+	dot11TransmittedFrameCount		Increments for each successfully transmitted MSDU
+
+	dot11QosTransmittedFragmentCount	Increments when a corresponding UP's MPDU transmitted successfully
+
+	dot11QosFailedCount			Increments when a corresponding UP's MSDU not transmitted successfully
+
+	dot11QosRetryCount			Increment when a corresponding UP's MSDU transmitted successfully after one or more retransmission
+
+	dot11QosMultipleRetryCount		Increments when a corresponding UP's MSDU is successfully transmitted after more than one retransmission
+
+	dot11QosFrameDuplicateCount		Increments when a corresponding UP's frame is received that the Sequence
+						Control field is indicating a duplicate frame
+
+	dot11QosRTSSuccessCount			Increments when a CTS is received in response to an RTS, which is sent for a corresponding UP's Qos frame
+
+	dot11QosRTSFailureCount			Increments when a CTS is not received in response to an RTS, which is sent for a corresponding UP's
+						Qos frame
+
+	dot11QosACKFailureCount			Increments when an ACK is not received when expected for a corresponding UP's Qos frame
+
+	dot11QosReceivedFragmentCount		Increments when a corresponding UP's MPDU received
+
+	dot11QosTransmittedFrameCount		Increments when a corresponding UP's MSDU transmitted
+
+	dot11QosDiscardedFrameCount		Increments when a corresponding UP's MSDU not transmitted successfully
+
+	dot11QosMPDUsReceivedCount		Increments when a corresponding UP's MDPU received
+
+
+	dot11QosRetriesReceivedCount		Increments when a corresponding UP's MDPU received which retry bit is set
+
+	dot11RSNAStatsCMACICVErrors		Increment when a MPDU discard by CMAC integrity check
+
+	dot11RSNAStatsCMACReplays		Increments when a MPDU discarded by the CMAC replay error
+
+	dot11RSNAStatsRobustMgmtCCMPReplays	Increments when a robust management frame discarded by CCMP replay error
+
+	dot11RSNAStatsTKIPICVErrors		Increments when a MPDU discarded by TKIP ICV error //(use of WEP/TKIP is not recommended anymore)
+
+	dot11RSNAStatsTKIPReplays		Increments when a MPDU discarded by TKIP replay error  //(use of WEP/TKIP is not recommended anymore)
+
+	dot11RSNAStatsCCMPDecryptErrors		Increments when a MPDU discarded by CCMP decryption error
+
+	dot11RSNAStatsCCMPReplays		Increments when a MPDU discarded by CCMP replay error
+
+	dot11TransmittedAMSDUCount		Increments when a A-MSDU transmitted successfully
+
+	dot11FailedAMSDUCount			Increments when a A-MSDU not transmitted successfully
+
+	dot11RetryAMSDUCount			Increments when a A-MSDU is successfully transmitted after one or more retransmissions
+
+	dot11MultipleRetryAMSDUCount		Increments when a A-MSDU is successfully transmitted after more than one retransmissions
+
+	dot11TransmittedOctetsInAMSDUCount	Increments by the number of octets in the frame body
+						of an A-MSDU frame when an A-MSDU frame is successfully transmitted
+
+	dot11AMSDUAckFailureCount		Increments when an acknowledgment to an A-MSDU is not received when expected.
+
+	dot11ReceivedAMSDUCount			Increments when a A-MSDU frame received
+
+	dot11ReceivedOctetsInAMSDUCount		Increments by the number of octets in the frame body
+						of an A-MSDU frame when an A-MSDU frame is received
+
+	dot11TransmittedAMPDUCount		Increments when an A-MPDU is transmitted
+
+	dot11TransmittedMPDUsInAMPDUCount	Increments by the number of MPDUs in the A-MPDU when an A-MPDU is transmitted
+
+	dot11TransmittedOctetsInAMPDUCount	Increments by the number of octets in the A-MPDU frame when an A-MPDU frame is transmitted
+
+	dot11AMPDUReceivedCount			Increments when the MAC receives an A-MPDU from the PHY
+
+	dot11MPDUInReceivedAMPDUCount		Increments by the number of MPDUs received in the
+						A-MPDU when an A-MPDU is received
+
+	dot11ReceivedOctetsInAMPDUCount		Increments by the number of octets in the A-MPDU
+						frame when an A-MPDU frame is received
+
+	dot11AMPDUDelimiterCRCErrorCount	Increments when an MPDU delimiter has a CRC error when this is the first
+						CRC error in the received A-MPDU or when the previous delimiter has been decoded correctly
+
+        Cmd Usage: mlanutl mlanX getlog ext
+	The above command is used with the argument "ext" to display the following error statistics:-
+
+	rxStuckIssueCount-1
+        rxStuckIssueCount-2
+        rxStuckRecoveryCount
+        rxStuckTsf-1
+        rxStuckTsf-2
+        txWatchdogRecoveryCount
+        txWatchdogTsf-1
+        txWatchdogTsf-2
+        channelSwitchAnnouncementSent
+        channelSwitchState
+        registerClass
+        channelNumber
+        channelSwitchMode
+        RxResetRecoveryCount
+        RxIsr2NotDoneCnt
+        gdmaAbortCnt
+        gResetRxMacCnt
+        gOwnrshpCtlErrCnt
+        gOwnrshpBcnErrCnt
+        gOwnrshpMgtErrCnt
+        gOwnrshpDatErrCnt
+
+getsignal
+	This command gets the last and average value of RSSI, SNR and NF of
+	Beacon and Data.
+	Note: This command is available only when STA is connected.
+
+	where value of m is:
+		1   -- RSSI (Receive Signal Strength Indication)
+		2   -- SNR (Signal to Noise Ratio)
+		3   -- NF (Noise Floor)
+	where value of n is:
+		1   -- Beacon last
+		2   -- Beacon average
+		3   -- Data last
+		4   -- Data average
+
+	Examples:
+		mlanutl mlan0 getsignal 1        : Get the RSSI info (beacon last, beacon
+		                                  average, data last and data average)
+		mlanutl mlan0 getsignal 3 4      : Get the NF of data average
+		mlanutl mlan0 getsignal 2 1      : Get the SNR of beacon last
+		mlanutl mlan0 getsignal          : Get all of the signal info
+		mlan0     getsignal:-32  -33  -35  -36  67  59  63  56  -99  -92  -98  -92
+		RSSI info: beacon last -32, beacon average -33, data last -35, data average -36
+		SNR info: beacon last 67, beacon average 59, data last 63, data average 56
+		NF info: beacon last -99, beacon average -92, data last -98, data average -92
+
+
+get_txpwrlimit
+	This command is used to get the txpwrlimit table in FW
+Usage:
+ 	mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
+	where <n>
+		0:      Get 2.4G txpwrlimit table
+		0x10:   Get 5G sub0 txpwrlimit table
+		0x11:   Get 5G sub1 txpwrlimit table
+		0x12:   Get 5G sub2 txpwrlimit table
+		0x13:   Get 5G sub3 txpwrlimit table
+		0x1f:   Get all 5G txpwrlimit table
+		0xff:   Get both 2G and 5G txpwrlimit table
+	<raw_data_file> driver will save fw raw data to this file.
+
+    Examples:
+		mlanutl mlan0 get_txpwrlimit 0                      : Get 2G txpwrlimit table.
+		mlanutl mlan0 get_txpwrlimit 0x10                   : Get 5G sub band0 txpwrlimit table
+		mlanutl mlan0 get_txpwrlimit 0xff txpwrlimit.bin    : Get both 2G/5G txpwrlimit table and save to txpwrlimit.bin
+
+aggrpriotbl
+	This command is used set/get the priority table for AMPDU/AMSDU traffic per tid.
+	This command can also be used to disable AMPDU/AMSDU for a given tid.
+	In case of AMPDU this priority table will be used to setup block ack (to make
+	sure the highest priority tid always uses AMPDU as we have limited AMPDU streams)
+
+	where <m0> <n0> <m1> <n1> ... <m7> <n7>
+
+	<mx> - This is priority for Tid0 for AMPDU packet. A priority could be any
+		   values between 0 - 7, 0xff to disable aggregation.
+	<nx> - This is priority for Tid0 for AMSDU packet. A priority could be any
+		   values between 0 - 7, 0xff to disable aggregation.
+
+	eg:
+	mlanutl mlanX aggrpriotbl - This command will get the current Priority table for AMPDU and AMSDU.
+						  <2 2 0 0 1 1 3 3 4 4 5 5 255 255 255 255>. This is read as
+						  <"Prio for AMPDU for Tid0" "Prio for AMSDU for Tid0"
+						   "Prio for AMPDU for Tid1" "Prio for AMSDU for Tid1" and so on
+	mlanutl mlanX aggrpriotbl 2 2 0 0 1 1 3 3 4 4 5 5 255 255 255 255 -
+						This will set the priority table for AMPDU and AMSDU
+						Priority for Tid0/AMPDU = 2, Tid0/AMSDU = 2, Tid1/AMPDU = 0, Tid1/AMSDU = 0
+						and so on. Aggregation for Tid6 and Tid7 are disabled.
+						Here higher the priority number, higher the priority (i.e. 7
+						has higher priority than 6). Similarly for AMSDU.
+	mlanutl mlanX aggrpriotbl 0xff 2 0xff 0 0xff 1 0xff 3 0xff 4 0xff 5 0xff 0xff 0xff 0xff - This will disable
+						AMPDU for all the TIDs but will still keep AMSDU enabled to Tid0 to Tid5
+
+	The default setting is 2 255 0 255 1 255 3 255 4 255 5 255 255 255 255 255.
+
+	A delBA should be seen in case a disable happens on a TID for which AMPDU stream
+	is currently setup.
+
+	Note:- This command should only be issue in disconnected state.
 
 addbapara
 	This command can be used to update the default ADDBA parameters.
@@ -567,6 +904,541 @@ addbareject
 
 	Note:- This command should only be issue in disconnected state.
 
+vhtcfg
+	This command is used to set and get various 11ac specific configuration
+	for transmission and reception. For the SET operation, all paramaters
+	may be applied. For the GET operation, only the first two parameters are applied.
+	The 6th argument "rx_mcs_set" can be used to disbale/enable 802.11ac.
+
+	where <j> is <band>
+	<band> - This is the band setting for the vhtcfg
+		0: Settings for both 2.4G and 5G bands (for SET operation, 11N BW only)
+		1: Settings for 2.4G band (for 11N BW only)
+		2: Settings for 5G band
+
+	where <k> is <txrx>
+	<txrx> - This parameter specifies the configuration of VHT operation for TX or/and VHT capabilities
+		0: Unspecified
+		1: configuration of VHT capabilities for Tx operations (STA only)
+		2: configuration of VHT capabilities for association (STA only)
+		3: configuration of VHT capabilities (uAP only)
+	Note: For the STA, the VHT capabilities configuration is applied in association,
+	      whereas the VHT operations configuration is actually used in Tx.
+
+	where [l] is <bwcfg>
+	<bwcfg> - This parameter specifies the bandwidth (BW) configuration
+		  applied to the vhtcfg.
+	If <txrx> is 1/3 (Tx operations),
+		0: Tx BW follows the BW (20/40 MHz) from 11N CFG
+		1: Tx BW follows the BW (80/160/80+80 MHz) from VHT Capabilities
+		   defined in <vhtcap> below for 5G band.
+	If <txrx> is 2 (association),
+		0: Rx BW follows the BW (20/40 MHz) from 11N CFG
+		1: Rx BW follows the BW (80/160/80+80 MHz) from VHT Capabilities
+		   defined in <vhtcap> below for 5G band.
+
+	where [m] is <vhtcap>
+	<vhtcap> - This parameter specifies the VHT capabilities info if <txrx> is 2 (association)
+		   or the VHT Tx operations if <txrx> is 1 (Tx operations).
+		   The VHT Tx operation should be a subset of VHT capabilities for association.
+		   It is a bitmap and should be used as follows:
+
+		Bit 31-30: Reserved and set to 0
+		Bit 29:    TX antenna pattern consistency
+			   1: antenna pattern does not change
+			   0: antenna pattern might change
+		Bit 28:    RX antenna pattern consistency
+			   1: antenna pattern does not change
+			   0: antenna pattern might change
+		Bit 27-26: VHT link adaptation capable
+			   0: no feedback of VHT MFB from the STA
+			   1: unsolicted feedback of VHT MFB from the STA
+			   2: both response and unsolicted feedback of VHT MFB
+			      from the STA
+			   3: reserved and set to 0
+		Bit 25-23: Maximum A-MPDU length exponent
+		Bit 22:    +HTC-VHT capable (1: enable. 0 disable)
+		Bit 21:    VHT TXOP PS
+		Bit 20:    MU beamformee capable (1: enable. 0 disable)
+		Bit 19:    MU beamformer capable (1: enable. 0 disable)
+		Bit 18-16: Number of sounding dimensions (set to maximum-1
+			   if Bit 11 is 1. Otherwise, reserved and set to 0)
+		Bit 15-13: Compressed steering number of beamformer
+			   antennas supported (set to maximum-1 if Bit 12 is 1.
+			   Otherwise, reserved and set to 0)
+		Bit 12:    SU beamformee capable (1: enable. 0 disable)
+		Bit 11:    SU beamformer capable (1: enable. 0 disable)
+		Bit 10-8:  Rx STBC
+			   0: no support
+			   1: support of 1 spatial stream
+			   2: support of 1-2 streams
+			   3: support of 1-3 spatial streams
+			   4: support of 1-4 spatial streams
+			   5-7: reserved and set to 0
+		Bit 7:     TX STBC (1: enable. 0 disable)
+		Bit 6:     Short GI for 160 and 80+80 MHz (1: enable. 0 disable)
+		Bit 5:     Short GI for 80 MHz (1: enable. 0 disable)
+		Bit 4:     Rx LDPC (1: enable. 0 disable)
+		Bit 3-2:   Supported channel width set.
+			   0: no support of either 160 or 80+80 MHz.
+			   1: support of 160 MHz
+			   2: support of both 160 and 80+80 MHz.
+			   3: reserved and set to 0.
+		Bit 1-0:   Maximum MPDU length
+			   0: 3895 octets.
+			   1: 7991 octets.
+			   2: 11454 octets.
+			   3: reserved and set to 0.
+
+	Note: for the STA, if <txrx> is 1 (Tx operations), the bitmap for <vhtcap> may be simplied as follows:
+		Bit 31-8: Reserved and set to 0
+		Bit 7:    Tx STBC (1: enable. 0 disable)
+		Bit 6:    Reserved and set to 0
+		Bit 5:    Short GI for 80 Mhz (1: enable. 0 disable)
+		Bit 4:    LDPC (1: enable. 0 disable)
+		Bit 3-0:  Reserved and set to 0
+
+	where [n] is <tx_mcs_map>,
+	<tx_mcs_map> - This parameter specifies the TX MCS map. It may not be used for the STA if <txrx> is 1 (Tx operations).
+		It is a bitmap and should be used as following
+		Bit 15-0:  MCS map, which is defined as folows:
+			Bit 15-14: Max MCS for 8 SS
+			Bit 13-12: Max MCS for 7 SS
+			Bit 11-10: Max MCS for 6 SS
+			Bit 9-8:   Max MCS for 5 SS
+			Bit 7-6:   Max MCS for 4 SS
+			Bit 5-4:   Max MCS for 3 SS
+			Bit 3-2:   Max MCS for 2 SS
+			Bit 1-0:   Max MCS for 1 SS
+
+	where [o] is <rx_mcs_map>.
+	<rx_mcs_map> - This parameter specifies the RX MCS map. It may not be used for the STA if <txrx> is 1 (Tx operations).
+		It is a bitmap with the same sructure as for <tx_mcs_map>
+		rx_mcs_map = 0xffff : FW will disable 802.11ac
+                rx_mcs_map = others : FW will enable 802.11ac
+
+	Note: The user setting of vhtcap may be overwritten by the driver
+	      if the setting of those fields is beyond the hardware capabilities.
+
+	Examples:
+		mlanutl mlan0 vhtcfg 2 1            : Get current VHT configuration in 5GHz for the STA.
+		mlanutl mlan0 vhtcfg 2 2            : Get maximum VHT configuration in 5GHz for the STA.
+		mlanutl mlan0 vhtcfg 2 1 1 0x000001f0
+		    : Set the Tx operations configuration in 5GHz for the STA,
+		      Tx BW follows the VHT Capabilities.
+		mlanutl mlan0 vhtcfg 2 2 0 0x000001f0 0xfff5 0xfffa
+		    : Set the VHT capabilities configuration in 5GHz for the STA,
+		      the Tx supports MCS 0-8 for both 1 and 2 spatial streams,
+		      while the Rx supports MCS 0-9 for both 1 and 2 spatial streams.
+		mlanutl uap0 vhtcfg 2 3 0 0x000001f0 0xfffa 0xfffa
+		    : Set the current/maximum VHT configuration in 5GHz for the uAP.
+		      Both Tx and Rx supports MCS 0-9 for both 1 and 2 spatial streams.
+		mlanutl uap0 vhtcfg 2 3 0 0x000001b0
+		    : Set the VHT capability information in 5GHz for the uAP, and keep the Tx/Rx MCS Map same as before.
+
+dyn_bw
+	This command is used to set/get dynamic bandwidth.
+
+	Usage:
+		mlanutl mlanX dyn_bw [n]
+
+	where <n>
+           [BIT0]
+                 0 = TxInfo Indicated BW Disable
+                 1 = TxInfo Indicated BW Enable
+           [BIT1]
+                 0 = TxInfo Dynamatic BW Disable
+                 1 = TxInfo Dynamatic BW Enable
+           [BIT2]
+                 0 = TxInfo Force send RTS Disable
+                 1 = TxInfo Force send RTS Enable
+           [BIT3]
+                 0 = Mac Dynamic BW Operation Mode Disable (Static BW Operation Mode)
+                 1 = Mac Dynamic BW Operation Mode Enable
+           other bits reserved.
+
+        If no parameter provided, get is performed.
+
+	Examples:
+		mlanutl mlan0 dyn_bw 0x1       : Enable TxInfo Indicated BW
+		mlanutl mlan0 dyn_bw           : get current setting
+
+httxcfg
+	This command is used to configure various 11n specific configuration
+	for transmit (such as Short GI, Channel BW and Green field support)
+
+	where <m> is <txcfg>
+	This is a bitmap and should be used as following
+		Bit 15-8: Reserved set to 0
+		Bit 7: STBC enable/disable
+		Bit 6: Short GI in 40 Mhz enable/disable
+		Bit 5: Short GI in 20 Mhz enable/disable
+		Bit 4: Green field enable/disable
+		Bit 3-2: Reserved set to 1
+		Bit 1: 20/40 Mhz enable disable.
+		Bit 0: LDPC enable/disable
+
+	When Bit 1 is set then firmware could transmit in 20Mhz or 40Mhz based
+	on rate adaptation. When this bit is reset then firmware will only
+	transmit in 20Mhz.
+
+	where <n> is <band>
+	<band> - This is the band info for <txcfg> settings.
+		0: Settings for both 2.4G and 5G bands
+		1: Settings for 2.4G band
+		2: Settings for 5G band
+
+	Example:
+		mlanutl mlanX httxcfg
+		This will display HT Tx configuration for 2.4G and 5G band.
+
+		mlanutl mlanX httxcfg 0x62
+		This will enable 20/40 and Short GI but will disable Green field for 2.4G and 5G band.
+
+		mlanutl mlanX httxcfg 0x30 1
+		This will enable Short GI 20 Mhz and Green field for 2.4G band.
+
+	The default value is 0x20 for 2.4G and 0x62 for 5G.
+
+	Note:- If 20/40 MHz support is disabled in htcapinfo, device will not transmit
+	in 40 MHz even 20/40 MHz is enabled in httxcfg.
+
+htcapinfo
+	This command is used to configure some of parameters in HTCapInfo IE
+	(such as Short GI, Channel BW, and Green field support)
+
+	where <m> is <capinfo>
+	<capinfo> - This is a bitmap and should be used as following
+		Bit 29: Green field enable/disable
+		Bit 26: Rx STBC Support enable/disable. (As we support
+			single spatial stream only 1 bit is used for Rx STBC)
+		Bit 25: Tx STBC support enable/disable.
+		Bit 24: Short GI in 40 Mhz enable/disable
+		Bit 23: Short GI in 20 Mhz enable/disable
+		Bit 22: Rx LDPC enable/disable
+		Bit 17: 20/40 Mhz enable disable.
+		Bit  8: Enable/disable 40Mhz Intolarent bit in ht capinfo.
+		        0 will reset this bit and 1 will set this bit in
+		        htcapinfo attached in assoc request.
+		All others are reserved and should be set to 0.
+
+	Setting of any other bits will return error.
+
+	where <n> is <band>
+	<band> - This is the band info for <capinfo> settings.
+		0: Settings for both 2.4G and 5G bands
+		1: Settings for 2.4G band
+		2: Settings for 5G band
+
+	Example:
+		mlanutl mlanX htcapinfo
+		This will display HT capabilties information.
+		If the information for 2.4G and 5G is different,
+		the first value is for 2.4G and the second value is for 5G.
+		Otherwise, it will display a single value for both bands.
+
+		mlanutl mlanX htcapinfo 0x1820000
+		This will enable Short GI, Channel BW to 20/40 and disable Green field support for 2.4G and 5G band.
+
+		mlanutl mlanX htcapinfo 0x800000 2
+		This will enable Short GI, Channel BW to 20 only, No Rx STBC support and disable Green field support for 5G band.
+
+	The default value is 0x4800000 for 2.4G and 0x5820000 for 5G.
+
+	Note:- This command can be issued any time but it will only come to effect from
+	next association. (as HTCapInfo is sent only during Association).
+
+txratecfg
+	This command is used to set/get the transmit data rate.
+
+	Note:
+	1) The data rate can be set only after association.
+
+	2) If the reassoc is OFF driver reset the data rate to auto if the connection state is disconnected.
+	Please note that user has to re-issue the set data rate command if the driver is disconnected.
+
+	3) If the reassoc is ON driver remembers the data rate set by the user, if the driver is
+	disconnected user does not have to re-issue the set data rate again.
+
+	4) Parameter [o] is optional. If [o] is not given, it will be set as 0xffff.
+
+	Where
+	[l] is <format>
+	<format> - This parameter specifies the data rate format used in this command
+		0:    LG
+		1:    HT
+		2:    VHT
+		0xff: Auto
+
+	[m] is <index>
+	<index> - This parameter specifies the rate or MCS index
+	If <format> is 0 (LG),
+		0	1 Mbps
+		1	2 Mbps
+		2	5.5 Mbps
+		3	11 Mbps
+		4	6 Mbps
+		5	9 Mbps
+		6	12 Mbps
+		7	18 Mbps
+		8	24 Mbps
+		9	36 Mbps
+		10	48 Mbps
+		11	54 Mbps
+	If <format> is 1 (HT),
+		0	MCS0
+		1	MCS1
+		2	MCS2
+		3	MCS3
+		4	MCS4
+		5	MCS5
+		6	MCS6
+		7	MCS7
+	If <format> is 2 (VHT),
+		0	MCS0
+		1	MCS1
+		2	MCS2
+		3	MCS3
+		4	MCS4
+		5	MCS5
+		6	MCS6
+		7	MCS7
+		8	MCS8
+		9	MCS9
+	[n] is <nss>
+	<nss> - This parameter specifies the NSS. It is valid for VHT
+	If <format> is 2 (VHT),
+		1	NSS1
+		2	NSS2
+	[o] is <rate setting, only support 9098/9097/9xxx chips>
+        Bit0 - 1: indicate preambleType
+          For legacy 11b: preemble type
+             00    = long
+             01    = short
+             10/11  = reserved
+          For legacy 11g: reserved
+          For 11n: Green field PPDU indicator
+             00 = HT-mix
+             01 = HT-GF
+             10/11 = reserved.
+          For 11ac: reserved.
+          For 11ax:
+             00 = HE-SU
+             01 = HE-EXT-SU
+             others are reserved
+
+        Bit 2 - 4 : indicate BW:
+          For HE ER:
+            0 = 242-tone RU
+            1 =  upper frequency 106-tone RU within the primary 20 MHz
+          Otherwise:
+            0 = 20 MHz
+            1 = 40 MHz
+            2 = 80 MHz
+            3 = 160 MHz
+
+        Bit 5 -6: indicate LTF + GI size
+          For HT:
+            0 = normal
+            1 = Short GI
+          For VHT:
+            01 = Short GI
+            11 = Short GI and Nsym mod 10=9
+            00 = otherwise
+          For HE:
+            0 = 1xHELTF + GI0.8us
+            1 = 2xHELTF + GI0.8us
+            2 = 2xHELTF + GI1.6us
+            3 = 4xHELTF + GI0.8us if DCM = 1 and STBC = 1
+                4xHELTF + GI3.2us, otherwise.
+
+        Bit 7: Indicate  STBC:
+            0 = no STBC
+            1 = STBC
+
+        Bit 8: indicate DCM:
+            0 = no DCM
+            1 = DCM
+
+        Bit 9: indicate coding:
+            0 = BCC
+            1 = LDPC
+
+        Bit 10 - 11: reserved.
+
+        Bit 12 - 13: Indicate maxPE
+            Max packet extension
+            0 - 0 usec
+            1 - 8 usec
+            2 - 16 usec.
+
+        Bit 14 - 15: reserved.
+
+        0xffff: Auto
+
+	Examples:
+		mlanutl mlan0 txratecfg          : Read the current data rate setting
+		mlanutl mlan0 txratecfg 0 3      : Set fixed Tx rate to 11 Mbps
+		mlanutl mlan0 txratecfg 0 11     : Set fixed Tx rate to 54 Mbps
+		mlanutl mlan0 txratecfg 1 3      : Set fixed Tx rate to MCS3
+		mlanutl mlan0 txratecfg 2 3 2    : Set fixed Tx rate to MCS3 for NSS2
+		mlanutl mlan0 txratecfg 3 5 2 0x2282   : Set 11AX fixed Tx rate to MCS5 for NSS2, and Preamble type is 2, BW is 0, LTF + GI size 0
+                                                         STBC is 1, DMC is 0, Coding is 1, maxPE is 2.
+		mlanutl mlan0 txratecfg 0xff     : Disable fixed rate and uses auto rate
+
+hssetpara
+	This command is used to set host sleep parameters.
+
+	Usage:
+		mlanutl mlanX hssetpara condition [GPIO# [gap]] (optional)[type ind_GPIO# [level]] (optional)[type event_force_ignore event_use_ext_gap ext_gap [gpio_wave]] (optional)[type hs_wakeup_interval]
+
+	This command takes one (condition), two (condition and GPIO#) or three
+	(condition, GPIO# and gap).If more than three parameters, it can set different or multiple features indicating by type.
+
+	If type=1, it will set indication gpio and its level. And the parameter format will be (condition, GPIO#,gap and type,ind_GPIO#) or
+        (condition, GPIO#, gap, type, ind_GPIO# and level).
+
+        If type=2, it will set extend host sleep wakup method. And the parameter format will be (condition, GPIO#, gap, type, force_ignore,
+        use_ext_gap, ext_gap [gpio_wave]). gpio_wave parameter is optional and default value is 0(falling edge). Each bit of
+        event_force_ignore and event_use_ext_gap will be defined to one same event, and set one same event(same bit) in those two
+        parameters is not allowed. Set bit(s) in event_force_ignore means the event(s) will be forced ignore in firmware silently.
+        Set bit(s) in event_use_ext_gap mean the event(s) will use extend gap to inform host. Not set means not handle.
+
+        If type=3, it will set hs_wakeup_interval.
+
+        If no parameter provided, get is performed.
+
+	where Condition is:
+		bit 0 = 1   -- broadcast data
+		bit 1 = 1   -- unicast data
+		bit 2 = 1   -- mac event
+		bit 3 = 1   -- multicast data
+		bit 6 = 1  --  Wakeup when mgmt frame received.
+		Bit 31 = 1  --  Don't wakeup when IPV6 packet received.
+
+	The host sleep mode will be canceled if condition is set to -1. The default is 0x7.
+
+	where GPIO is the pin number of GPIO used to wakeup the host. It could be any valid
+	GPIO pin# (e.g. 0-7) or 0xff (interface, e.g. SDIO will be used instead).
+	The default is 0xff.
+
+	where Gap is the gap in milliseconds between wakeup signal and wakeup event or 0xff
+	for special setting (host acknowledge required) when GPIO is used to wakeup host.
+	The default is 200.
+
+	The host sleep set except for cancellation will be blocked if host sleep is
+	already activated.
+
+	where ind_GPIO# is the pin number of GPIO used to indicate wakeup source. The level on
+	this GPIO will indicate normal wakeup source or abnormal wakeup source.
+
+	where level is used to set level(0/1) on ind_GPIO# pin for indication normal wakeup source.
+	The opposite level will indicate abnormal wakeup source. The default value is 0.
+
+	where event_force_ignore is a bitmap,each bit represent one wakeup reason event. Set the bit means this
+	wakeup reason should be force ignored in firmware. Reset the bit means do not handle this reason.
+
+	where event_use_ext_gap is a bitmap, each bit represent one wakeup reason event. Set the bit means this
+	wakeup reason should use ext_gap to indicate host. Reset the bit means do not handle this reason.
+
+	where event_force_ignore and event_use_ext_gap have the same wakeup reason event definition of each bit:
+		bit 0  = 1     --Disconnect
+		bit 1  = 1     --GTK/iGTK rekey failure
+		bit 2  = 1     --Eapol
+		other bits     --Reserved
+	They should not set both for one same wakeup reason.
+
+	where ext_gap is the extend gap based on third parameter Gap. Only valid when use_ext_gap is used.
+	The total gap is (Gap + (x+1)*ext_gap). x means the bit number(start from 0) of this reason in use_ext_gap.
+
+	where gpio_wave is used to set GPIO wave level for host sleep extend. 0 means falling edge, 1 means rising edge.
+	This parameter is optional and default value is 0.
+
+	where hs_wakeup_interval is used to set host sleep wakeup interval and the type must set to 3 to indicate
+	this feature. And the value will round to the nearest multiple dtim*beacon_interval in fw. The unit is milliseconds.
+
+	Examples:
+		mlanutl mlan0 hssetpara -1           : Cancel host sleep mode
+		mlanutl mlan0 hssetpara 3            : Broadcast and unicast data
+		                                       Use GPIO and gap set previously
+		mlanutl mlan0 hssetpara 2 3          : Unicast data
+		                                       Use GPIO 3 and gap set previously
+		mlanutl mlan0 hssetpara 2 1 0xa0     : Unicast data
+		                                       Use GPIO 1 and gap 160 ms
+		mlanutl mlan0 hssetpara 2 0xff       : Unicast data
+		                                       Use interface (e.g. SDIO)
+		                                       Use gap set previously
+		mlanutl mlan0 hssetpara 4 3 0xff     : MAC event
+		                                       Use GPIO 3
+		                                       Special host sleep mode
+		mlanutl mlan0 hssetpara 1 0xff 0xff  : Broadcast data
+
+		mlanutl mlan0 hssetpara 2 1 0xa0 1 5 1 : Unicast data
+		                                       Use GPIO 1
+                                                       Gap 160 ms
+                                                       type=1 to set indication GPIO feature
+                                                       Use GPIO 5 to indicate wakeup source
+                                                       High level on GPIO 5 means this is a normal wakeup
+		mlanutl mlan0 hssetpara 2 1 0xa0 1 5   : Unicast data
+		                                       Use GPIO 1
+                                                       Gap 160 ms
+                                                       type=1 to set indication GPIO feature
+                                                       Use GPIO 5 to indicate wakeup source
+                                                       Use level set previously.
+
+		mlanutl mlan0 hssetpara 2 1 0xa0 2 0 0x1 10 1: Unicast data
+		                                       Use GPIO 1
+                                                       Gap 160 ms
+                                                       type=2 to set extend host sleep feature
+                                                       Force_ignore not used
+                                                       Disconnect will use extend gap to indicate host
+                                                       Use gap 170.
+                                                       Rising edge
+		mlanutl mlan0 hssetpara 2 1 0xa0 2 0x1 0 0 0: Unicast data
+		                                       Use GPIO 1
+                                                       Gap 160 ms
+                                                       type=2 to set extend host sleep feature
+                                                       Falling edge
+                                                       Force ignore Disconnect
+                                                       Extend gap not used
+                                                       Not used.
+                                                       Falling edge
+		mlanutl mlan0 hssetpara 2 1 0xa0 3 400:  Unicast data
+		                                       Use GPIO 1
+                                                       Gap 160 ms
+                                                       type=3 to set hs_wakeup_interval feature
+                                                       hs_wakeup_interval set to 400ms
+
+	Note: The parameters will be saved in the driver and be used when host suspends.
+              The ind_GPIO# and level parameters only work with specific board and firmware.
+mefcfg
+	This command is used to set MEF settings.
+
+	Usage:
+		mlanutl mlanX mefcfg <mef.conf>
+
+	Where the parameter is:
+		mef.conf : The configuration file specifying the MEF settings.
+
+	Example:
+		mlanutl mlan0 mefcfg config/mef.conf
+11dcfg
+	This command is used to control 11D. No argument is used to get.
+
+	where value of n is:
+		0   -- Disable
+		1   -- Enable
+
+	Examples:
+		mlanutl mlan0 11dcfg 1           : Enable 11D
+		mlanutl mlan0 11dcfg             : Get 11D status
+
+11dclrtbl
+	This command is used to clear the 11D channel table.
+
+	Usage:
+		mlanutl mlanX 11dclrtbl
+
 addts
 	Send an ADDTS command to the associated AP.
 
@@ -579,40 +1451,6 @@ addts
 
 	Usage:
 		mlanutl mlanX addts <filename.conf> <section# of tspec> <timeout(ms)>
-
-aggrpriotbl
-	This command is used set/get the priority table for AMPDU/AMSDU traffic per tid.
-	This command can also be used to disable AMPDU/AMSDU for a given tid.
-	In case of AMPDU this priority table will be used to setup block ack (to make
-	sure the highest priority tid always uses AMPDU as we have limited AMPDU streams)
-
-	where <m0> <n0> <m1> <n1> ... <m7> <n7>
-
-	<mx> - This is priority for Tid0 for AMPDU packet. A priority could be any
-		   values between 0 - 7, 0xff to disable aggregation.
-	<nx> - This is priority for Tid0 for AMSDU packet. A priority could be any
-		   values between 0 - 7, 0xff to disable aggregation.
-
-	eg:
-	mlanutl mlanX aggrpriotbl - This command will get the current Priority table for AMPDU and AMSDU.
-						  <2 2 0 0 1 1 3 3 4 4 5 5 255 255 255 255>. This is read as
-						  <"Prio for AMPDU for Tid0" "Prio for AMSDU for Tid0"
-						   "Prio for AMPDU for Tid1" "Prio for AMSDU for Tid1" and so on
-	mlanutl mlanX aggrpriotbl 2 2 0 0 1 1 3 3 4 4 5 5 255 255 255 255 -
-						This will set the priority table for AMPDU and AMSDU
-						Priority for Tid0/AMPDU = 2, Tid0/AMSDU = 2, Tid1/AMPDU = 0, Tid1/AMSDU = 0
-						and so on. Aggregation for Tid6 and Tid7 are disabled.
-						Here higher the priority number, higher the priority (i.e. 7
-						has higher priority than 6). Similarly for AMSDU.
-	mlanutl mlanX aggrpriotbl 0xff 2 0xff 0 0xff 1 0xff 3 0xff 4 0xff 5 0xff 0xff 0xff 0xff - This will disable
-						AMPDU for all the TIDs but will still keep AMSDU enabled to Tid0 to Tid5
-
-	The default setting is 2 255 0 255 1 255 3 255 4 255 5 255 255 255 255 255.
-
-	A delBA should be seen in case a disable happens on a TID for which AMPDU stream
-	is currently setup.
-
-	Note:- This command should only be issue in disconnected state.
 
 amsduaggrctrl
 	This command could be used to enable/disable a feature where firmware gives feedback to driver
@@ -685,6 +1523,18 @@ amsduaggrctrl
 			association). This feature is enabled by default by the driver during
 			initialization.
 
+min_ba_threshold
+        This command is to set minimum Tx BA setup threshold
+
+        Usage:
+               mlanutl mlanX min_ba_threshold <n>
+
+        where the parameters are:
+             <n>: minimum BA Threshold  :0-16 (default is 16)
+        Example:
+               mlanutl mlan0 min_ba_threshold     : get min_ba_threshold value
+               mlanutl mlan0 min_ba_threshold 10  : set minimum BA threshold to 10
+
 antcfg
 	This command is used to set/get the mode of Tx/Rx antenna.If SAD is enabled,
 this command can also used to set SAD antenna evaluate time interval(antenna mode must
@@ -751,24 +1601,27 @@ associate
 
 	mlanutl mlanX associate "xx:xx:xx:xx:xx:xx SSID"
 
-get_txpwrlimit
+get_chnrgpwr
 	This command is used to get the txpwrlimit table in FW
 Usage:
- 	mlanutl mlanX get_txpwrlimit <n> [raw_data_file]
-	where <n>
-		0:      Get 2.4G txpwrlimit table
-		0x10:   Get 5G sub0 txpwrlimit table
-		0x11:   Get 5G sub1 txpwrlimit table
-		0x12    Get 5G sub2 txpwrlimit table
-		0x1f    Get all 5G txpwrlimit table
-		0xff    Get both 2G and 5G txpwrlimit table
-	<raw_data_file> driver will save fw raw data to this file.
+        mlanutl mlanX get_chnrgpwr [save_region_channel_power_data_file]
+	<save_region_channel_power_data_file> driver will save fw raw data to this file.
 
     Examples:
-		mlanutl mlan0 get_txpwrlimit 0                      : Get 2G txpwrlimit table.
-		mlanutl mlan0 get_txpwrlimit 0x10                   : Get 5G sub band0 txpwrlimit table
-		mlanutl mlan0 get_txpwrlimit 0xff txpwrlimit.bin    : Get both 2G/5G txpwrlimit table and save to txpwrlimit.bin
+		mlanutl mlan0 get_chnrgpwr fw_region_pwr.bin      : Get region channel power table and save to file fw_region_pwr.bin
 
+comparergpwr
+    This command is used to compare two regionpower tables and output differences.
+
+	Usage :
+			mlanutl mlanX comparergpwr <uncompressed file> [target_file]
+    	where:
+            <target_file>       : raw data file save from get_chnrgpwr command.
+            <uncompressed file> : uncompressed raw data file generated by powerutil from the excel input region power file
+
+	Example :
+		mlanutl mlan0 comparergpwr uncompressed.bin fw_region_pwr.bin	    : Show power table comparison in text format
+		mlanutl mlan0 comparergpwr uncompressed.bin		                    : Show power table of uncompressed file in text format
 comparetrpc
 	This command is used to compare two txpower tables and output differences.
 
@@ -807,33 +1660,6 @@ authtype
 		mlanutl mlan0 authtype 1         : use shared key authentication
 		mlanutl mlan0 authtype 255       : allow open system or shared key authentication
 		mlanutl mlan0 authtype           : get current setting
-
-dyn_bw
-	This command is used to set/get dynamic bandwidth.
-
-	Usage:
-		mlanutl mlanX dyn_bw [n]
-
-	where <n>
-           [BIT0]
-                 0 = TxInfo Indicated BW Disable
-                 1 = TxInfo Indicated BW Enable
-           [BIT1]
-                 0 = TxInfo Dynamatic BW Disable
-                 1 = TxInfo Dynamatic BW Enable
-           [BIT2]
-                 0 = TxInfo Force send RTS Disable
-                 1 = TxInfo Force send RTS Enable
-           [BIT3]
-                 0 = Mac Dynamic BW Operation Mode Disable (Static BW Operation Mode)
-                 1 = Mac Dynamic BW Operation Mode Enable
-           other bits reserved.
-
-        If no parameter provided, get is performed.
-
-	Examples:
-		mlanutl mlan0 dyn_bw 0x1       : Enable TxInfo Indicated BW
-		mlanutl mlan0 dyn_bw           : get current setting
 
 dfs_offload
 	This command is used to enable/disable DFS offload. The valid value is 0/1.
@@ -980,18 +1806,6 @@ cfpinfo
 		mlanutl mlan0 cfpinfo		     : Display cfp tables
 		mlanutl uap0 cfpinfo
 
-acs
-	This command is used to issue acs scan, then FW will
-	report the best channel and channel statistics.
-	User could specify channels or not. If channel is not
-	specified, acs scan will be on all supported channels.
-
-	Examples:
-		mlanutl mlan0 acs		     : ACS scan on all supported channels
-		mlanutl uap0 acs		     : ACS scan on all supported channels
-		mlanutl mlan0 acs 5 6 7 8	     : ACS scan on 5 6 7 8 channels
-		mlanutl uap0 acs 1 2 3		     : ACS scan on 1 2 3 channels
-
 customie
 	This command is used to set or get custom IEs for management frames.
 
@@ -1108,11 +1922,11 @@ dfstesting
 	This command is used to set/get settings for DFS testing.
 
 	Usage:
-	    mlanutl mlanX dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num>]
+	    mlanutl mlanX dfstesting [<user_cac_pd> <user_nop_pd> <no_chan_change> <fixed_chan_num><cac_restart>]
 
-	where <user_cac_pd> is user-configured Channel Availability Check in msec
-                        0 = disable, use default period (60000)
-                        1-65535 = enable with that period
+	where <user_cac_pd> is user-configured Channel Availability Check in sec
+                        0 = disable, use default period (60 seconds)
+                        1-1800 = enable with that period
 	where <user_nop_pd> is user-configured Non-Occupancy Period in sec
                         0 = disable, use default period (1800)
                         1-65535 = enable with that period
@@ -1122,59 +1936,38 @@ dfstesting
                            0 = disable, 1-255 = enable with that channel
                            (channel validity for region, etc. is not checked)
                            (only takes effect if no_chan_change = 0)
+	where <cac_restart> after CAC success, driver auto restart CAC again
 
 	Examples:
-		mlanutl mlan0 dfstesting             : Get current dfstesting settings
-		mlanutl mlan0 dfstesting 2000 0 0 0  : user_cac=2sec, others disabled/default
-		mlanutl mlan0 dfstesting 0 0 1 0     : only no_chan_change enabled
-		mlanutl mlan0 dfstesting 0 120 0 64  : user_nop=2min, force chan 64 on radar
+		mlanutl mlan0 dfstesting              : Get current dfstesting settings
+		mlanutl mlan0 dfstesting 60 0 0 0 0   : user_cac=60sec, others disabled/default
+		mlanutl mlan0 dfstesting 0 0 1 0 0    : only no_chan_change enabled
+		mlanutl mlan0 dfstesting 0 120 0 64 0 : user_nop=2min, force chan 64 on radar
+		mlanutl mlan0 dfstesting 60 0 0 0 1   : user_cac=60sec, restart cac after success
 
-drvdbg
-	This command is used to set/get the bit masks of driver debug message control.
+clear_nop
+	This command clear NOP status
+Usage:
+	mlanutl uapX clear_nop
+
+	Examples:
+		mlanutl uap0 clear_nop              : clear channel NOP status
+
+
+dfs53cfg
+	This command is used to set/get settings for DFS W53 configuration for JP-DFS.
 
 	Usage:
-		mlanutl mlanX drvdbg [n]
+	    mlanutl mlanX dfstesting [<cfg_value>]
 
-	Where the parameter <n> is the generic debug message control bit mask.
-	The following types of driver debug messages can be dynamically enabled or
-	disabled by setting or clearing the corresponding bits,
-		bit 0:  MMSG            PRINTM(MMSG,...)
-		bit 1:  MFATAL          PRINTM(MFATAL,...)
-		bit 2:  MERROR          PRINTM(MERROR,...)
-		bit 3:  MDATA           PRINTM(MDATA,...)
-		bit 4:  MCMND           PRINTM(MCMND,...)
-		bit 5:  MEVENT          PRINTM(MEVENT,...)
-		bit 6:  MINTR           PRINTM(MINTR,...)
-		bit 7:  MIOCTL          PRINTM(MIOCTL,...)
-		...
-		bit 16: MDAT_D          PRINTM(MDAT_D,...), DBG_HEXDUMP(MDAT_D,...)
-		bit 17: MCMD_D          PRINTM(MCMD_D,...), DBG_HEXDUMP(MCMD_D,...)
-		bit 18: MEVT_D          PRINTM(MEVT_D,...), DBG_HEXDUMP(MEVT_D,...)
-		bit 19: MFW_D           PRINTM(MFW_D,...),  DBG_HEXDUMP(MFW_D,...)
-		bit 20: MIF_D           PRINTM(MIF_D,...),  DBG_HEXDUMP(MIF_D,...)
-		...
-		bit 28: MENTRY          PRINTM(MENTRY,...), ENTER(), LEAVE()
-		bit 29: MWARN           PRINTM(MWARN,...)
-		bit 30: MINFO           PRINTM(MINFO,...)
-
-	If CONFIG_DEBUG=2, all kinds of debug messages can be configured.
-
-	If CONFIG_DEBUG=1, all kinds of debug messages can be configured except
-	for MENTRY, MWARN and MINFO. By default MMSG, MFATAL and MERROR are enabled.
-
-	Some special debug messages,
-		'*'             // MLAN driver ISR is called (bit 6 MINTR enabled)
-		'|'             // PS awake event is received (bit 5 MEVENT enabled)
-		'_'             // PS sleep event is received (bit 5 MEVENT enabled)
-		'+'             // PS sleep confirm is sent (bit 5 MEVENT enabled)
-
-	Examples:
-		mlanutl mlan0 drvdbg             : Get the current driver debug masks
-		mlanutl mlan0 drvdbg 0           : Disable all the debug messages
-		mlanutl mlan0 drvdbg 7           : Enable MMSG, MFATAL and MERROR messages
-		mlanutl mlan0 drvdbg 0x20037     : Enable MMSG, MFATAL, MEEROR,
-		                                   MCMND, MEVENT and MCMD_D messages
-		mlanutl mlan0 drvdbg -1          : Enable all the debug messages
+	where the parameters are:
+	    <cfg_value>         user-configured value for DFS W53 configuration for JP-DFS
+	                        0 - Fw default value
+	                        1 - New W53 Rules/Standars
+	                        2 - New W53 Rules/Standars
+    Examples:
+        mlanutl uap0 dfs53cfg   : get dfs w53 configuration
+        mlanutl uap0 dfs53cfg 1 : set dfs w53 configuration to New W53 Rules/Standards
 
 extcapcfg
 	This command is used to set/get extended capabilities.
@@ -1200,131 +1993,9 @@ fwmacaddr
 		mlanutl mlan0 fwmacaddr                        : Get current FW MAC address
 		mlanutl mlan0 fwmacaddr 00:50:43:20:bc:44      : Set FW side MAC address
 
-getdatarate
-	This command is used to get the data rate being used in last Tx
-	packet and last Rx packet.
-
 getkey
 	This command is used to get PTK/GTK
-
 	mlanutl mlanX getkey
-
-getlog
-	This command is used to get the statistics available in the station.
-	Following stats are displayed:-
-	dot11MulticastTransmittedFrameCount	Increments when the multicast bit is set in the destination
-						MAC address of a successfully transmitted MSDU
-
-	dot11FailedCount			Increments when an MSDU is not transmitted successfully
-
-	dot11RetryCount				Increments when an MSDU is successfully transmitted after one
-						or more retransmissions
-
-	dot11MultipleRetryCount			Increments when an MSDU is successfully transmitted after more
-						than one retransmission
-
-	dot11FrameDuplicateCount		Increments when a frame is received that the Sequence Control
-						field is indicating a duplicate count
-
-	dot11RTSSuccessCount			Increments when a CTS is received in response to an RTS
-
-	dot11RTSFailureCount			Increments when a CTS is not received in response to an RTS
-
-	dot11ACKFaliureCount			Increments when an ACK is not received when expected
-
-	dot11ReceivedFragmentCount		Increments for each successfully received MPDU of type Data or Management
-
-	dot11MulticastReceivedFrameCount	Increments when a MSDU is received with the multicast bit set in the destination MAC address
-
-	dot11FCSErrorCount			Increments when an FCS error is detected in a received MPDU
-
-	dot11TransmittedFrameCount		Increments for each successfully transmitted MSDU
-
-	dot11WeplcvErrCnt			Increment when WEP decryption error for key index 0.3
-
-	beaconReceivedCnt			Increments when received beacon
-
-	beaconMissedCnt				Increments when beacon missed
-
-	dot11TransmittedFrameCount		Increments for each successfully transmitted MSDU
-
-	dot11QosTransmittedFragmentCount	Increments when a corresponding UP's MPDU transmitted successfully
-
-	dot11QosFailedCount			Increments when a corresponding UP's MSDU not transmitted successfully
-
-	dot11QosRetryCount			Increment when a corresponding UP's MSDU transmitted successfully after one or more retransmission
-
-	dot11QosMultipleRetryCount		Increments when a corresponding UP's MSDU is successfully transmitted after more than one retransmission
-
-	dot11QosFrameDuplicateCount		Increments when a corresponding UP's frame is received that the Sequence
-						Control field is indicating a duplicate frame
-
-	dot11QosRTSSuccessCount			Increments when a CTS is received in response to an RTS, which is sent for a corresponding UP's Qos frame
-
-	dot11QosRTSFailureCount			Increments when a CTS is not received in response to an RTS, which is sent for a corresponding UP's
-						Qos frame
-
-	dot11QosACKFailureCount			Increments when an ACK is not received when expected for a corresponding UP's Qos frame
-
-	dot11QosReceivedFragmentCount		Increments when a corresponding UP's MPDU received
-
-	dot11QosTransmittedFrameCount		Increments when a corresponding UP's MSDU transmitted
-
-	dot11QosDiscardedFrameCount		Increments when a corresponding UP's MSDU not transmitted successfully
-
-	dot11QosMPDUsReceivedCount		Increments when a corresponding UP's MDPU received
-
-
-	dot11QosRetriesReceivedCount		Increments when a corresponding UP's MDPU received which retry bit is set
-
-	dot11RSNAStatsCMACICVErrors		Increment when a MPDU discard by CMAC integrity check
-
-	dot11RSNAStatsCMACReplays		Increments when a MPDU discarded by the CMAC replay error
-
-	dot11RSNAStatsRobustMgmtCCMPReplays	Increments when a robust management frame discarded by CCMP replay error
-
-	dot11RSNAStatsTKIPICVErrors		Increments when a MPDU discarded by TKIP ICV error
-
-	dot11RSNAStatsTKIPReplays		Increments when a MPDU discarded by TKIP replay error
-
-	dot11RSNAStatsCCMPDecryptErrors		Increments when a MPDU discarded by CCMP decryption error
-
-	dot11RSNAStatsCCMPReplays		Increments when a MPDU discarded by CCMP replay error
-
-	dot11TransmittedAMSDUCount		Increments when a A-MSDU transmitted successfully
-
-	dot11FailedAMSDUCount			Increments when a A-MSDU not transmitted successfully
-
-	dot11RetryAMSDUCount			Increments when a A-MSDU is successfully transmitted after one or more retransmissions
-
-	dot11MultipleRetryAMSDUCount		Increments when a A-MSDU is successfully transmitted after more than one retransmissions
-
-	dot11TransmittedOctetsInAMSDUCount	Increments by the number of octets in the frame body
-						of an A-MSDU frame when an A-MSDU frame is successfully transmitted
-
-	dot11AMSDUAckFailureCount		Increments when an acknowledgment to an A-MSDU is not received when expected.
-
-	dot11ReceivedAMSDUCount			Increments when a A-MSDU frame received
-
-	dot11ReceivedOctetsInAMSDUCount		Increments by the number of octets in the frame body
-						of an A-MSDU frame when an A-MSDU frame is received
-
-	dot11TransmittedAMPDUCount		Increments when an A-MPDU is transmitted
-
-	dot11TransmittedMPDUsInAMPDUCount	Increments by the number of MPDUs in the A-MPDU when an A-MPDU is transmitted
-
-	dot11TransmittedOctetsInAMPDUCount	Increments by the number of octets in the A-MPDU frame when an A-MPDU frame is transmitted
-
-	dot11AMPDUReceivedCount			Increments when the MAC receives an A-MPDU from the PHY
-
-	dot11MPDUInReceivedAMPDUCount		Increments by the number of MPDUs received in the
-						A-MPDU when an A-MPDU is received
-
-	dot11ReceivedOctetsInAMPDUCount		Increments by the number of octets in the A-MPDU
-						frame when an A-MPDU frame is received
-
-	dot11AMPDUDelimiterCRCErrorCount	Increments when an MPDU delimiter has a CRC error when this is the first
-						CRC error in the received A-MPDU or when the previous delimiter has been decoded correctly
 
 getscantable
 	Display the current contents of the driver scan table
@@ -1339,7 +2010,7 @@ getscantable
 	1) Without argument, the entire scantable is displayed in terms of channel (ch), signal strength (ss), BSS id (bssid), capability (cap), and SSID,
 		where each column in the capability is described as follows:
 		column 1 indicates the IBSS capability: A (Adhoc), I (Infra)
-		column 2 indicates the encryption capability: P (WEP), W (WPA), 2 (WPA2)
+		column 2 indicates the encryption capability: P (WEP :use of WEP/TKIP is not recommended anymore), W (WPA: use of WPA/TKIP is not recommended anymore), 2 (WPA2)
 		column 3 indicates the 11D capability: D (11D)
 		column 4 indicates the WMM capability: W (WMM), C (CAC)
 		column 5 indicates the 11K capability: K (11K)
@@ -1357,33 +2028,6 @@ getscantable
            scan table is sorted by signal strength in the descending order.
 	6) The help argument will display the legend for the capability field.
 
-getsignal
-	This command gets the last and average value of RSSI, SNR and NF of
-	Beacon and Data.
-	Note: This command is available only when STA is connected.
-
-	where value of m is:
-		1   -- RSSI (Receive Signal Strength Indication)
-		2   -- SNR (Signal to Noise Ratio)
-		3   -- NF (Noise Floor)
-	where value of n is:
-		1   -- Beacon last
-		2   -- Beacon average
-		3   -- Data last
-		4   -- Data average
-
-	Examples:
-		mlanutl mlan0 getsignal 1        : Get the RSSI info (beacon last, beacon
-		                                  average, data last and data average)
-		mlanutl mlan0 getsignal 3 4      : Get the NF of data average
-		mlanutl mlan0 getsignal 2 1      : Get the SNR of beacon last
-		mlanutl mlan0 getsignal          : Get all of the signal info
-		mlan0     getsignal:-32  -33  -35  -36  67  59  63  56  -99  -92  -98  -92
-		RSSI info: beacon last -32, beacon average -33, data last -35, data average -36
-		SNR info: beacon last 67, beacon average 59, data last 63, data average 56
-		NF info: beacon last -99, beacon average -92, data last -98, data average -92
-
-
 getstalist
     This command is used to get list of associated stations to the AP.
 
@@ -1398,6 +2042,7 @@ channel_switch <switch mode> <oper class> <new channel> <switch count> <bandwidt
         oper class  : operating class according to IEEE std802.11 spec, when 0 is used, only CSA IE will be used
         new channel : the channel will switch to
         switch count: channel switch time to send ECSA ie
+                      (when set to 0, CSA/ECSA action frame will be send out)
         bandwidth   : channel width switch to(optional),only for 5G channels.
                       Support value 1 -- 40M above, 3 -- 40M below, 4 -- 80M, 5 -- 160M
 
@@ -1406,6 +2051,8 @@ channel_switch <switch mode> <oper class> <new channel> <switch count> <bandwidt
         mlanutl uap0 channel_switch 1 81 6 10        :switch to channel 6, oper class 81
         mlanutl uap0 channel_switch 1 0 6 10         :switch to channel 6
         mlanutl uap0 channel_switch 1 0 36 10 1      :switch to channel 36, bandwidth 40MHz above
+        mlanutl uap0 channel_switch 1 0 36 0         :switch to channel 36, with broadcast CSA action frame
+        mlanutl uap0 channel_switch 1 115 36 0       :switch to channel 36, with broadcast ECSA action frame
 
 hostcmd 2040coex
 	This command is used to send the 11n 20/40 Coex command to firmware.
@@ -1476,17 +2123,20 @@ hostcmd mode_get
 hostcmd mode_timeshare
 hostcmd mode_spatial
 hostcmd mode_none
+hostcmd mode_bca
 	This command is used to get/set Robust BT Coex.
 	mode_get:       get the current mode
-	mode_timeshare: set Robust BT Coex to timeshare mode  (default on 1x1_1Antenna chips)
-	mode_spatial:   set Robust BT Coex to spatial mode    (default on 2x2 chips)
-	mode_none:      set Robust BT Coex to mode none       (default on chips with dedicated BT Antenna. Example: 2x2_3Antenna, 1x1_2Antenna chips)
+	mode_timeshare: set Robust BT Coex to timeshare mode  (default on 1x1 chips)
+	mode_spatial:   set Robust BT Coex to spatial mode    (only for, and default on 2x2 chips)
+	mode_none:      set Robust BT Coex to mode none       (only for, and default on 2x2_3Antenna chips)
+	mode_bca:       set Robust BT Coex to bca mode        (HW BCA based WLAN and BT traffic arbitration)
 
 	Usage:
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_get
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_timeshare
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_spatial
 		mlanutl mlanX hostcmd config/robust_btc.conf mode_none
+		mlanutl mlanX hostcmd config/robust_btc.conf mode_bca
 
 hostcmd gpio_cfg
 	This command is used to enable/disable GPIO cfg.
@@ -1494,6 +2144,19 @@ hostcmd gpio_cfg
 
 	Usage:
 		mlanutl mlanX hostcmd config/robust_btc.conf gpio_cfg
+
+hostcmd external_coex_uart_config
+	This command is used to enable/disable Loopback mode.
+	external_coex_uart_config:       enable/disable loopback of received data (default is disable)
+
+	Usage:
+		mlanutl mlanX hostcmd config/robust_btc.conf external_coex_uart_config
+
+hostcmd external_coex_pta_config
+	This command is used to configure external coex interface/WCI-2 interface
+	external_coex_pta_config:	Configure either PTA interface or WCI-2 interface	(default is configured for PTA interface).
+	Usage:
+		mlanutl mlanX hostcmd <robust_btc.conf> external_coex_pta_config
 
 hostcmd generictime
 hostcmd a2dptime
@@ -1560,13 +2223,6 @@ hostcmd txrate_cfg_set_bgn
 		mlanutl mlanX hostcmd config/txrate_cfg.conf txrate_cfg_set_bg
 		mlanutl mlanX hostcmd config/txrate_cfg.conf txrate_cfg_set_bgn
 
-hostcmd generate_raw
-	This command is used to generate the raw data(hostcommand block) for
-	hostcommand in <conf_file> and write that to file <raw_data_file>
-
-	Usage:
-		mlanutl mlanX hostcmd <conf_file> generate_raw <raw_data_file>
-
 hostcmd fwdump
 	This command is used to trigger firmware dump
 
@@ -1597,120 +2253,6 @@ hscfg
 
 	The usages of parameters for "hscfg" are the same as that for "hssetpara" command.
 
-hssetpara
-	This command is used to set host sleep parameters.
-
-	Usage:
-		mlanutl mlanX hssetpara condition [GPIO# [gap]] (optional)[type ind_GPIO# [level]] (optional)[type event_force_ignore event_use_ext_gap ext_gap [gpio_wave]] (optional)[type hs_wakeup_interval]
-
-	This command takes one (condition), two (condition and GPIO#) or three
-	(condition, GPIO# and gap).If more than three parameters, it can set different or multiple features indicating by type and
-        the detailed usage is the same as hscfg above.
-
-	where Condition is:
-		bit 0 = 1   -- broadcast data
-		bit 1 = 1   -- unicast data
-		bit 2 = 1   -- mac event
-		bit 3 = 1   -- multicast data
-		bit 6 = 1  --  Wakeup when mgmt frame received.
-		Bit 31 = 1  --  Don't wakeup when IPV6 packet received.
-
-	The host sleep mode will be canceled if condition is set to -1. The default is 0x7.
-
-	where GPIO is the pin number of GPIO used to wakeup the host. It could be any valid
-	GPIO pin# (e.g. 0-7) or 0xff (interface, e.g. SDIO will be used instead).
-	The default is 0xff.
-
-	where Gap is the gap in milliseconds between wakeup signal and wakeup event or 0xff
-	for special setting (host acknowledge required) when GPIO is used to wakeup host.
-	The default is 200.
-
-	The host sleep set except for cancellation will be blocked if host sleep is
-	already activated.
-
-	where ind_GPIO# is the pin number of GPIO used to indicate wakeup source. The level on
-	this GPIO will indicate normal wakeup source or abnormal wakeup source.
-
-	where level is used to set level(0/1) on ind_GPIO# pin for indication normal wakeup source.
-	The opposite level will indicate abnormal wakeup source. The default value is 0.
-
-	where event_force_ignore is a bitmap,each bit represent one wakeup reason event. Set the bit means this
-	wakeup reason should be force ignored in firmware. Reset the bit means do not handle this reason.
-
-	where event_use_ext_gap is a bitmap, each bit represent one wakeup reason event. Set the bit means this
-	wakeup reason should use ext_gap to indicate host. Reset the bit means do not handle this reason.
-
-	where event_force_ignore and event_use_ext_gap have the same wakeup reason event definition of each bit:
-		bit 0  = 1     --Disconnect
-		bit 1  = 1     --GTK/iGTK rekey failure
-		bit 2  = 1     --Eapol
-		other bits     --Reserved
-	They should not set both for one same wakeup reason.
-
-	where ext_gap is the extend gap based on third parameter Gap. Only valid when use_ext_gap is used.
-	The total gap is (Gap + (x+1)*ext_gap). x means the bit number(start from 0) of this reason in use_ext_gap.
-
-	where gpio_wave is used to set GPIO wave level for hscfg extend. 0 means falling edge, 1 means rising edge.
-	This parameter is optional and default value is 0.
-
-	where hs_wakeup_interval is used to set host sleep wakeup interval and the type must set to 3 to indicate
-	this feature. And the value will round to the nearest multiple dtim*beacon_interval in fw. The unit is milliseconds.
-
-	Examples:
-		mlanutl mlan0 hssetpara -1           : Cancel host sleep mode
-		mlanutl mlan0 hssetpara 3            : Broadcast and unicast data
-		                                       Use GPIO and gap set previously
-		mlanutl mlan0 hssetpara 2 3          : Unicast data
-		                                       Use GPIO 3 and gap set previously
-		mlanutl mlan0 hssetpara 2 1 0xa0     : Unicast data
-		                                       Use GPIO 1 and gap 160 ms
-		mlanutl mlan0 hssetpara 2 0xff       : Unicast data
-		                                       Use interface (e.g. SDIO)
-		                                       Use gap set previously
-		mlanutl mlan0 hssetpara 4 3 0xff     : MAC event
-		                                       Use GPIO 3
-		                                       Special host sleep mode
-		mlanutl mlan0 hssetpara 1 0xff 0xff  : Broadcast data
-
-		mlanutl mlan0 hssetpara 2 1 0xa0 1 5 1 : Unicast data
-		                                       Use GPIO 1
-                                                       Gap 160 ms
-                                                       type=1 to set indication GPIO feature
-                                                       Use GPIO 5 to indicate wakeup source
-                                                       High level on GPIO 5 means this is a normal wakeup
-		mlanutl mlan0 hssetpara 2 1 0xa0 1 5   : Unicast data
-		                                       Use GPIO 1
-                                                       Gap 160 ms
-                                                       type=1 to set indication GPIO feature
-                                                       Use GPIO 5 to indicate wakeup source
-                                                       Use level set previously.
-
-		mlanutl mlan0 hssetpara 2 1 0xa0 2 0 0x1 10 1: Unicast data
-		                                       Use GPIO 1
-                                                       Gap 160 ms
-                                                       type=2 to set extend hscfg feature
-                                                       Force_ignore not used
-                                                       Disconnect will use extend gap to indicate host
-                                                       Use gap 170.
-                                                       Rising edge
-		mlanutl mlan0 hssetpara 2 1 0xa0 2 0x1 0 0 0: Unicast data
-		                                       Use GPIO 1
-                                                       Gap 160 ms
-                                                       type=2 to set extend hscfg feature
-                                                       Falling edge
-                                                       Force ignore Disconnect
-                                                       Extend gap not used
-                                                       Not used.
-                                                       Falling edge
-		mlanutl mlan0 hssetpara 2 1 0xa0 3 400:  Unicast data
-		                                       Use GPIO 1
-                                                       Gap 160 ms
-                                                       type=3 to set hs_wakeup_interval feature
-                                                       hs_wakeup_interval set to 400ms
-
-	Note: The parameters will be saved in the driver and be used when host suspends.
-              The ind_GPIO# and level parameters only work with specific board and firmware.
-
 mgmtfilter
         This command is used to set management frame to wake up host when host suspend.
 
@@ -1734,51 +2276,6 @@ auto_arp
         Examples:
                 mlanutl mlan0 auto_arp 0           : Disable auto arp response from FW
                 mlanutl mlan0 auto_arp             : Get auto arp configuration status
-
-htcapinfo
-	This command is used to configure some of parameters in HTCapInfo IE
-	(such as Short GI, Channel BW, and Green field support)
-
-	where <m> is <capinfo>
-	<capinfo> - This is a bitmap and should be used as following
-		Bit 29: Green field enable/disable
-		Bit 26: Rx STBC Support enable/disable. (As we support
-			single spatial stream only 1 bit is used for Rx STBC)
-		Bit 25: Tx STBC support enable/disable.
-		Bit 24: Short GI in 40 Mhz enable/disable
-		Bit 23: Short GI in 20 Mhz enable/disable
-		Bit 22: Rx LDPC enable/disable
-		Bit 17: 20/40 Mhz enable disable.
-		Bit  8: Enable/disable 40Mhz Intolarent bit in ht capinfo.
-		        0 will reset this bit and 1 will set this bit in
-		        htcapinfo attached in assoc request.
-		All others are reserved and should be set to 0.
-
-	Setting of any other bits will return error.
-
-	where <n> is <band>
-	<band> - This is the band info for <capinfo> settings.
-		0: Settings for both 2.4G and 5G bands
-		1: Settings for 2.4G band
-		2: Settings for 5G band
-
-	Example:
-		mlanutl mlanX htcapinfo
-		This will display HT capabilties information.
-		If the information for 2.4G and 5G is different,
-		the first value is for 2.4G and the second value is for 5G.
-		Otherwise, it will display a single value for both bands.
-
-		mlanutl mlanX htcapinfo 0x1820000
-		This will enable Short GI, Channel BW to 20/40 and disable Green field support for 2.4G and 5G band.
-
-		mlanutl mlanX htcapinfo 0x800000 2
-		This will enable Short GI, Channel BW to 20 only, No Rx STBC support and disable Green field support for 5G band.
-
-	The default value is 0x4800000 for 2.4G and 0x5820000 for 5G.
-
-	Note:- This command can be issued any time but it will only come to effect from
-	next association. (as HTCapInfo is sent only during Association).
 
 httxbfcap
 	This command is used to set/get the TX beamforming capabilities.
@@ -1908,52 +2405,6 @@ httxbfcfg
 		mlanutl mlan0 httxbfcfg "4;00:50:43:20:BF:24;43"     : Set TX BF SNR threshold to peer
 		                                                      00:50:43:20:BF:24 with SNR 43
 
-httxcfg
-	This command is used to configure various 11n specific configuration
-	for transmit (such as Short GI, Channel BW and Green field support)
-
-	where <m> is <txcfg>
-	This is a bitmap and should be used as following
-		Bit 15-10: Reserved set to 0
-        Bit 9-8: Rx STBC set to 0x01
-        BIT9 BIT8  Description
-         0    0     No spatial streams
-         0    1     One spatial streams supported
-         1    0     Reserved
-         1    1     Reserved
-		Bit 7: STBC enable/disable
-		Bit 6: Short GI in 40 Mhz enable/disable
-		Bit 5: Short GI in 20 Mhz enable/disable
-		Bit 4: Green field enable/disable
-		Bit 3-2: Reserved set to 1
-		Bit 1: 20/40 Mhz enable disable.
-		Bit 0: LDPC enable/disable
-
-	When Bit 1 is set then firmware could transmit in 20Mhz or 40Mhz based
-	on rate adaptation. When this bit is reset then firmware will only
-	transmit in 20Mhz.
-
-	where <n> is <band>
-	<band> - This is the band info for <txcfg> settings.
-		0: Settings for both 2.4G and 5G bands
-		1: Settings for 2.4G band
-		2: Settings for 5G band
-
-	Example:
-		mlanutl mlanX httxcfg
-		This will display HT Tx configuration for 2.4G and 5G band.
-
-		mlanutl mlanX httxcfg 0x62
-		This will enable 20/40 and Short GI but will disable Green field for 2.4G and 5G band.
-
-		mlanutl mlanX httxcfg 0x30 1
-		This will enable Short GI 20 Mhz and Green field for 2.4G band.
-
-	The default value is 0x20 for 2.4G and 0x62 for 5G.
-
-	Note:- If 20/40 MHz support is disabled in htcapinfo, device will not transmit
-	in 40 MHz even 20/40 MHz is enabled in httxcfg.
-
 inactivityto
 	This command is used to set/get the inactivity timeout value, which specifies
 	when WLAN device is put to sleep.
@@ -2021,20 +2472,20 @@ macctrl
 	where <n>
 		bit 0:  Rx enabled
 		bit 1:  Directed Filter enabled
-		bit 2:  LoopBack enabled
-		bit 3:  WEP enabled
+                bit 2:  LoopBack enabled
+		bit 3:  WEP enabled       (use of WEP/TKIP is not recommended anymore)
 		bit 4:  EthernetII enabled
-		bit 5:  MultiCast enabled
+                bit 5:  MultiCast enabled
 		bit 6:  BroadCast enabled
 		bit 7:  Promiscuous enabled
 		bit 8:  All MultiCast enabled
 		bit 9:  RTS/CTS enabled (0: CTS to self)
-		bit 10: Enforce Protection enabled
+                bit 10: Enforce Protection enabled
 		bit 11: Force 11N Protection enabled
 		bit 12: Rx 802.11 Packets enabled
 		bit 13: Ad-hoc g Protection enabled
 		bit 14: Reserved
-		bit 15: WEP Type
+		bit 15: WEP Type  (use of WEP/TKIP is not recommended anymore)
 		bit 16: BandWidth Indication in RTS enabled
 		bit 17: Dynamic BandWidth Indication Mode in RTS enabled
 		bit 18-31: Reserved
@@ -2044,18 +2495,6 @@ macctrl
 		mlanutl mlan0 macctrl 0x13      : Set Rx enabled and Directed Filter enabled and EthernetII enabled
 		mlanutl mlan0 macctrl 0x813     : Set Rx enabled and Directed Filter enabled and EthernetII enabled
 		                                  Force 11N Protection enabled
-
-mefcfg
-	This command is used to set MEF settings.
-
-	Usage:
-		mlanutl mlanX mefcfg <mef.conf>
-
-	Where the parameter is:
-		mef.conf : The configuration file specifying the MEF settings.
-
-	Example:
-		mlanutl mlan0 mefcfg config/mef.conf
 
 memrdwr
 	This command is used to read/write the adapter memory.
@@ -2108,6 +2547,7 @@ mgmtframectrl
 			: Bit 4 - Probe Request
 			: Bit 5 - Probe Response
 			: Bit 8 - Beacon Frames
+			: Bit 13 - Action Frames
 
 	Examples:
 		mlanutl mlan0 mgmtframectrl        : Get present mask
@@ -2153,62 +2593,77 @@ mpactrl
 		                           : Set maximum Tx, Rx ports to 8
 
 netmon
-    This command is used to set/get sniffer mode configuration.
-    Note: The channel and band config is optional. If not specified, sniffer
-    activity will be started on the current config set in the FW.
-    'rtap' monitor interface will be created on enabling sniffer activity and
-    should be made 'up' for capturing frames in a sniffer app.
+	This command is used to set/get network monitor configuration.
+	Note: For channel specified mode, the configuration should be issued when
+	STA/AP is disconnected. For in-channel sniffer mode, the configuration
+        can be issued irrespective of the STA/AP connected state, and requires
+	specification of only action and filter parameters. If any of the STA/AP
+	connection is active, the in-channel sniffer mode will inherently work
+	on the active band and channel configuration.
 
-    Usage:
-        mlanutl <interface> netmon [<act> [<filter>]]
-        mlanutl <interface>  netmon [<act> [<filter>] [<band> <chan> <opt>]]
+	Usage:
+        mlanutl <interface>  netmon [<act> [<filter> <band> <chan> <opt>]]
 
-    Where the parameters are:
-        <interface> : mlanX, uapX
-        <interface> : ocbX
-        <act>	: (0) disable sniffer activity
-                : (1) enable sniffer activity
-
-        <filter> : network monitor fitler flag
-            bit 0: (1/0) enable/disable management frame
-            bit 1: (1/0) enable/disable control frame
-            bit 2: (1/0) enable/disable data frame
-
-        <band>   : 802.11 band
-            bit 0: B
-            bit 1: G
-            bit 2: A
-            bit 3: GN
-            bit 4: AN
-            bit 5: AC 2.4G
-            bit 6: AC 5G
-            bit 7: 5.9G
-        <chan>   : channel to monitor
-
-        <opt>    : [offset], <Bandwidth>
-        <bandwidth>  : Bandwidth
+	Where the parameters are:
+        <interface> : mlanX, ocbX
+		<act>    : (0) disable any network monitor activity
+			 : (1) enable channel specified sniffer mode activity
+		<filter> : network monitor fitler flag
+		    bit 0: (1/0) enable/disable management frame
+		    bit 1: (1/0) enable/disable control frame
+		    bit 2: (1/0) enable/disable data frame
+		<band>   : 802.11 band
+		    bit 0: B
+		    bit 1: G
+		    bit 2: A
+		    bit 3: GN
+		    bit 4: AN
+			 bit 5: AC 2.4G
+             bit 6: AC 5G
+             bit 7: 5.9G
+		<chan>   : channel to monitor
+        <opt>        : [offset] or <Bandwidth>
+	[offset] : secondary channel bandwidth
+		0 - Bandwidth 20Mhz
+		1 - HT Bandwidth 40Mhz sec channel above
+		3 - HT Bandwidth 40Mhz sec channel below
+		4 - VHT Bandwidth 80Mhz
+        <bandwidth>  : <opt> chooses <Bandwidth> if <band> set bit7 for 11p
             0 - Bandwidth 20Mhz
             6 - Bandwidth 10Mhz
             Note : Bandwidth 10Mhz should be set only for 802.11P operations
-        [offset] : secondary channel bandwidth
-            0 - Bandwidth 20Mhz
-            1 - HT Bandwidth 40Mhz sec channel above
-            3 - HT Bandwidth 40Mhz sec channel below
-            4 - VHT Bandwidth 80Mhz
 
 	Examples:
-        mlanutl mlan0 netmon             : Get the current sniffer mode configuration
-        mlanutl mlan0 netmon 0           : Disable network monitor activity
-        mlanutl uap0 netmon 1 7			 : Enable sniffer activity on current channel set in FW,
-                                           set filter data, control, management frame.
-        mlanutl mlan0 netmon 1 4 11 6    : Enable sniffer activity in absence of active connection,
-                                           set filter data frame, band B/G/GN and channel 6
-        mlanutl mlan0 netmon 1 7 20 64 1 : Enable sniffer activity in absence of active connection
-                                           set filter management, control and data frame, band A/AN,
-                                           channel 64 and secondary channel above
-        mlanutl ocb0 netmon 1 7 128 172 6 : Enable sniffer activity in absence of active connection,
-                                            set filter management, control and data frames,
-                                            band 5.9G, channel 172, bandwidth 10Mhz
+		mlanutl mlan0 netmon             : Get the current network monitor configuration
+		mlanutl mlan0 netmon 0           : Disable network monitor activity
+		mlanutl mlan0 netmon 1 4 11 6    : Enable channel specified sniffer activity, set filter
+		                                  data frame, band B/G/GN and channel 6
+			mlanutl mlan0 netmon 1 7 20 64 1 : Enable channel specified sniffer activity, set filter
+		                                  management, control and data frame, band A/AN,
+		                                  channel 64 and secondary channel above
+        mlanutl ocb0 netmon 1 7 128 172 6 : Enable channel specified sniffer activity,
+		                                  set filter management, control and data frames,
+		                                  band 5.9G, channel 172, bandwidth 10Mhz
+
+monitormode
+	This command is used to set/get monitor mode.
+	Note: The enable monitor mode setting should be issued when no active interface exist.
+              Before we want to use sniffer mode, need enable monitor mode.
+              After this can only use sniffer mode, don't make STA/P2P/UAP work.
+              When sniffer mode using done, should disable monitor mode.
+
+	Usage:
+		mlanutl mlanX monitormode [l]
+
+	where the parameter:
+		[l]
+			0 : Disable monitor mode
+			1 : Enable monitor mode
+			<none>: Get monitor mode
+
+	Examples:
+		mlanutl mlan0 monitormode   : Get monitor mode.
+		mlanutl mlan0 monitormode 1 : Enable monitor mode.
 
 offchannel
 	This command is used to set/cancel the offchannel configuration.
@@ -2236,8 +2691,7 @@ offchannel
 		mlanutl mlan0 offchannel 0         : Cancel the offchannel configuration.
 		mlanutl mlan0 offchannel 1 3 5     : Configure channel 3 for 5 milliseconds.
 		mlanutl mlan0 offchannel 1 36 5000 : Configure channel 36 for 5000 milliseconds.
-		mlanutl mlan0 offchannel 1 64 500 4 : Configure channel 64 in 80MHz for 500
-                                              milliseconds.
+		mlanutl mlan0 offchannel 1 64 500 4 : Configure channel 64 in 80MHz for 500 milliseconds.
 
 otpuserdata
 	This command is used to get the OTP user data.
@@ -2434,7 +2888,7 @@ regrdwr
 		mlanutl mlanX regrdwr <type> <offset> [value]
 
 	where the parameters are,
-		<type>:     1:MAC/SOC, 2:BBP, 3:RF, 5:CAU, 6:PSU
+		<type>:     1:MAC/SOC, 2:BBP, 3:RF, 5:CAU, 6:PSU, 7:BCA
 		<offset>:   offset of register
 		[value]:    value to be written
 		Note:
@@ -2442,14 +2896,20 @@ regrdwr
 		X: 0=BBUD, 8=BBUA.
 		ZZZ: offset (0-0xFFF).
 		RF reg (type 3) 0xXYZZ:
-                 X   = Path ID (0-1)
-           	 Y   = Page Number (0-6) in selected Path
-           	 ZZ  = Register offset in selected path/page
+
+		For 8887/8897/8777
+		1. If Y == 0, access RFU BASE Register.
+		   X = Path ID (0=Path_A, 1=Path_B), ZZ = offset (0-0xFF).
+		2. If Y != 0, access RFU XCVR Register on Path Y (1=Path_A, 2=Path_B).
+		   X = Page # (0=Page_1, 1=Page_2, 2=Page_3 if chip support), ZZ: offset (0-0xFF).
+		For 8977/8997/8987
+        X   = Path ID (0-1)
+        Y   = Page Number (0-6) in selected Path
+        ZZ  = Register offset in selected path/page
 
 	Examples:
-		mlanutl mlan0 regrdwr 1 0xa060   : Read the MAC register
-		mlanutl mlan0 regrdwr 1 0xa794 0x80000000
-		                                 : Write 0x80000000 to MAC register
+		mlanutl mlan0 regrdwr 1 0x60   : Read the MAC register
+		mlanutl mlan0 regrdwr 1 0x794 0x80000000    : Write 0x80000000 to MAC register
 
 rejectaddbareq
 	This command is used to set/get the conditions of rejecting addba request.
@@ -2473,20 +2933,18 @@ scancfg
 	This command is used to set/get scan configuration parameters.
 
 	Usage:
-		mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext]
+ 		mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext] [gap]
 
 	where the parameters:
 		[t]: Scan Type (0: Unchanged, 1: Active, 2: Passive, default Active)
 		[m]: Scan Mode (0: Unchanged, 1: BSS, 2: IBSS, 3: Any, default Any)
-		[p]: Scan Probes (0: Unchanged, 1-4: Number of probes per channel, default 4)
+		[p]: Scan Probes (0: Unchanged, 1-5: Number of probes per channel, default 4)
 		[s]: Specific Scan Time (0: Unchanged, n: Value in ms, default 110 ms, max 500 ms)
 		[a]: Active Scan Time (0: Unchanged, n: Value in ms, default 200 ms, max 500 ms)
 		[b]: Passive Scan Time (0: Unchanged, n: Value in ms, default 200 ms, max 2000 ms)
-
 		[c]: Passive to Active Scan (0: Unchanged, 1: Enable, 2: Disable, default Enable)
-		[c]: Passive to Active Scan (0: Unchanged, 1: Enable, 2: Disable, default Disable)
-
 		[ext]: Extended scan (0: Unchanged, 1: Legacy scan, 2: Extended scan, 3: Extended scan enhance)
+		[gap]: Time gap between two scans in milliseconds (max value 500ms)
 	No change if the parameter is 0 or the parameter is not provided.
 
 	Examples:
@@ -2556,6 +3014,7 @@ setuserscan
 
 	Where [ARGS]:
 	  ssid="[SSID]"            specify a SSID filter for the scan
+	  group=<group mask>       specify the channel group(s) to scan
 	  chan=[chan#][band][mode] where band is [a,b,g,n] and mode is
 	                           blank for unchange, or 'c' for active or 'p' for passive
 	  bssid=xx:xx:xx:xx:xx:xx  specify a BSSID filter for the scan
@@ -2566,7 +3025,7 @@ setuserscan
 	  gap=[gap time]           Time gap between two scans in milliseconds
 	  probes=[#]               number of probe requests to send on each chan
 	                           for each broadcast probe required and each SSID
-	                           specific probe required (1-4)
+	                           specific probe required (1-5)
 	  bss_type=[1,2,3]         BSS type: 1 (Infra), 2(Adhoc), 3(Any)
           sort_by_ch               Sort by channel number in ascending order.
                                    Default mode: Sort by Signal Strength in descending order.
@@ -2611,6 +3070,8 @@ setuserscan
 
 	8) Scan all the channels for specified band.
 		setuserscan chan=0g
+	9) Perform active scan for a list of specific BSSIDs
+		setuserscan bssid=00:50:43:20:12:82 bssid=48:e2:44:3f:ec:76
 
 	9) Scan channel 1 and 6, send 3 probe requests, scan each channel for 40 ms
 	   with time gap of 50ms between 2 scans
@@ -2676,6 +3137,63 @@ sysclock
 		mlanutl mlanX sysclock 0 0 128   : Set system clock in non-security A-MPDU
 		                                  mode to 128 MHz, no changes for others
 
+tcpackenh
+	This command is used to set/get TCP ACK enhancement mode.
+
+        Usage:
+        mlanutl mlanX tcpackenh [l] [m]
+
+	where
+	[l] is a control to set TCP ACK enhancement mode
+		1   -- Enable TCP ACK enhancement (default)
+		0   -- Disable TCP ACK enhancement
+	[m] is to configure TCP ACK max hold number
+		default value is 9, which means driver could hold up to 9 TCP ACK and
+		only send the last one to peer.
+
+	Examples:
+		mlanutl mlan0 tcpackenh          : Display TCP ACK enhancement
+		mlanutl mlan0 tcpackenh 1        : Enable TCP ACK enhancement
+		mlanutl mlan0 tcpackenh 0        : Disable TCP ACK enhancement
+		mlanutl mlan0 tcpackenh 1 1      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 50%
+		mlanutl mlan0 tcpackenh 1 2      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 67%
+		mlanutl mlan0 tcpackenh 1 3      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 75%
+		mlanutl mlan0 tcpackenh 1 4      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 80%
+		mlanutl mlan0 tcpackenh 1 5      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 83%
+		mlanutl mlan0 tcpackenh 1 6      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 85%
+		mlanutl mlan0 tcpackenh 1 7      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 87.5%
+		mlanutl mlan0 tcpackenh 1 8      : Enable TCP ACK enhancement and
+						    configure TCP ACK drop percentage to 88.8%
+
+hal_phy_cfg
+        This command is used to set the hal/phy related config parameters
+
+        Usage:
+                mlanutl mlanX/uapX hal_phy_cfg <hal_phy_cfg.conf>
+
+        Where the parameter is:
+                hal_phy_cfg.conf: The configuration file specifying to the values of hal/phy related config parameters
+
+        Examples:
+                mlanutl mlan0 hal_phy_cfg config/hal_phy_cfg.conf
+                        : to enable or disable 11b_psd_mask the file would contain following paramters
+                hal_phy_cfg{
+                    11b_psd_mask_cfg=1  # 1: 11b_psd_mask_enable, 0: 11b_psd_mask_disable
+                }
+
+thermal
+	This command is used to get the current thermal reading.
+
+	Examples:
+		mlanutl mlan0 thermal            : Get thermal reading
+
 ts_status
 	This command queries the FW for the status of TSIDs 0 through 7
 	  configured via call admission control and displays the results in a
@@ -2698,219 +3216,6 @@ txbufcfg
 	mlanutl mlanX txbufcfg 	  - This will display the current buffer size.
 
 	Note:- The actual tx buf size will depends on AP's capability and max transmit buffer size.
-
-txratecfg
-	This command is used to set/get the transmit data rate.
-
-	Note:
-	1) The data rate can be set only after association.
-
-	2) If the reassoc is OFF driver reset the data rate to auto if the connection state is disconnected.
-	Please note that user has to re-issue the set data rate command if the driver is disconnected.
-
-	3) If the reassoc is ON driver remembers the data rate set by the user, if the driver is
-	disconnected user does not have to re-issue the set data rate again.
-
-	Where
-	[l] is <format>
-	<format> - This parameter specifies the data rate format used in this command
-		0:    LG
-		1:    HT
-		2:    VHT
-		0xff: Auto
-
-	[m] is <index>
-	<index> - This parameter specifies the rate or MCS index
-	If <format> is 0 (LG),
-		0	1 Mbps
-		1	2 Mbps
-		2	5.5 Mbps
-		3	11 Mbps
-		4	6 Mbps
-		5	9 Mbps
-		6	12 Mbps
-		7	18 Mbps
-		8	24 Mbps
-		9	36 Mbps
-		10	48 Mbps
-		11	54 Mbps
-	If <format> is 1 (HT),
-		0	MCS0
-		1	MCS1
-		2	MCS2
-		3	MCS3
-		4	MCS4
-		5	MCS5
-		6	MCS6
-		7	MCS7
-	If <format> is 2 (VHT),
-		0	MCS0
-		1	MCS1
-		2	MCS2
-		3	MCS3
-		4	MCS4
-		5	MCS5
-		6	MCS6
-		7	MCS7
-		8	MCS8
-		9	MCS9
-	[n] is <nss>
-	<nss> - This parameter specifies the NSS. It is valid only for VHT
-	If <format> is 2 (VHT),
-		1	NSS1
-		2	NSS2
-
-	Examples:
-		mlanutl mlan0 txratecfg          : Read the current data rate setting
-		mlanutl mlan0 txratecfg 0 3      : Set fixed Tx rate to 11 Mbps
-		mlanutl mlan0 txratecfg 0 11     : Set fixed Tx rate to 54 Mbps
-		mlanutl mlan0 txratecfg 1 3      : Set fixed Tx rate to MCS3
-		mlanutl mlan0 txratecfg 2 3 2    : Set fixed Tx rate to MCS3 for NSS2
-		mlanutl mlan0 txratecfg 0xff     : Disable fixed rate and uses auto rate
-
-verext
-	Retrieve and display an extended version string from the firmware
-
-	Usage:
-		mlanutl mlanX verext [#]
-
-	where [#] is an optional argument to retrieve a specific version string,
-	omission of the argument retrieves the 0 indexed string.
-
-version
-	This is used to get the current version of the driver and the firmware.
-
-vhtcfg
-	This command is used to set and get various 11ac specific configuration
-	for transmission and reception. For the SET operation, all paramaters
-	may be applied. For the GET operation, only the first two parameters are applied.
-	The 6th argument "rx_mcs_set" can be used to disbale/enable 802.11ac.
-
-	where <j> is <band>
-	<band> - This is the band setting for the vhtcfg
-		0: Settings for both 2.4G and 5G bands (for SET operation, 11N BW only)
-		1: Settings for 2.4G band (for 11N BW only)
-		2: Settings for 5G band
-
-	where <k> is <txrx>
-	<txrx> - This parameter specifies the configuration of VHT operation for TX or/and VHT capabilities
-		0: Unspecified
-		1: configuration of VHT capabilities for Tx operations (STA only)
-		2: configuration of VHT capabilities for association (STA only)
-		3: configuration of VHT capabilities (uAP only)
-	Note: For the STA, the VHT capabilities configuration is applied in association,
-	      whereas the VHT operations configuration is actually used in Tx.
-
-	where [l] is <bwcfg>
-	<bwcfg> - This parameter specifies the bandwidth (BW) configuration
-		  applied to the vhtcfg.
-	If <txrx> is 1/3 (Tx operations),
-		0: Tx BW follows the BW (20/40 MHz) from 11N CFG
-		1: Tx BW follows the BW (80/160/80+80 MHz) from VHT Capabilities
-		   defined in <vhtcap> below for 5G band.
-	If <txrx> is 2 (association),
-		0: Rx BW follows the BW (20/40 MHz) from 11N CFG
-		1: Rx BW follows the BW (80/160/80+80 MHz) from VHT Capabilities
-		   defined in <vhtcap> below for 5G band.
-
-	where [m] is <vhtcap>
-	<vhtcap> - This parameter specifies the VHT capabilities info if <txrx> is 2 (association)
-		   or the VHT Tx operations if <txrx> is 1 (Tx operations).
-		   The VHT Tx operation should be a subset of VHT capabilities for association.
-		   It is a bitmap and should be used as follows:
-
-		Bit 31-30: Reserved and set to 0
-		Bit 29:    TX antenna pattern consistency
-			   1: antenna pattern does not change
-			   0: antenna pattern might change
-		Bit 28:    RX antenna pattern consistency
-			   1: antenna pattern does not change
-			   0: antenna pattern might change
-		Bit 27-26: VHT link adaptation capable
-			   0: no feedback of VHT MFB from the STA
-			   1: unsolicted feedback of VHT MFB from the STA
-			   2: both response and unsolicted feedback of VHT MFB
-			      from the STA
-			   3: reserved and set to 0
-		Bit 25-23: Maximum A-MPDU length exponent
-		Bit 22:    +HTC-VHT capable (1: enable. 0 disable)
-		Bit 21:    VHT TXOP PS
-		Bit 20:    MU beamformee capable (1: enable. 0 disable)
-		Bit 19:    MU beamformer capable (1: enable. 0 disable)
-		Bit 18-16: Number of sounding dimensions (set to maximum-1
-			   if Bit 11 is 1. Otherwise, reserved and set to 0)
-		Bit 15-13: Compressed steering number of beamformer
-			   antennas supported (set to maximum-1 if Bit 12 is 1.
-			   Otherwise, reserved and set to 0)
-		Bit 12:    SU beamformee capable (1: enable. 0 disable)
-		Bit 11:    SU beamformer capable (1: enable. 0 disable)
-		Bit 10-8:  Rx STBC
-			   0: no support
-			   1: support of 1 spatial stream
-			   2: support of 1-2 streams
-			   3: support of 1-3 spatial streams
-			   4: support of 1-4 spatial streams
-			   5-7: reserved and set to 0
-		Bit 7:     TX STBC (1: enable. 0 disable)
-		Bit 6:     Short GI for 160 and 80+80 MHz (1: enable. 0 disable)
-		Bit 5:     Short GI for 80 MHz (1: enable. 0 disable)
-		Bit 4:     Rx LDPC (1: enable. 0 disable)
-		Bit 3-2:   Supported channel width set.
-			   0: no support of either 160 or 80+80 MHz.
-			   1: support of 160 MHz
-			   2: support of both 160 and 80+80 MHz.
-			   3: reserved and set to 0.
-		Bit 1-0:   Maximum MPDU length
-			   0: 3895 octets.
-			   1: 7991 octets.
-			   2: 11454 octets.
-			   3: reserved and set to 0.
-
-	Note: for the STA, if <txrx> is 1 (Tx operations), the bitmap for <vhtcap> may be simplied as follows:
-		Bit 31-8: Reserved and set to 0
-		Bit 7:    Tx STBC (1: enable. 0 disable)
-		Bit 6:    Reserved and set to 0
-		Bit 5:    Short GI for 80 Mhz (1: enable. 0 disable)
-		Bit 4:    LDPC (1: enable. 0 disable)
-		Bit 3-0:  Reserved and set to 0
-
-	where [n] is <tx_mcs_map>,
-	<tx_mcs_map> - This parameter specifies the TX MCS map. It may not be used for the STA if <txrx> is 1 (Tx operations).
-		It is a bitmap and should be used as following
-		Bit 15-0:  MCS map, which is defined as folows:
-			Bit 15-14: Max MCS for 8 SS
-			Bit 13-12: Max MCS for 7 SS
-			Bit 11-10: Max MCS for 6 SS
-			Bit 9-8:   Max MCS for 5 SS
-			Bit 7-6:   Max MCS for 4 SS
-			Bit 5-4:   Max MCS for 3 SS
-			Bit 3-2:   Max MCS for 2 SS
-			Bit 1-0:   Max MCS for 1 SS
-
-	where [o] is <rx_mcs_map>.
-	<rx_mcs_map> - This parameter specifies the RX MCS map. It may not be used for the STA if <txrx> is 1 (Tx operations).
-		It is a bitmap with the same sructure as for <tx_mcs_map>
-		rx_mcs_map = 0xffff : FW will disable 802.11ac
-                rx_mcs_map = others : FW will enable 802.11ac
-
-	Note: The user setting of vhtcap may be overwritten by the driver
-	      if the setting of those fields is beyond the hardware capabilities.
-
-	Examples:
-		mlanutl mlan0 vhtcfg 2 1            : Get current VHT configuration in 5GHz for the STA.
-		mlanutl mlan0 vhtcfg 2 2            : Get maximum VHT configuration in 5GHz for the STA.
-		mlanutl mlan0 vhtcfg 2 1 1 0x000001f0
-		    : Set the Tx operations configuration in 5GHz for the STA,
-		      Tx BW follows the VHT Capabilities.
-		mlanutl mlan0 vhtcfg 2 2 0 0x000001f0 0xfff5 0xfffa
-		    : Set the VHT capabilities configuration in 5GHz for the STA,
-		      the Tx supports MCS 0-8 for both 1 and 2 spatial streams,
-		      while the Rx supports MCS 0-9 for both 1 and 2 spatial streams.
-		mlanutl uap0 vhtcfg 2 3 0 0x000001f0 0xfffa 0xfffa
-		    : Set the current/maximum VHT configuration in 5GHz for the uAP.
-		      Both Tx and Rx supports MCS 0-9 for both 1 and 2 spatial streams.
-		mlanutl uap0 vhtcfg 2 3 0 0x000001b0
-		    : Set the VHT capability information in 5GHz for the uAP, and keep the Tx/Rx MCS Map same as before.
 
 opermodecfg
 	This command is used to set and get 11ac Operating Mode Notification configuration.
@@ -3209,25 +3514,18 @@ dot11p_txrx
             mlanutl mlan0 fwwakeupmethod 1   : Set wakeup method is interface method
             mlanutl mlan0 fwwakeupmethod 2 5 : Set wakeup method is GPIO method and GPIO pin is 5.
 
-tx_ampdu_prot_mode
-    This command is used to set either RTS/CTS or CTS2SELF protection mechanism
-    in MAC, for aggregated Tx QoS data frames.
-    RTS/CTS is enabled by default.
+ctrldeauth
+    This command is used to set/get firmware ctrldeauth setting
+    Usage :
+            mlanutl uapX ctrldeauth <n>
 
-    Usage:
-        mlanutl <interface> tx_ampdu_prot_mode [mode]
+    Where value of n is :
+            0 -- Firmware will use default behavior
+            1 -- Firmware will not send deauth packet when uap move to another channel.
 
-    Where the parameters are:
-        <interface>       : mlanX,
-                            uapX
-        [mode]            : 0 - Set RTS/CTS mode
-                            1 - Set CTS2SELF mode
-                            2 - Disable Protection mode
-    Examples:
-        mlanutl mlan0 tx_ampdu_prot_mode
-            - Get currently set protection mode for Tx AMPDU
-        mlanutl mlan0 tx_ampdu_prot_mode 1
-            - Set protection mode for Tx AMPDU to CTS2SELF
+    Example :
+            mlanutl uap0 ctrldeauth   : Get current setting
+            mlanutl uap0 ctrldeauth   : Firmware will not send deauth packet when uap move to different channel.
 
 robustcoex
     This command is used to set robust coex.
@@ -3241,19 +3539,6 @@ robustcoex
     Example :
             mlanutl mlan0 robustcoex gpiocfg 1 4 1 : Enable robustcoex gpio, set gpionum to 4 and gpiopolarity to 1
             mlanutl mlan0 robustcoex gpiocfg 0     : Disable robustcoex gpio
-
-ctrldeauth
-    This command is used to set/get firmware ctrldeauth setting
-    Usage :
-            mlanutl uapX ctrldeauth <n>
-
-    Where value of n is :
-            0 -- Firmware will use default behavior
-            1 -- Firmware will not send deauth packet when uap move to another channel.
-
-    Example :
-            mlanutl uap0 ctrldeauth   : Get current setting
-            mlanutl uap0 ctrldeauth   : Firmware will not send deauth packet when uap move to different channel.
 
 bootsleep
     This command is used to set and get boot sleep configure.
@@ -3272,12 +3557,338 @@ csi
     Enable/disable channel state information collection
 
     Usage :
-        mlanutl mlanX csi [disable] [csi file]
-        disable         : 0
-        csi file        : file with csi filters
+        mlanutl mlanX csi <disable/enable (config file)>
+        disable    : 0
+        enable     : config file with csi filters
 
     Example :
-    	mlanutl mlan0 csi config/csi.conf    : Enable CSI
-    	mlanutl mlan0 csi 0                  : Disable CSI
+    	mlanutl mlan0 csi config/csi.conf       : Enable CSI
+    	mlanutl mlan0 csi 0             	: Disable CSI
 
+arb
+    Set HW ARB mode
+    The command needs to be issued before association.
+
+    Usage:
+        mlanutl mlanX arb [mode]
+
+        where the parameter is:
+        [mode]:
+            0:  arb mode 0 (default)
+            1:  arb mode 1
+            2:  arb mode 2
+            3:  arb mode 3 (Improve TX throughput)
+            4:  arb mode 4 (Improve RX throughput)
+
+    Example :
+    	mlanutl mlan0 arb 1           : Set HW ARB mode 1
+
+rx_abort_cfg
+    This command is used to set/get static rx abort config for pkt having
+    weaker RSSI than threshold. This threshold will be overwritten on starting
+    dynamic rx abort cfg ext.
+
+    Usage:
+        mlanutl <interface> rx_abort_cfg [enable] [rssi_threshold]
+
+    Where the parameters are:
+        <interface>       : mlanX,
+                            uapX
+        [enable]          : 0 - Disable Rx abort
+                            1 - Enable Rx abort of pkt having weak RSSI
+        [rssi_threshold]  : weak RSSI pkt threshold in dBm (absolute value)
+                            (default = 70)
+
+    Examples:
+        mlanutl mlan0 rx_abort_cfg
+            - Display current rx abort configuration
+        mlanutl uap0 rx_abort_cfg 1 60
+            - Enable rx abort and set weak RSSI Threshold to -60 dBm
+        mlanutl mlan0 rx_abort_cfg 1 40
+            - Enable rx abort and set weak RSSI Threshold to -40 dBm
+        mlanutl mlan0 rx_abort_cfg 0
+            - Disable rx abort
+
+rx_abort_cfg_ext
+    This command is used to set/get dynamic rx abort config. This will set
+    threshold based on minimum of ceiling rssi threshold and the weakest
+    RSSI among all connected peers. Margin can be specified as an offset to
+    this threshold. Default margin is set to -10 dBm. Ceiling rssi threshold
+    can be changed by specifying. Default ceil is set to -70 dBm.
+    This will be disabled on enabling fixed rx abort (rx_abort_cfg)
+
+    Note: This dynamic rx abort mode is enabled by default.
+
+    Usage:
+        mlanutl <interface> rx_abort_cfg_ext [enable] [margin ceil_thresh]
+
+    Where the parameters are:
+        <interface>       : mlanX,
+                            uapX
+        [enable]          : 0 - Disable Rx abort
+                            1 - Enable Rx abort of pkt having weak RSSI
+        [margin]          : rssi margin in dBm (absolute val)
+                            (default = 10)
+        [ceil_thresh]     : ceiling weak RSSI pkt threshold in dBm
+                            (absolute value) (default = 70)
+
+    Examples:
+        mlanutl mlan0 rx_abort_cfg_ext
+            - Display current rx abort configuration
+        mlanutl uap0 rx_abort_cfg_ext 1 10 60
+            - Enable dynamic rx abort, set margin to -10 dBm and set ceil
+              RSSI Threshold to -60 dBm
+        mlanutl mlan0 rx_abort_cfg_ext 1 5 50
+            - Enable dynamic rx abort, set margin to -5 dBm and set ceil
+              RSSI Threshold to -50 dBm
+        mlanutl mlan0 rx_abort_cfg_ext 0
+            - Disable dynamic rx abort
+
+tx_ampdu_prot_mode
+    This command is used to set either RTS/CTS or CTS2SELF protection mechanism
+    in MAC, for aggregated Tx QoS data frames. RTS/CTS is enabled by default.
+
+    Usage:
+        mlanutl <interface> tx_ampdu_prot_mode [mode]
+
+    Where the parameters are:
+        <interface>       : mlanX,
+                            uapX
+        [mode]            : 0 - Set RTS/CTS mode
+                            1 - Set CTS2SELF mode
+                            2 - Disable Protection mode
+                            3 - Set Dynamic RTS/CTS mode
+
+    Examples:
+        mlanutl mlan0 tx_ampdu_prot_mode
+            - Get currently set protection mode for Tx AMPDU
+        mlanutl mlan0 tx_ampdu_prot_mode 1
+            - Set protection mode for Tx AMPDU to CTS2SELF
+
+rate_adapt_cfg
+    This command is used to switch between SR rateadapt and Legacy rateadapt.
+    FW default Algorithm is Legacy rateadapt
+    when SR rateadapt is enabled then it is used to set static threshold based
+    or dynamic noise based rate adaptation and set the timer interval to evaluate
+    sw rate adaptation.For static mode, low and high thresholds for Tx aggregated
+    pkt success rate should be configured. The Tx rate will decrease if success rate
+    goes lower than LOW_THRESH, will increase if it goes beyond HIGH_THRESH, and will
+    remain the same when success rate is between these thresholds.To set dynamic mode,
+    specify 0xff for both low and high thresh.
+
+    Note: config can be set only before associating with an external AP
+   when in STA mode, or before starting bss when in uAP mode
+
+    Usage:
+        mlanutl <interface> rate_adapt_cfg
+                            [sr_rateadapt low_thresh high_thresh timer_interval]
+
+    Where the parameters are:
+        <interface>       : mlanX,
+                            uapX
+        [sr_rateadapt]    : SR Rateadapt or Legacy Rateadapt
+        [low_thresh]      : lower tx success rate threshold
+        [high_thresh]     : higher tx success rate threshold
+        [timer_interval]  : interval to evaluate tx rate in sw in multiples
+                            of 10 (ms)
+
+    Examples:
+        mlanutl mlan0 rate_adapt_cfg
+            - Display SR rateadapt or Legacy rateadapt enabled
+            - Display current rate adapt configuration if SR rateadapt is enabled.
+        mlanutl uap0 rate_adapt_cfg 1 60 80 10
+            - set lower Tx success rate threshold to 60%, higher to 80%
+              and evaluate tx rate every 100 ms (i.e 10 * 10 = 100 ms)
+              when SR Rateadapt is enabled.
+        mlanutl mlan0 rateadapt_cfg 0
+            - switch to Legacy rateadapt.
+        mlanutl mlan0 rateadapt_cfg 1
+            - switch to SR rateadapt.
+              Fw default is dynamic Success threshold enabled
+              with 100 ms linkadapt timer.
+        mlanutl mlan0 rate_adapt_cfg 1 50 70 50
+            - set lower Tx success rate threshold to 50%, higher to 70%
+              and evaluate tx rate every 500 ms (i.e 50 * 10 = 500 ms)
+              when SR Rateadapt is enabled.
+        mlanutl mlan0 rate_adapt_cfg 1 0xff 0xff 10
+            - set dynamic environment noise based mode and evaluate tx rate
+              every 100 ms (i.e 10 * 10 = 100 ms)
+              when SR Rateadapt is enabled.
+
+cck_desense_cfg
+    This command is used to configure CCK (802.11b) Desensitization RSSI
+    threshold. All CCK traffic beyond this threshold will be ignored, resulting
+    in higher Tx throughput. Threshold value is in absolute value of rssi in
+    dBm. In dynamic and enhanced modes, cck desense will be turned on only in
+    presence of an active connection and the effective CCK desense RSSI
+    threshold will be updated every rateadapt interval, based on:
+        min{ceil_thresh, [min RSSI among all connected peers] - margin}
+
+    Further, for dynamic enhanced mode, CCK desense will be turned on/off based
+    on environment noise condition and ongoing Tx traffic rate. In this mode,
+    CCK desense will also be turned off periodically in order to allow 802.11b
+    Rx frames from Ext-AP, if rx rssi becomes weaker than the current threshold
+    or when in uAP mode, frames from clients which attempt to connect with the
+    uAP, but have weaker RSSI than the set threshold.
+    Turn on and off intervals are specified in terms of rateadapt intervals.
+    Please note that in this mode, if dynamic Rx Abort is enabled, then it
+    will turn on/off in sync with cck desense.
+
+    Usage:
+        mlanutl <interface> cck_desense_cfg [mode] [margin ceil_thresh]
+                                    [num_on_intervals num_off_intervals]
+
+    Where the parameters are:
+        <interface>        : mlanX,
+                             uapX
+        [mode]             : 0 - Disable cck desense
+                             1 - Enable dynamic cck desense mode
+                             2 - Enable dynamic enhanced cck desense mode
+        [margin]           : rssi margin in dBm (absolute val)
+                             (default = 10)
+        [ceil_thresh]      : ceiling weak RSSI pkt threshold in dBm
+                             (absolute value) (default = 70)
+        [num_on_intervals] : number of rateadapt intervals to keep cck
+                             desense "on" [for mode 2 only] (default = 20)
+        [num_off_intervals]: number of rateadapt intervals to keep cck
+                             desense "off" [for mode 2 only] (default = 3)
+
+    Examples:
+        mlanutl mlan0 cck_desense_cfg
+            - Display current cck desense configuration
+        mlanutl uap0 cck_desense_cfg 1 10 70
+            - Set dynamic mode, margin to -10 dBm and ceil RSSI Threshold to
+              -70 dBm
+        mlanutl uap0 cck_desense_cfg 2 10 60 30 5
+            - Set dynamic enhanced mode, margin to -10 dBm, ceil RSSI Threshold
+              to -60 dBm, num on intervals to 30 and num off intervals to 5.
+        mlanutl mlan0 cck_desense_cfg 1 10 50
+            - Set dynamic mode, margin to -10 dBm and ceil RSSI Threshold to
+              -50 dBm
+        mlanutl mlan0 cck_desense_cfg 2 5 60
+            - Set dynamic enhanced mode, set margin to -5 dBm, set ceil RSSI
+              Threshold to -60 dBm, and retain previous num on/off intervals
+              setting.
+        mlanutl mlan0 cck_desense_cfg 0
+            - Disable cck desense
+
+lpm
+    This command is used to configure low power mode.
+
+    Usage:
+	mlanutl mlanX/uapX lpm [mode]
+
+    Where the paramter is:
+	[mode]       : low power mode 0, 1, 2, 3
+
+    Examples:
+	mlanutl mlan0 lpm       Get low power mode
+        mlanutl mlan0 lpm 1     Set low power mode to 1
+
+dot11mc_unassoc_ftm_cfg
+    This command is used to enable or disable the configuration for
+    DOT11MC FTM frames exchanges in un-associated state for STA or uAP
+
+    Usage:
+        mlanutl <interface> dot11mc_unassoc_ftm_cfg [enable]
+
+    Where the parameters are:
+        <interface>       : mlanX,
+                            uapX
+        [enable]          : 0 - Disable unassociated state FTM
+                            1 - Enable unassociated state FTM
+
+    Examples:
+        mlanutl mlan0 dot11mc_unassoc_ftm_cfg
+            - Get current state of unassociated state FTM cfg
+        mlanutl mlan0 dot11mc_unassoc_ftm_cfg 1
+            - Set the unassociated state FTM cfg to Enabled
+
+clocksync
+    This command is used to set and get WIFI TSF based clock sync setting
+
+    Usage:
+        mlanutl mlanX/uapX  clocksync [j][k] [l] [m] [n]
+
+    where
+              [j] mode
+              <mode> - This parameter use to configure GPIO TSF latch mode
+                             0:    GPIO level
+                             1:    GPIO toggle
+                             2:    GPIO toggle on Next Beacon.
+              [k] role
+               <role>
+                             0: when mode set to 0 or 1
+                             1:  AP
+                             2: STA
+               [l] gpio pin number
+               [m] GPIO Level/Toggle
+                             mode = 0
+                             0: low    1: high
+                             mode = 1 or 2
+                             0: low to high
+                             1: high to low
+                [n] GPIO pulse width
+                             mode = 0,  reserved, set to 0
+                             mode 1 or 2
+                  0: GPIO remain on toggle level (high or low)
+                  Non-0: GPIO pulse width in microseconds (min 1 us)
+
+    If no parameter provided, get is performed.
+
+    Examples:
+                  mlanutl mlan0 clocksync 0 0 5 0 0
+                  mlanutl mlan0 clocksync 1 0 10 1 500
+                  mlanutl mlan0 clocksync 1 0 5 0 0
+                  mlanutl mlan0 clocksync 2 1 10  1 500
+                  mlanutl mlan0 clocksync 2 2 3 0 0
+                  mlanutl mlan0 clocksync
+
+gettsfinfo
+    This command is used to get TSF info
+
+    Usage:
+        mlanutl mlanX  gettsfinfo [j]
+    where
+        [j] format
+            0:    Report GPIO assert TSF
+            1:    Report Beacon TSF and Offset (valid if CONFIG Mode 2)
+
+    Examples:
+            mlanutl mlan0 gettsfinfo      Get GPIO assert TSF
+            mlanutl mlan0 gettsfinfo  1   Get Beacon TSP and Offset (valid if CONFIG mode 2)
+
+transchan
+    This command is used to get/set transition channel for UAP
+
+    Usage:
+        mlanutl uaX transchan [j]
+    where
+        [j]  transition channel
+
+    Examples:
+            mlanutl uap0 transchan        Get current transition channel
+            mlanutl uap0 transchan  52    Set transition channel to 52
+
+ips_cfg
+    This command is used to get/set IPS
+
+    Usage:
+        mlanutl mlanX ips_cfg [1/0]
+
+    Examples:
+            mlanutl mlan0 ips_cfg         Get current IPS config
+            mlanutl mlan0 ips_cfg 1       Enable IPS
+
+
+===============================================================================
+===============================================================================
+		U S E R  M A N U A L  F O R  Enable Scan GAP
+
+Following commands can be used to enable gap between scans.
+
+mlanutl mlanX scancfg [t] [m] [p] [s] [a] [b] [c] [ext] [gap]
+mlanutl mlanX setuserscan [ARGS]
+
+For detail information, please refer the command description.
 ===============================================================================

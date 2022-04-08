@@ -1,32 +1,32 @@
-/** @file moal_cfgvendor.h
-  *
-  * @brief This file contains the CFG80211 vendor specific defines.
-  *
-  *
-  * Copyright 2014-2020 NXP
-  *
-  * This software file (the File) is distributed by NXP
-  * under the terms of the GNU General Public License Version 2, June 1991
-  * (the License).  You may use, redistribute and/or modify the File in
-  * accordance with the terms and conditions of the License, a copy of which
-  * is available by writing to the Free Software Foundation, Inc.,
-  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
-  * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
-  *
-  * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
-  * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
-  * this warranty disclaimer.
-  *
-  */
+/** @file moal_cfg80211_util.h
+ *
+ * @brief This file contains the CFG80211 vendor specific defines.
+ *
+ *
+ * Copyright 2015-2020 NXP
+ *
+ * This software file (the File) is distributed by NXP
+ * under the terms of the GNU General Public License Version 2, June 1991
+ * (the License).  You may use, redistribute and/or modify the File in
+ * accordance with the terms and conditions of the License, a copy of which
+ * is available by writing to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+ * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *
+ * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
+ * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
+ * this warranty disclaimer.
+ *
+ */
 
 #ifndef _MOAL_CFGVENDOR_H_
 #define _MOAL_CFGVENDOR_H_
 
-#include   "moal_main.h"
-#include   "linux/kfifo.h"
+#include "moal_main.h"
+#include "linux/kfifo.h"
 
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#if KERNEL_VERSION(3, 14, 0) <= CFG80211_VERSION_CODE
 #define RING_NAME_MAX 32
 typedef int wifi_ring_buffer_id;
 
@@ -34,52 +34,52 @@ typedef int wifi_ring_buffer_id;
 
 /** WiFi ring control structure */
 typedef struct _wifi_ring_ctrl {
-    /** Written bytes */
+	/** Written bytes */
 	t_u32 written_bytes;
-    /** Read Bytes */
+	/** Read Bytes */
 	t_u32 read_bytes;
-    /** Written records */
+	/** Written records */
 	t_u32 written_records;
 } ring_buffer_ctrl;
 
 enum ring_state {
-    /** ring is not initialized*/
+	/** ring is not initialized*/
 	RING_STOP = 0,
-    /** ring is live and logging*/
+	/** ring is live and logging*/
 	RING_ACTIVE,
-    /** ring is initialized but not logging*/
+	/** ring is initialized but not logging*/
 	RING_SUSPEND,
 };
 
 /** WiFi ring buffer sttructure */
 typedef struct _wifi_ring_buffer {
-    /** ring ID */
+	/** Ring ID */
 	wifi_ring_buffer_id ring_id;
-    /** Ring name */
+	/** Ring name */
 	t_u8 name[RING_NAME_MAX];
-    /** Ring size */
+	/** Ring size */
 	t_u32 ring_size;
-    /** Write pointer */
+	/** Write pointer */
 	t_u32 wp;
-    /** Read pointer */
+	/** Read pointer */
 	t_u32 rp;
-    /** Log level */
+	/** Log level */
 	t_u32 log_level;
-    /** Threshold */
+	/** Threshold */
 	t_u32 threshold;
-    /** Ring buffer */
+	/** Ring buffer */
 	void *ring_buf;
-    /** Lock */
+	/** Lock */
 	spinlock_t lock;
-    /** Buffer control */
+	/** Buffer control */
 	ring_buffer_ctrl ctrl;
-    /** Ring state */
+	/** Ring state */
 	enum ring_state state;
-    /** delayed work */
+	/** Delayed work */
 	struct delayed_work work;
-    /** Interval */
+	/** Interval */
 	unsigned long interval;
-    /** Moal Priv */
+	/** Moal priv */
 	moal_private *priv;
 } wifi_ring_buffer;
 
@@ -90,30 +90,32 @@ typedef struct _wifi_ring_buffer {
 
 #define TLV_LOG_HEADER_LEN 4
 
-#define WIFI_LOGGER_MEMORY_DUMP_SUPPORTED	MBIT(0)	/* Memory dump of Fw */
-#define WIFI_LOGGER_PER_PACKET_TX_RX_STATUS_SUPPORT	MBIT(1)	/*PKT status */
-#define WIFI_LOGGER_CONNECT_EVENT_SUPPORTED		MBIT(2)	/* connectivity event */
-#define WIFI_LOGGER_POWER_EVENT_SUPPORTED	MBIT(3)	/* Power of driver */
-#define WIFI_LOGGER_WAKE_LOCK_SUPPORTED		MBIT(4)	/* Wake lock of driver */
-#define WIFI_LOGGER_VERBOSE_SUPPORTED	MBIT(5)	/*verbose log of Fw */
-#define WIFI_LOGGER_WATCHDOG_TIMER_SUPPORTED	MBIT(6)	/*monitor the health of Fw */
+#define WIFI_LOGGER_MEMORY_DUMP_SUPPORTED MBIT(0)	/* Memory dump of Fw */
+#define WIFI_LOGGER_PER_PACKET_TX_RX_STATUS_SUPPORT MBIT(1)	/*PKT status */
+#define WIFI_LOGGER_CONNECT_EVENT_SUPPORTED MBIT(2)	/* connectivity event */
+#define WIFI_LOGGER_POWER_EVENT_SUPPORTED MBIT(3)	/* Power of driver */
+#define WIFI_LOGGER_WAKE_LOCK_SUPPORTED MBIT(4)	/* Wake lock of driver */
+#define WIFI_LOGGER_VERBOSE_SUPPORTED MBIT(5)	/*verbose log of Fw */
+#define WIFI_LOGGER_WATCHDOG_TIMER_SUPPORTED                                   \
+	MBIT(6)			/*monitor the health of Fw */
 
 /**
  * Parameters of wifi logger events are TLVs
  * Event parameters tags are defined as:
  */
-#define WIFI_TAG_VENDOR_SPECIFIC    0	// take a byte stream as parameter
-#define WIFI_TAG_BSSID              1	// takes a 6 bytes MAC address as parameter
-#define WIFI_TAG_ADDR               2	// takes a 6 bytes MAC address as parameter
-#define WIFI_TAG_SSID               3	// takes a 32 bytes SSID address as parameter
-#define WIFI_TAG_STATUS             4	// takes an integer as parameter
-#define WIFI_TAG_REASON_CODE        14	// take a reason code as per 802.11 as parameter
-#define WIFI_TAG_RSSI               21	// take an integer as parameter
-#define WIFI_TAG_CHANNEL            22	// take an integer as parameter
+#define WIFI_TAG_VENDOR_SPECIFIC 0	// take a byte stream as parameter
+#define WIFI_TAG_BSSID 1	// takes a 6 bytes MAC address as parameter
+#define WIFI_TAG_ADDR 2		// takes a 6 bytes MAC address as parameter
+#define WIFI_TAG_SSID 3		// takes a 32 bytes SSID address as parameter
+#define WIFI_TAG_STATUS 4	// takes an integer as parameter
+#define WIFI_TAG_REASON_CODE 14	// take a reason code as per 802.11 as parameter
+#define WIFI_TAG_RSSI 21	// take an integer as parameter
+#define WIFI_TAG_CHANNEL 22	// take an integer as parameter
 
 #define RING_ENTRY_SIZE (sizeof(wifi_ring_buffer_entry))
 #define ENTRY_LENGTH(hdr) (hdr->entry_size + RING_ENTRY_SIZE)
-#define READ_AVAIL_SPACE(ring) (ring->ctrl.written_bytes - ring->ctrl.read_bytes)
+#define READ_AVAIL_SPACE(ring)                                                 \
+	(ring->ctrl.written_bytes - ring->ctrl.read_bytes)
 
 enum logger_attributes {
 	ATTR_WIFI_LOGGER_INVALID = 0,
@@ -140,7 +142,8 @@ enum logger_attributes {
 	ATTR_WIFI_LOGGER_MAX = ATTR_WIFI_LOGGER_AFTER_LAST - 1
 };
 
-/* Below events refer to the wifi_connectivity_event ring and shall be supported */
+/* Below events refer to the wifi_connectivity_event ring and shall be supported
+ */
 enum {
 	WIFI_EVENT_ASSOCIATION_REQUESTED = 0,
 	WIFI_EVENT_AUTH_COMPLETE,
@@ -148,8 +151,10 @@ enum {
 };
 
 enum {
-	RING_BUFFER_ENTRY_FLAGS_HAS_BINARY = (1 << (0)),	// set for binary entries
-	RING_BUFFER_ENTRY_FLAGS_HAS_TIMESTAMP = (1 << (1))	// set if 64 bits timestamp is present
+	/* set for binary entries */
+	RING_BUFFER_ENTRY_FLAGS_HAS_BINARY = (1 << (0)),
+	/* set if 64 bits timestamp is present */
+	RING_BUFFER_ENTRY_FLAGS_HAS_TIMESTAMP = (1 << (1))
 };
 
 enum {
@@ -162,71 +167,71 @@ enum {
 
 /** WiFi ring buffer entry structure */
 typedef struct {
-    /** size of payload excluding the header */
+	/** size of payload excluding the header */
 	t_u16 entry_size;
-    /** Flags */
+	/** Flags */
 	t_u8 flags;
-    /** entry type */
+	/** entry type */
 	t_u8 type;
-    /** present if has_timestamp bit is set. */
+	/** present if has_timestamp bit is set. */
 	t_u64 timestamp;
 } __attribute__ ((packed)) wifi_ring_buffer_entry;
 
 /** WiFi ring buffer status structure*/
 typedef struct _wifi_ring_buffer_status {
-    /** Ring name */
+	/** Ring name */
 	t_u8 name[RING_NAME_MAX];
-    /** Flag */
+	/** Flag */
 	t_u32 flag;
-    /** Ring ID */
+	/** Ring ID */
 	wifi_ring_buffer_id ring_id;
-    /** Buffer size */
+	/** Buffer size */
 	t_u32 ring_buffer_byte_size;
-    /** Verbose Level */
+	/** Verbose Level */
 	t_u32 verbose_level;
-    /** Written bytes */
+	/** Written bytes */
 	t_u32 written_bytes;
-    /** Read bytes */
+	/** Read bytes */
 	t_u32 read_bytes;
-    /** Written records */
+	/** Written records */
 	t_u32 written_records;
 } wifi_ring_buffer_status;
 
 /** TLV log structure */
 typedef struct {
-    /** Tag */
+	/** Tag */
 	u16 tag;
-    /** Length of value*/
+	/** Length of value*/
 	u16 length;
-    /** Value */
-	u8 value[0];
+	/** Value */
+	u8 value[];
 } __attribute__ ((packed)) tlv_log;
 
 /** WiFi ring buffer driver structure */
 typedef struct {
-    /** event */
+	/** event */
 	u16 event;
-    /** TLV log structure array */
-	tlv_log tlvs[0];
-    /** separate parameter structure per event to be provided and optional data
-      * the event_data is expected to include an official android part, with some
-      * parameter as transmit rate, num retries, num scan result found etc...
-      * as well, event_data can include a vendor proprietary part which is
-      * understood by the developer only
-      */
+	/** TLV log structure array */
+	tlv_log tlvs[];
+	/** separate parameter structure per event to be provided and optional
+	 * data the event_data is expected to include an official android part,
+	 * with some parameter as transmit rate, num retries, num scan result
+	 * found etc... as well, event_data can include a vendor proprietary
+	 * part which is understood by the developer only
+	 */
 } __attribute__ ((packed)) wifi_ring_buffer_driver_connectivity_event;
 
 /** Assoc logger data structure */
 typedef struct _assoc_logger {
-    /** vendor specific */
+	/** vendor specific */
 	t_u8 oui[3];
-    /** BSSID */
+	/** BSSID */
 	t_u8 bssid[MLAN_MAC_ADDR_LENGTH];
-    /** SSID */
+	/** SSID */
 	t_u8 ssid[MLAN_MAX_SSID_LENGTH];
-    /** RSSI */
+	/** RSSI */
 	t_s32 rssi;
-    /** Channel */
+	/** Channel */
 	t_u32 channel;
 } assoc_logger_data;
 
@@ -236,10 +241,10 @@ int woal_ring_event_logger(moal_private *priv, int ring_id,
 int woal_wake_reason_logger(moal_private *priv,
 			    mlan_ds_hs_wakeup_reason wake_reason);
 
-#define MD5_PREFIX_LEN             4
-#define MAX_FATE_LOG_LEN           32
-#define MAX_FRAME_LEN_ETHERNET     1518
-#define MAX_FRAME_LEN_80211_MGMT   2352
+#define MD5_PREFIX_LEN 4
+#define MAX_FATE_LOG_LEN 32
+#define MAX_FRAME_LEN_ETHERNET 1518
+#define MAX_FRAME_LEN_80211_MGMT 2352
 
 /** packet_fate_packet_type */
 typedef enum {
@@ -256,104 +261,111 @@ typedef enum {
 
 /** wifi_tx_packet_fate */
 typedef enum {
-    /** Sent over air and ACKed. */
+	/** Sent over air and ACKed. */
 	TX_PKT_FATE_ACKED,
 
-    /** Sent over air but not ACKed. (Normal for broadcast/multicast.) */
+	/** Sent over air but not ACKed. (Normal for broadcast/multicast.) */
 	TX_PKT_FATE_SENT,
 
-    /** Queued within firmware, but not yet sent over air. */
+	/** Queued within firmware, but not yet sent over air. */
 	TX_PKT_FATE_FW_QUEUED,
 
-    /** Dropped by firmware as invalid. E.g. bad source address, bad checksum, or invalid for current
-       state. */
+	/** Dropped by firmware as invalid. E.g. bad source address, bad
+	 *  checksum, or invalid for current state.
+	 */
 	TX_PKT_FATE_FW_DROP_INVALID,
 
-    /** Dropped by firmware due to lack of buffer space. */
+	/** Dropped by firmware due to lack of buffer space. */
 	TX_PKT_FATE_FW_DROP_NOBUFS,
 
-    /** Dropped by firmware for any other reason. Includes frames that were sent by driver to firmware, but
-       unaccounted for by firmware. */
+	/** Dropped by firmware for any other reason. Includes frames that were
+	 *  sent by driver to firmware, but unaccounted for by firmware.
+	 */
 	TX_PKT_FATE_FW_DROP_OTHER,
 
-    /** Queued within driver, not yet sent to firmware. */
+	/** Queued within driver, not yet sent to firmware. */
 	TX_PKT_FATE_DRV_QUEUED,
 
-    /** Dropped by driver as invalid. E.g. bad source address, or invalid for current state. */
+	/** Dropped by driver as invalid. E.g. bad source address, or invalid
+	 *  for current state.
+	 */
 	TX_PKT_FATE_DRV_DROP_INVALID,
 
-    /** Dropped by driver due to lack of buffer space. */
+	/** Dropped by driver due to lack of buffer space. */
 	TX_PKT_FATE_DRV_DROP_NOBUFS,
 
-    /** Dropped by driver for any other reason. */
+	/** Dropped by driver for any other reason. */
 	TX_PKT_FATE_DRV_DROP_OTHER,
 } wifi_tx_packet_fate;
 
 /** wifi_rx_packet_fate */
 typedef enum {
-    /** Valid and delivered to network stack (e.g., netif_rx()). */
+	/** Valid and delivered to network stack (e.g., netif_rx()). */
 	RX_PKT_FATE_SUCCESS,
 
-    /** Queued within firmware, but not yet sent to driver. */
+	/** Queued within firmware, but not yet sent to driver. */
 	RX_PKT_FATE_FW_QUEUED,
 
-    /** Dropped by firmware due to host-programmable filters. */
+	/** Dropped by firmware due to host-programmable filters. */
 	RX_PKT_FATE_FW_DROP_FILTER,
 
-    /** Dropped by firmware as invalid. E.g. bad checksum, decrypt failed, or invalid for current state. */
+	/** Dropped by firmware as invalid. E.g. bad checksum, decrypt failed,
+	 *  or invalid for current state.
+	 */
 	RX_PKT_FATE_FW_DROP_INVALID,
 
-    /** Dropped by firmware due to lack of buffer space. */
+	/** Dropped by firmware due to lack of buffer space. */
 	RX_PKT_FATE_FW_DROP_NOBUFS,
 
-    /** Dropped by firmware for any other reason. */
+	/** Dropped by firmware for any other reason. */
 	RX_PKT_FATE_FW_DROP_OTHER,
 
-    /** Queued within driver, not yet delivered to network stack. */
+	/** Queued within driver, not yet delivered to network stack. */
 	RX_PKT_FATE_DRV_QUEUED,
 
-    /** Dropped by driver due to filter rules. */
+	/** Dropped by driver due to filter rules. */
 	RX_PKT_FATE_DRV_DROP_FILTER,
 
-    /** Dropped by driver as invalid. E.g. not permitted in current state. */
+	/** Dropped by driver as invalid. E.g. not permitted in current state.
+	 */
 	RX_PKT_FATE_DRV_DROP_INVALID,
 
-    /** Dropped by driver due to lack of buffer space. */
+	/** Dropped by driver due to lack of buffer space. */
 	RX_PKT_FATE_DRV_DROP_NOBUFS,
 
-    /** Dropped by driver for any other reason. */
+	/** Dropped by driver for any other reason. */
 	RX_PKT_FATE_DRV_DROP_OTHER,
 } wifi_rx_packet_fate;
 
 /** frame_info_i */
 typedef struct {
-    /** Payload Type */
+	/** Payload Type */
 	frame_type payload_type;
-    /** Driver timestamp in uS */
+	/** Driver timestamp in uS */
 	u32 driver_timestamp_usec;
-    /** FW timestamp in uS */
+	/** FW timestamp in uS */
 	u32 firmware_timestamp_usec;
-    /** Frame Length */
+	/** Frame Length */
 	u32 frame_len;
 } frame_info_i;
 
 /** wifi_tx_report_i */
 typedef struct {
-    /** MD5 prefix */
+	/** MD5 prefix */
 	char md5_prefix[MD5_PREFIX_LEN];
-    /** TX packet fate */
+	/** TX packet fate */
 	wifi_tx_packet_fate fate;
-    /** frame information */
+	/** frame information */
 	frame_info_i frame_inf;
 } wifi_tx_report_i;
 
 /** wifi_rx_report_i */
 typedef struct {
-    /** MD5 prefix */
+	/** MD5 prefix */
 	char md5_prefix[MD5_PREFIX_LEN];
-    /** TX packet fate */
+	/** TX packet fate */
 	wifi_rx_packet_fate fate;
-    /** frame information */
+	/** frame information */
 	frame_info_i frame_inf;
 } wifi_rx_report_i;
 
@@ -383,7 +395,9 @@ int woal_packet_fate_monitor(moal_private *priv,
 /* Age since filter installed in seconds. */
 #define MEM_OFFSET_FILTER_AGE 15
 
-/* Leave 0 opcode unused as it's a good indicator of accidental incorrect execution (e.g. data). */
+/* Leave 0 opcode unused as it's a good indicator of accidental incorrect
+ * execution (e.g. data).
+ */
 /* Load 1 byte from immediate offset, e.g. "ldb R0, [5]" */
 #define NXP_LDB_OPCODE 1
 /* Load 2 bytes from immediate offset, e.g. "ldh R0, [5]" */
@@ -426,13 +440,16 @@ int woal_packet_fate_monitor(moal_private *priv,
 #define NXP_JNEBS_OPCODE 20
 /* Immediate value is one of *_EXT_OPCODE
  * Extended opcodes. These all have an opcode of EXT_OPCODE
- * and specify the actual opcode in the immediate field.*/
+ * and specify the actual opcode in the immediate field.
+ */
 #define NXP_EXT_OPCODE 21
 /* Load from memory, e.g. "ldm R0,5"
- * Values 0-15 represent loading the different memory slots. */
+ * Values 0-15 represent loading the different memory slots.
+ */
 #define NXP_LDM_EXT_OPCODE 0
 /* Store to memory, e.g. "stm R0,5" *
- * Values 16-31 represent storing to the different memory slots. */
+ * Values 16-31 represent storing to the different memory slots.
+ */
 #define NXP_STM_EXT_OPCODE 16
 /* Not, e.g. "not R0" */
 #define NXP_NOT_EXT_OPCODE 32
@@ -446,20 +463,26 @@ int woal_packet_fate_monitor(moal_private *priv,
 #define GET_OPCODE(i) (((i) >> 3) & 31)
 #define GET_REGISTER(i) ((i)&1)
 #define GET_IMM_LENGTH(i) (((i) >> 1) & 3)
+/** =========== Define Copied from apf.h END =========== */
 
+/** =========== Define Copied from apf_interpreter.h START =========== */
 /**
  * Version of APF instruction set processed by accept_packet().
  * Should be returned by wifi_get_packet_filter_info.
  */
 #define APF_VERSION 2
+/** =========== Define Copied from apf_interpreter.h END =========== */
 
+/** =========== Define Copied from apf_interpreter.c START =========== */
 /* Return code indicating "packet" should accepted. */
 #define PASS_PKT 1
 /* Return code indicating "packet" should be dropped. */
 #define DROP_PKT 0
-/* If "c" is of an unsigned type, generate a compile warning that gets promoted to an error.
- * This makes bounds checking simpler because ">= 0" can be avoided. Otherwise adding
- * superfluous ">= 0" with unsigned expressions generates compile warnings. */
+/* If "c" is of an unsigned type, generate a compile warning that gets promoted
+ * to an error. This makes bounds checking simpler because ">= 0" can be
+ * avoided. Otherwise adding superfluous ">= 0" with unsigned expressions
+ * generates compile warnings.
+ */
 #define ENFORCE_UNSIGNED(c) ((c) == (uint32_t)(c))
 /** =========== Define Copied from apf_interpreter.c END =========== */
 
@@ -508,83 +531,85 @@ enum {
 
 /** nan_cb */
 typedef struct _nan_cb {
-    /** Delayed work response */
+	/** Delayed work response */
 	struct delayed_work response_work;
-    /** Priv */
+	/** Priv */
 	moal_private *priv;
-    /** CMD fifo */
+	/** CMD fifo */
 	struct kfifo cmd_fifo;
 } nan_cb;
 
 /** NanHeader */
 typedef struct _NanHeader {
-    /** Msg ID */
+	/** Msg ID */
 	t_u16 MsgId;
-    /** Msg length */
+	/** Msg length */
 	t_u16 MsgLen;
-    /** Handle */
+	/** Handle */
 	t_u16 handle;
-    /** Transaction ID */
+	/** Transaction ID */
 	t_u16 transactionId;
 } NanHeader;
 
 /** NanHeader_Ext */
 typedef struct _NanHeader_Ext {
 	NanHeader nan_header;
-    /** Status */
+	/** Status */
 	t_u16 status;
-    /** Value */
+	/** Value */
 	t_u16 value;
 } NanHeader_Ext;
 
 /** nan_cmd */
 typedef struct _nan_cmd {
 	NanHeader_Ext nan_header_ext;
-    /** Enable Indication */
+	/** Enable Indication */
 	t_u16 indicate_enable;
-    /** Type Indicate */
+	/** Type Indicate */
 	t_u16 indicate_type;
 } nan_cmd;
 
 int woal_init_wifi_hal(moal_private *priv);
 int woal_deinit_wifi_hal(moal_private *priv);
 
-#define ATTRIBUTE_U32_LEN                  (nla_total_size(NLA_HDRLEN  + 4))
-#define VENDOR_ID_OVERHEAD                 ATTRIBUTE_U32_LEN
-#define VENDOR_SUBCMD_OVERHEAD             ATTRIBUTE_U32_LEN
-#define VENDOR_DATA_OVERHEAD               (nla_total_size(NLA_HDRLEN))
+#define ATTRIBUTE_U32_LEN (nla_total_size(NLA_HDRLEN + 4))
+#define VENDOR_ID_OVERHEAD ATTRIBUTE_U32_LEN
+#define VENDOR_SUBCMD_OVERHEAD ATTRIBUTE_U32_LEN
+#define VENDOR_DATA_OVERHEAD (nla_total_size(NLA_HDRLEN))
 
-#define VENDOR_REPLY_OVERHEAD       (VENDOR_ID_OVERHEAD + \
-									VENDOR_SUBCMD_OVERHEAD + \
-									VENDOR_DATA_OVERHEAD)
+#define VENDOR_REPLY_OVERHEAD                                                  \
+	(VENDOR_ID_OVERHEAD + VENDOR_SUBCMD_OVERHEAD + VENDOR_DATA_OVERHEAD)
 
-/* Feature enums */
-#define MLAN_FEATURE_INFRA              0x0001	// Basic infrastructure mode
-#define MLAN_FEATURE_INFRA_5G           0x0002	// Support for 5 GHz Band
-#define MLAN_FEATURE_HOTSPOT            0x0004	// Support for GAS/ANQP
-#define MLAN_FEATURE_P2P                0x0008	// Wifi-Direct
-#define MLAN_FEATURE_SOFT_AP            0x0010	// Soft AP
-#define MLAN_FEATURE_GSCAN              0x0020	// Google-Scan APIs
-#define MLAN_FEATURE_NAN                0x0040	// Neighbor Awareness Networking
-#define MLAN_FEATURE_D2D_RTT            0x0080	// Device-to-device RTT
-#define MLAN_FEATURE_D2AP_RTT           0x0100	// Device-to-AP RTT
-#define MLAN_FEATURE_BATCH_SCAN         0x0200	// Batched Scan (legacy)
-#define MLAN_FEATURE_PNO                0x0400	// Preferred network offload
-#define MLAN_FEATURE_ADDITIONAL_STA     0x0800	// Support for two STAs
-#define MLAN_FEATURE_TDLS               0x1000	// Tunnel directed link setup
-#define MLAN_FEATURE_TDLS_OFFCHANNEL    0x2000	// Support for TDLS off channel
-#define MLAN_FEATURE_EPR                0x4000	// Enhanced power reporting
-#define MLAN_FEATURE_AP_STA             0x8000	// Support for AP STA Concurrency
-#define MLAN_FEATURE_LINK_LAYER_STATS   0x10000	// Link layer stats collection
-#define MLAN_FEATURE_LOGGER             0x20000	// WiFi Logger
-#define MLAN_FEATURE_HAL_EPNO           0x40000	// WiFi PNO enhanced
-#define MLAN_FEATURE_RSSI_MONITOR       0x80000	// RSSI Monitor
-#define MLAN_FEATURE_MKEEP_ALIVE        0x100000	// WiFi mkeep_alive
-#define MLAN_FEATURE_CONFIG_NDO         0x200000	// ND offload configure
-#define MLAN_FEATURE_TX_TRANSMIT_POWER  0x400000	// Capture Tx transmit power levels
-#define MLAN_FEATURE_CONTROL_ROAMING    0x800000	// Enable/Disable firmware roaming
-#define MLAN_FEATURE_IE_WHITELIST       0x1000000	// Support Probe IE white listing
-#define MLAN_FEATURE_SCAN_RAND          0x2000000	// Support MAC & Probe Sequence Number randomization
+/* Features Enums*/
+#define WLAN_FEATURE_INFRA 0x0001	// Basic infrastructure mode support
+#define WLAN_FEATURE_INFRA_5G 0x0002	// 5 GHz Band support
+#define WLAN_FEATURE_HOTSPOT 0x0004	// GAS/ANQP support
+#define WLAN_FEATURE_P2P 0x0008	// Wifi-Direct/P2P
+#define WLAN_FEATURE_SOFT_AP 0x0010	// Soft AP support
+#define WLAN_FEATURE_GSCAN 0x0020	// Google-Scan APIsi support
+#define WLAN_FEATURE_NAN 0x0040	// Neighbor Awareness Networking (NAN)
+#define WLAN_FEATURE_D2D_RTT 0x0080	// Device-to-device RTT support
+#define WLAN_FEATURE_D2AP_RTT 0x0100	// Device-to-AP RTT support
+#define WLAN_FEATURE_BATCH_SCAN 0x0200	// Batched Scan (legacy) support
+#define WLAN_FEATURE_PNO 0x0400	// Preferred network offload support
+#define WLAN_FEATURE_ADDITIONAL_STA 0x0800	// Two STAs support
+#define WLAN_FEATURE_TDLS 0x1000	// Tunnel directed link setup (TDLS)
+#define WLAN_FEATURE_TDLS_OFFCHANNEL 0x2000	// TDLS off channel support
+#define WLAN_FEATURE_EPR 0x4000	// Enhanced power reporting support
+#define WLAN_FEATURE_AP_STA 0x8000	// AP STA Concurrency support
+#define WLAN_FEATURE_LINK_LAYER_STATS                                          \
+	0x10000			// Link layer stats collection support
+#define WLAN_FEATURE_LOGGER 0x20000	// WiFi Logger support
+#define WLAN_FEATURE_HAL_EPNO 0x40000	// WiFi enhanced PNO support
+#define WLAN_FEATURE_RSSI_MONITOR 0x80000	// RSSI Monitor support
+#define WLAN_FEATURE_MKEEP_ALIVE 0x100000	// WiFi mkeep_alive support
+#define WLAN_FEATURE_CONFIG_NDO 0x200000	// ND offload configure support
+#define WLAN_FEATURE_TX_TRANSMIT_POWER                                         \
+	0x400000		// Capture Tx transmit power levels
+#define WLAN_FEATURE_CONTROL_ROAMING 0x800000	// Enable/Disable firmware roaming
+#define WLAN_FEATURE_IE_WHITELIST 0x1000000	// Probe IE white listing support
+#define WLAN_FEATURE_SCAN_RAND                                                 \
+	0x2000000		// MAC & Probe Sequence Number randomization Support
 // Add more features here
 
 #define MAX_CHANNEL_NUM 200
@@ -623,7 +648,7 @@ typedef enum wifi_attr {
 	ATTR_GET_CONCURRENCY_MATRIX_SET_SIZE = 9,
 	ATTR_GET_CONCURRENCY_MATRIX_SET = 10,
 	ATTR_WIFI_AFTER_LAST,
-	ATTR_WIFI_MAX = ATTR_WIFI_AFTER_LAST - 1,
+	ATTR_WIFI_MAX = ATTR_WIFI_AFTER_LAST - 1
 } wifi_attr_t;
 
 enum mrvl_wlan_vendor_attr_wifi_logger {
@@ -633,8 +658,9 @@ enum mrvl_wlan_vendor_attr_wifi_logger {
 /**vendor event*/
 enum vendor_event {
 	event_hang = 0,
-	event_rtt_result = 0x07,
+	event_fw_dump_done = 1,
 	event_rssi_monitor = 0x1501,
+	event_rtt_result = 0x07,
 	event_dfs_radar_detected = 0x10004,
 	event_dfs_cac_started = 0x10005,
 	event_dfs_cac_finished = 0x10006,
@@ -650,22 +676,37 @@ enum vendor_event {
 
 /** struct dfs_event */
 typedef struct _dfs_event {
-    /** Frequency */
+	/** Frequency */
 	int freq;
-    /** HT enable */
+	/** HT enable */
 	int ht_enabled;
-    /** Channel Offset */
+	/** Channel Offset */
 	int chan_offset;
-    /** Channel width */
+	/** Channel width */
 	enum nl80211_chan_width chan_width;
-    /** Center Frequency 1 */
+	/** Center Frequency 1 */
 	int cf1;
-    /** Center Frequency 2 */
+	/** Center Frequency 2 */
 	int cf2;
 } dfs_event;
 
 void woal_cfg80211_dfs_vendor_event(moal_private *priv, int event,
 				    struct cfg80211_chan_def *chandef);
+
+enum ATTR_LINK_LAYER_STAT {
+	ATTR_LL_STATS_INVALID,
+	ATTR_LL_STATS_MPDU_SIZE_THRESHOLD,
+	ATTR_LL_STATS_AGGRESSIVE_STATS_GATHERING,
+	ATTR_LL_STATS_IFACE,
+	ATTR_LL_STATS_NUM_RADIO,
+	ATTR_LL_STATS_RADIO,
+	ATTR_LL_STATS_CLEAR_REQ_MASK,
+	ATTR_LL_STATS_STOP_REQ,
+	ATTR_LL_STATS_CLEAR_RSP_MASK,
+	ATTR_LL_STATS_STOP_RSP,
+	ATTR_LL_STATS_AFTER_LAST,
+	ATTR_LL_STATS_MAX = ATTR_LL_STATS_AFTER_LAST - 1,
+};
 
 enum ATTR_RSSI_MONITOR {
 	ATTR_RSSI_MONITOR_INVALID,
@@ -678,21 +719,6 @@ enum ATTR_RSSI_MONITOR {
 	ATTR_RSSI_MONITOR_MAX = ATTR_RSSI_MONITOR_AFTER_LAST - 1,
 };
 void woal_cfg80211_rssi_monitor_event(moal_private *priv, t_s16 rssi);
-
-enum ATTR_LINK_LAYER_STAT {
-	ATTR_LL_STATS_INVALID,
-	ATTR_LL_STATS_MPDU_SIZE_THRESHOLD,
-	ATTR_LL_STATS_AGGRSSIVE_STATS_GATHERING,
-	ATTR_LL_STATS_IFACE,
-	ATTR_LL_STATS_NUM_RADIO,
-	ATTR_LL_STATS_RADIO,
-	ATTR_LL_STATS_CLEAR_REQ_MASK,
-	ATTR_LL_STATS_STOP_REQ,
-	ATTR_LL_STATS_CLEAR_RSP_MASK,
-	ATTR_LL_STATS_STOP_RSP,
-	ATTR_LL_STATS_AFTER_LAST,
-	ATTR_LL_STATS_MAX = ATTR_LL_STATS_AFTER_LAST - 1,
-};
 
 /**vendor sub command*/
 enum vendor_sub_command {
@@ -711,12 +737,12 @@ enum vendor_sub_command {
 	SUBCMD_RTT_DISABLE_RESPONDER,
 	SUBCMD_RTT_SET_LCI,
 	SUBCMD_RTT_SET_LCR,
-	sub_cmd_get_valid_channels = 0x1009,
-	sub_cmd_get_wifi_supp_feature_set = 0x100a,
-	sub_cmd_set_country_code = 0x100d,
 	sub_cmd_link_statistic_set = 0x1200,
 	sub_cmd_link_statistic_get = 0x1201,
 	sub_cmd_link_statistic_clr = 0x1202,
+	sub_cmd_get_valid_channels = 0x1009,
+	sub_cmd_get_wifi_supp_feature_set = 0x100a,
+	sub_cmd_set_country_code = 0x100d,
 	sub_cmd_get_fw_version = 0x1404,
 	sub_cmd_get_drv_version = 0x1406,
 	sub_cmd_start_logging = 0x1400,
@@ -758,8 +784,8 @@ enum vendor_sub_command {
 };
 
 void woal_register_cfg80211_vendor_command(struct wiphy *wiphy);
-int woal_cfg80211_vendor_event(IN moal_private *priv,
-			       IN int event, IN t_u8 *data, IN int len);
+int woal_cfg80211_vendor_event(moal_private *priv, int event,
+			       t_u8 *data, int len);
 
 enum mrvl_wlan_vendor_attr {
 	MRVL_WLAN_VENDOR_ATTR_INVALID = 0,
@@ -779,33 +805,33 @@ typedef enum {
 
 /** WiFi roaming capabilities structure */
 typedef struct {
-       /** max blacklist size */
+	/** max blacklist size */
 	u32 max_blacklist_size;
-       /** max whitelist size */
+	/** max whitelist size */
 	u32 max_whitelist_size;
 } wifi_roaming_capabilities;
 
 /** WiFi BSSID params structure */
 typedef struct {
-       /** Num of BSSID */
+	/** Num of BSSID */
 	u32 num_bssid;
-       /** List of AP mac address */
+	/** List of AP mac address */
 	t_u8 mac_addr[MAX_AP_LIST][MLAN_MAC_ADDR_LENGTH];
 } wifi_bssid_params;
 
 /** SSID structure */
 typedef struct {
-       /** Length */
+	/** Length */
 	u32 length;
-       /** SSID */
+	/** SSID */
 	char ssid[MLAN_MAX_SSID_LENGTH];
 } ssid_t;
 
 /** WiFi SSID params structure */
 typedef struct {
-       /** No of SSID */
+	/** No of SSID */
 	u32 num_ssid;
-       /** Whitelist SSID */
+	/** Whitelist SSID */
 	ssid_t whitelist_ssid[MAX_SSID_NUM];
 } wifi_ssid_params;
 
@@ -842,8 +868,8 @@ enum attr_rtt {
 	ATTR_RTT_MAX = ATTR_RTT_AFTER_LAST - 1
 };
 
-mlan_status woal_cfg80211_event_rtt_result(IN moal_private *priv,
-					   IN t_u8 *data, IN int len);
+mlan_status woal_cfg80211_event_rtt_result(moal_private *priv, t_u8 *data,
+					   int len);
 
 enum attr_csi {
 	ATTR_CSI_INVALID = 0,
@@ -853,7 +879,7 @@ enum attr_csi {
 	ATTR_CSI_CAPA,
 	ATTR_CSI_DUMP_FORMAT,
 	ATTR_CSI_AFTER_LAST,
-	ATTR_CSI_MAX = ATTR_CSI_AFTER_LAST - 1
+	ATTR_CSI_MAX = ATTR_CSI_AFTER_LAST - 1,
 };
 
 /** CSI capability structure */
@@ -866,7 +892,7 @@ typedef struct {
 	t_u8 max_peer;
 } wifi_csi_capabilities;
 
-mlan_status woal_cfg80211_event_csi_dump(IN moal_private *priv, IN t_u8 *data,
-					 IN int len);
+mlan_status woal_cfg80211_event_csi_dump(moal_private *priv, t_u8 *data,
+					 int len);
 #endif
 #endif /* _MOAL_CFGVENDOR_H_ */

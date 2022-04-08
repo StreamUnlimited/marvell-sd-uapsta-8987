@@ -1,68 +1,182 @@
-/** @file moal_cfgvendor.c
-  *
-  * @brief This file contains the functions for CFG80211 vendor.
-  *
-  *
-  * Copyright 2014-2020 NXP
-  *
-  * This software file (the File) is distributed by NXP
-  * under the terms of the GNU General Public License Version 2, June 1991
-  * (the License).  You may use, redistribute and/or modify the File in
-  * accordance with the terms and conditions of the License, a copy of which
-  * is available by writing to the Free Software Foundation, Inc.,
-  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
-  * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
-  *
-  * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
-  * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
-  * this warranty disclaimer.
-  *
-  */
+/** @file moal_cfg80211_util.c
+ *
+ * @brief This file contains the functions for CFG80211 vendor.
+ *
+ *
+ * Copyright 2015-2021 NXP
+ *
+ * This software file (the File) is distributed by NXP
+ * under the terms of the GNU General Public License Version 2, June 1991
+ * (the License).  You may use, redistribute and/or modify the File in
+ * accordance with the terms and conditions of the License, a copy of which
+ * is available by writing to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+ * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *
+ * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
+ * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
+ * this warranty disclaimer.
+ *
+ */
 
-#include    "moal_cfgvendor.h"
-#include    "moal_cfg80211.h"
-
-/********************************************************
-				Local Variables
-********************************************************/
+#include "moal_cfg80211_util.h"
+#include "moal_cfg80211.h"
 
 /********************************************************
-				Global Variables
-********************************************************/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
-extern int dfs_offload;
-#endif
-extern int disable_regd_by_driver;
-/********************************************************
-				Local Functions
-********************************************************/
+ *				Local Variables
+ ********************************************************/
 
 /********************************************************
-				Global Functions
-********************************************************/
+ *				Global Variables
+ ********************************************************/
 
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+/********************************************************
+ *				Local Functions
+ ********************************************************/
+
+/********************************************************
+ *				Global Functions
+ ********************************************************/
+
+#if KERNEL_VERSION(3, 14, 0) <= CFG80211_VERSION_CODE
 /**nxp vendor command and event*/
-#define MRVL_VENDOR_ID  0x005043
+#define MRVL_VENDOR_ID 0x005043
 /** vendor events */
-const struct nl80211_vendor_cmd_info vendor_events[] = {
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_hang,},	/*event_id 0 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_rssi_monitor,},	/*event_id 0x1501 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_dfs_radar_detected,},	/*event_id 0x10004 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_dfs_cac_started,},	/*event_id 0x10005 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_dfs_cac_finished,},	/*event_id 0x10006 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_dfs_cac_aborted,},	/*event_id 0x10007 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_dfs_nop_finished,},	/*event_id 0x10008 */
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd =
-	 event_wifi_logger_ring_buffer_data,},
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_wifi_logger_alert,},
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_packet_fate_monitor,},
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_wake_reason_report,},
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_nan_cb,},
+static const struct nl80211_vendor_cmd_info vendor_events[] = {
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_hang,
+	 },			/*event_id 0 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_fw_dump_done,
+	 },			/*event_id 1 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_rssi_monitor,
+	 },			/*event_id 0x1501 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_dfs_radar_detected,
+	 },			/*event_id 0x10004 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_dfs_cac_started,
+	 },			/*event_id 0x10005 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_dfs_cac_finished,
+	 },			/*event_id 0x10006 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_dfs_cac_aborted,
+	 },			/*event_id 0x10007 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_dfs_nop_finished,
+	 },			/*event_id 0x10008 */
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_wifi_logger_ring_buffer_data,
+	 },
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_wifi_logger_alert,
+	 },
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_packet_fate_monitor,
+	 },
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_wake_reason_report,
+	 },
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_nan_cb,
+	 },
+	{
+	 .vendor_id = MRVL_VENDOR_ID,
+	 .subcmd = event_rtt_result,
+	 },			/*event_id ??? */
 	/**add vendor event here*/
-	{.vendor_id = MRVL_VENDOR_ID,.subcmd = event_rtt_result,},	/*event_id ??? */
 };
+
+/**nxp vendor policies*/
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+
+static const struct
+nla_policy woal_ll_stat_policy[ATTR_LL_STATS_MAX + 1] = {
+	[ATTR_LL_STATS_MPDU_SIZE_THRESHOLD] = {.type = NLA_U32},
+	[ATTR_LL_STATS_AGGRESSIVE_STATS_GATHERING] = {.type = NLA_U32},
+	[ATTR_LL_STATS_CLEAR_REQ_MASK] = {.type = NLA_U32},
+	[ATTR_LL_STATS_STOP_REQ] = {.type = NLA_U8}
+};
+
+static const struct
+nla_policy woal_logger_policy[ATTR_WIFI_LOGGER_MAX + 1] = {
+	[ATTR_WIFI_LOGGER_RING_ID] = {.type = NLA_STRING},
+	[ATTR_WIFI_LOGGER_VERBOSE_LEVEL] = {.type = NLA_U32},
+	[ATTR_WIFI_LOGGER_FLAGS] = {.type = NLA_U32},
+	[ATTR_WIFI_LOGGER_MIN_DATA_SIZE] = {.type = NLA_U32},
+	[ATTR_WIFI_LOGGER_MAX_INTERVAL_SEC] = {.type = NLA_U32}
+};
+
+static const struct
+nla_policy woal_attr_policy[ATTR_WIFI_MAX + 1] = {
+	[ATTR_CHANNELS_BAND] = {.type = NLA_U32},
+	[ATTR_SCAN_MAC_OUI_SET] = {.type = NLA_STRING,.len = 3},
+	[ATTR_NODFS_VALUE] = {.type = NLA_U32},
+	[ATTR_GET_CONCURRENCY_MATRIX_SET_SIZE_MAX] = {.type = NLA_U32},
+};
+
+// clang-format off
+static const struct nla_policy
+ woal_nd_offload_policy[ATTR_ND_OFFLOAD_MAX + 1] = {
+	[ATTR_ND_OFFLOAD_CONTROL] = {.type = NLA_U8},
+};
+
+// clang-format on
+
+static const struct
+nla_policy woal_rtt_policy[ATTR_RTT_MAX + 1] = {
+	[ATTR_RTT_TARGET_NUM] = {.type = NLA_U8},
+	[ATTR_RTT_TARGET_CONFIG] = {.type = NLA_BINARY},
+	[ATTR_RTT_TARGET_ADDR] = {.type = NLA_STRING,.len = ETH_ALEN},
+	[ATTR_RTT_CHANNEL_INFO] = {.type = NLA_BINARY},
+	[ATTR_RTT_MAX_DUR_SEC] = {.type = NLA_U32},
+	[ATTR_RTT_LCI_INFO] = {.type = NLA_BINARY},
+	[ATTR_RTT_LCR_INFO] = {.type = NLA_BINARY},
+
+};
+
+static const struct
+nla_policy woal_rssi_monitor_policy[ATTR_RSSI_MONITOR_MAX + 1] = {
+	[ATTR_RSSI_MONITOR_CONTROL] = {.type = NLA_U32},
+	[ATTR_RSSI_MONITOR_MIN_RSSI] = {.type = NLA_S8},
+	[ATTR_RSSI_MONITOR_MAX_RSSI] = {.type = NLA_S8},
+};
+
+static const struct
+nla_policy woal_packet_filter_policy[ATTR_PACKET_FILTER_MAX + 1] = {
+	[ATTR_PACKET_FILTER_TOTAL_LENGTH] = {.type = NLA_U32},
+	[ATTR_PACKET_FILTER_PROGRAM] = {.type = NLA_STRING},
+};
+
+// clang-format off
+static const struct nla_policy
+ woal_fw_roaming_policy[MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_MAX + 1] = {
+	[MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_CONTROL] = {.type = NLA_U32},
+	[MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_CONFIG_BSSID] = {
+							   .type = NLA_BINARY},
+	[MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_CONFIG_SSID] = {
+							  .type = NLA_BINARY},
+};
+
+// clang-format on
+
+#endif
 
 /**
  * @brief get the event id of the events array
@@ -71,13 +185,13 @@ const struct nl80211_vendor_cmd_info vendor_events[] = {
  *
  * @return    index of events array
  */
-int
+static int
 woal_get_event_id(int event)
 {
 	int i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(vendor_events); i++) {
-		if (vendor_events[i].subcmd == event)
+	for (i = 0; i < (int)ARRAY_SIZE(vendor_events); i++) {
+		if ((int)vendor_events[i].subcmd == event)
 			return i;
 	}
 
@@ -95,8 +209,7 @@ woal_get_event_id(int event)
  * @return      0: success  1: fail
  */
 int
-woal_cfg80211_vendor_event(IN moal_private *priv,
-			   IN int event, IN t_u8 *data, IN int len)
+woal_cfg80211_vendor_event(moal_private *priv, int event, t_u8 *data, int len)
 {
 	struct wiphy *wiphy = NULL;
 	struct sk_buff *skb = NULL;
@@ -114,14 +227,14 @@ woal_cfg80211_vendor_event(IN moal_private *priv,
 	PRINTM(MEVENT, "vendor event :0x%x\n", event);
 	event_id = woal_get_event_id(event);
 	if (event_max == event_id) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		ret = 1;
 		LEAVE();
 		return ret;
 	}
 
 	/**allocate skb*/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
 	skb = cfg80211_vendor_event_alloc(wiphy, priv->wdev, len, event_id,
 					  GFP_ATOMIC);
 #else
@@ -135,12 +248,28 @@ woal_cfg80211_vendor_event(IN moal_private *priv,
 		return ret;
 	}
 	pos = skb_put(skb, len);
-	memcpy(pos, data, len);
+	moal_memcpy_ext(priv->phandle, pos, data, len, len);
 	/**send event*/
 	cfg80211_vendor_event(skb, GFP_ATOMIC);
 
 	LEAVE();
 	return ret;
+}
+
+/**
+ * @brief send fw dump complete event to vendorhal
+ *
+ * @param priv       A pointer to moal_private
+ *
+ * @return      N/A
+ */
+void
+woal_cfg80211_vendor_event_fw_dump(moal_private *priv)
+{
+	PRINTM(MEVENT, "wlan: Notify FW dump complete event\n");
+	woal_cfg80211_vendor_event(priv, event_fw_dump_done,
+				   CUS_EVT_FW_DUMP, strlen(CUS_EVT_FW_DUMP));
+
 }
 
 /**
@@ -152,9 +281,8 @@ woal_cfg80211_vendor_event(IN moal_private *priv,
  *
  * @return      0: success  1: fail
  */
-struct sk_buff *
-woal_cfg80211_alloc_vendor_event(IN moal_private *priv,
-				 IN int event, IN int len)
+static struct sk_buff *
+woal_cfg80211_alloc_vendor_event(moal_private *priv, int event, int len)
 {
 	struct wiphy *wiphy = NULL;
 	struct sk_buff *skb = NULL;
@@ -163,19 +291,19 @@ woal_cfg80211_alloc_vendor_event(IN moal_private *priv,
 	ENTER();
 
 	if (!priv || !priv->wdev || !priv->wdev->wiphy) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		goto done;
 	}
 	wiphy = priv->wdev->wiphy;
 	PRINTM(MEVENT, "vendor event :0x%x\n", event);
 	event_id = woal_get_event_id(event);
 	if (event_max == event_id) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		goto done;
 	}
 
 	/**allocate skb*/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
 	skb = cfg80211_vendor_event_alloc(wiphy, priv->wdev, len, event_id,
 					  GFP_ATOMIC);
 #else
@@ -206,6 +334,7 @@ woal_cfg80211_dfs_vendor_event(moal_private *priv, int event,
 			       struct cfg80211_chan_def *chandef)
 {
 	dfs_event evt;
+
 	ENTER();
 	if (!chandef) {
 		LEAVE();
@@ -241,7 +370,6 @@ woal_cfg80211_dfs_vendor_event(moal_private *priv, int event,
 	woal_cfg80211_vendor_event(priv, event, (t_u8 *)&evt,
 				   sizeof(dfs_event));
 	LEAVE();
-	return;
 }
 
 /**
@@ -291,7 +419,8 @@ woal_cfg80211_subcmd_set_drvdbg(struct wiphy *wiphy,
 		return ret;
 	}
 	pos = skb_put(skb, sizeof(drvdbg));
-	memcpy(pos, &drvdbg, sizeof(drvdbg));
+	moal_memcpy_ext(priv->phandle, pos, &drvdbg, sizeof(drvdbg),
+			sizeof(drvdbg));
 	ret = cfg80211_vendor_cmd_reply(skb);
 #endif
 	LEAVE();
@@ -308,8 +437,8 @@ woal_cfg80211_subcmd_set_drvdbg(struct wiphy *wiphy,
  * @return      0: success  other: fail
  */
 static mlan_status
-woal_band_to_valid_channels(moal_private *priv, wifi_band w_band, int channel[],
-			    t_u32 *nchannel)
+woal_band_to_valid_channels(moal_private *priv,
+			    wifi_band w_band, int channel[], t_u32 *nchannel)
 {
 	int band = 0;
 	struct ieee80211_supported_band *sband;
@@ -334,7 +463,7 @@ woal_band_to_valid_channels(moal_private *priv, wifi_band w_band, int channel[],
 				       ch->center_freq);
 				continue;
 			}
-			if ((band == IEEE80211_BAND_5GHZ)) {
+			if (band == IEEE80211_BAND_5GHZ) {
 				if (((ch->flags & IEEE80211_CHAN_RADAR) &&
 				     !(w_band & WIFI_BAND_A_DFS)) ||
 				    (!(ch->flags & IEEE80211_CHAN_RADAR) &&
@@ -386,28 +515,28 @@ woal_cfg80211_subcmd_get_valid_channels(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_get_valid_channels\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	err = nla_parse(tb, ATTR_WIFI_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
 	if (err) {
-		PRINTM(MERROR, "%s: nla_parse fail\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: nla_parse fail\n", __func__);
 		err = -EFAULT;
 		goto done;
 	}
 
 	if (!tb[ATTR_CHANNELS_BAND]) {
 		PRINTM(MERROR, "%s: null attr: tb[ATTR_GET_CH]=%p\n",
-		       __FUNCTION__, tb[ATTR_CHANNELS_BAND]);
+		       __func__, tb[ATTR_CHANNELS_BAND]);
 		err = -EINVAL;
 		goto done;
 	}
 	band = nla_get_u32(tb[ATTR_CHANNELS_BAND]);
 	if (band > WIFI_BAND_MAX) {
-		PRINTM(MERROR, "%s: invalid band=%d\n", __FUNCTION__, band);
+		PRINTM(MERROR, "%s: invalid band=%d\n", __func__, band);
 		err = -EINVAL;
 		goto done;
 	}
@@ -421,10 +550,8 @@ woal_cfg80211_subcmd_get_valid_channels(struct wiphy *wiphy,
 		return -EFAULT;
 	}
 
-	mem_needed =
-		nla_total_size(nchannel * sizeof(ch_out[0])) +
-		nla_total_size(sizeof(nchannel))
-		+ VENDOR_REPLY_OVERHEAD;
+	mem_needed = nla_total_size(nchannel * sizeof(ch_out[0])) +
+		nla_total_size(sizeof(nchannel)) + VENDOR_REPLY_OVERHEAD;
 	/* Alloc the SKB for vendor_event */
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, mem_needed);
 	if (unlikely(!skb)) {
@@ -443,7 +570,7 @@ woal_cfg80211_subcmd_get_valid_channels(struct wiphy *wiphy,
 	}
 	err = cfg80211_vendor_cmd_reply(skb);
 	if (err) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
 		goto done;
 	}
 
@@ -477,13 +604,15 @@ woal_cfg80211_subcmd_get_drv_version(struct wiphy *wiphy,
 	char *pos;
 
 	ENTER();
-	memcpy(drv_version, &priv->phandle->driver_version,
-	       MLAN_MAX_VER_STR_LEN);
+	moal_memcpy_ext(priv->phandle, drv_version,
+			&priv->phandle->driver_version, MLAN_MAX_VER_STR_LEN,
+			MLAN_MAX_VER_STR_LEN);
 	drv_len = strlen(drv_version);
 	pos = strstr(drv_version, "%s");
 	/* remove 3 char "-%s" in driver_version string */
 	if (pos != NULL)
-		memcpy(pos, pos + 3, strlen(pos) - 3);
+		moal_memcpy_ext(priv->phandle, pos, pos + 3, strlen(pos) - 3,
+				strlen(pos));
 
 	reply_len = strlen(drv_version) + 1;
 	drv_len -= 3;
@@ -537,8 +666,8 @@ woal_cfg80211_subcmd_get_fw_version(struct wiphy *wiphy,
 	ENTER();
 
 	ver.l = priv->phandle->fw_release_number;
-	snprintf(fw_ver, sizeof(fw_ver), "%u.%u.%u.p%u%c",
-		 ver.c[2], ver.c[1], ver.c[0], ver.c[3], end_c);
+	snprintf(fw_ver, sizeof(fw_ver), "%u.%u.%u.p%u%c", ver.c[2], ver.c[1],
+		 ver.c[0], ver.c[3], end_c);
 	reply_len = strlen(fw_ver) + 1;
 
 	/** Allocate skb for cmd reply*/
@@ -581,7 +710,6 @@ woal_cfg80211_subcmd_get_fw_dump(struct wiphy *wiphy,
 	struct sk_buff *skb = NULL;
 
 	ENTER();
-
 	if (!wdev || !wdev->netdev) {
 		LEAVE();
 		return -EFAULT;
@@ -687,27 +815,29 @@ woal_cfg80211_subcmd_get_supp_feature_set(struct wiphy *wiphy,
 					  const void *data, int data_len)
 {
 	struct sk_buff *skb = NULL;
-	t_u32 reply_len = 0;
-	int ret = 0;
-	t_u32 supp_feature_set = 0;
 	struct net_device *dev = wdev->netdev;
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
 	mlan_fw_info fw_info;
+	t_u32 reply_len = 0;
+	int ret = 0;
+	t_u32 supp_feature_set = 0;
+
 	ENTER();
-
-	supp_feature_set = MLAN_FEATURE_INFRA
+	supp_feature_set = WLAN_FEATURE_INFRA
 #if defined(UAP_SUPPORT) && defined(STA_SUPPORT)
-		| MLAN_FEATURE_AP_STA
+		| WLAN_FEATURE_AP_STA
 #endif
-		| MLAN_FEATURE_LINK_LAYER_STATS
-		| MLAN_FEATURE_LOGGER
-		| MLAN_FEATURE_RSSI_MONITOR
-		| MLAN_FEATURE_CONFIG_NDO
-		| MLAN_FEATURE_CONTROL_ROAMING | MLAN_FEATURE_SCAN_RAND;
+		| WLAN_FEATURE_LINK_LAYER_STATS
+		| WLAN_FEATURE_LOGGER
+		| WLAN_FEATURE_RSSI_MONITOR | WLAN_FEATURE_CONFIG_NDO
+		| WLAN_FEATURE_CONTROL_ROAMING | WLAN_FEATURE_SCAN_RAND;
 
+	memset(&fw_info, 0, sizeof(mlan_fw_info));
 	woal_request_get_fw_info(priv, MOAL_IOCTL_WAIT, &fw_info);
 	if (fw_info.fw_bands & BAND_A)
-		supp_feature_set |= MLAN_FEATURE_INFRA_5G;
+		supp_feature_set |= WLAN_FEATURE_INFRA_5G;
+	if (fw_info.rtt_support)
+		supp_feature_set |= WLAN_FEATURE_D2AP_RTT;
 
 	reply_len = sizeof(supp_feature_set);
 	/** Allocate skb for cmd reply*/
@@ -759,7 +889,7 @@ woal_cfg80211_subcmd_set_country_code(struct wiphy *wiphy,
 		switch (type) {
 		case ATTR_COUNTRY_CODE:
 			strncpy(country, nla_data(iter),
-				MIN(sizeof(country) - 1, nla_len(iter)));
+				MIN((int)sizeof(country) - 1, nla_len(iter)));
 			break;
 		default:
 			PRINTM(MERROR, "Unknown type: %d\n", type);
@@ -767,7 +897,8 @@ woal_cfg80211_subcmd_set_country_code(struct wiphy *wiphy,
 		}
 	}
 
-	if (!disable_regd_by_driver)
+	if (!moal_extflg_isset((moal_handle *)woal_get_wiphy_priv(wiphy),
+			       EXT_DISABLE_REGD_BY_DRIVER))
 		regulatory_hint(wiphy, country);
 
 	/** Allocate skb for cmd reply*/
@@ -811,7 +942,7 @@ woal_cfg80211_subcmd_get_wifi_logger_supp_feature_set(struct wiphy *wiphy,
 
 	supp_feature_set = WIFI_LOGGER_CONNECT_EVENT_SUPPORTED;
 	reply_len = sizeof(supp_feature_set);
-    /** Allocate skb for cmd reply*/
+	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, reply_len);
 	if (!skb) {
 		PRINTM(MERROR, "allocate memory fail for vendor cmd\n");
@@ -862,9 +993,8 @@ woal_get_ring_status(moal_private *priv, int ring_id,
 			status->read_bytes = ring->ctrl.read_bytes;
 			status->verbose_level = ring->log_level;
 			PRINTM(MINFO,
-			       "%s, name: %s, ring_id: %d, ring_size : %d, written_bytes: %d, written_records: "
-			       "%d, read_bytes: %d \n",
-			       __FUNCTION__, status->name, status->ring_id,
+			       "%s, name: %s, ring_id: %d, ring_size : %d, written_bytes: %d, written_records: %d, read_bytes: %d\n",
+			       __func__, status->name, status->ring_id,
 			       status->ring_buffer_byte_size,
 			       status->written_bytes, status->written_records,
 			       status->read_bytes);
@@ -872,7 +1002,6 @@ woal_get_ring_status(moal_private *priv, int ring_id,
 		}
 	}
 	LEAVE();
-	return;
 }
 
 /**
@@ -902,7 +1031,7 @@ woal_cfg80211_subcmd_get_ring_buff_status(struct wiphy *wiphy,
 	ENTER();
 	reply_len =
 		RING_ID_MAX * sizeof(wifi_ring_buffer_status) + sizeof(t_u32);
-    /** Allocate skb for cmd reply*/
+	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, reply_len);
 	if (!skb) {
 		PRINTM(MERROR, "allocate memory fail for vendor cmd\n");
@@ -910,15 +1039,16 @@ woal_cfg80211_subcmd_get_ring_buff_status(struct wiphy *wiphy,
 		goto done;
 	}
 
-	/* shoud sync with HAL side to decide payload layout.
-	   just ring buffer status or ring buffer num + ring buffer status
-	   currently only have ring buffer status
+	/* should sync with HAL side to decide payload layout.
+	 * just ring buffer status or ring buffer num + ring buffer status
+	 * currently only have ring buffer status
 	 */
 	for (ringIdx = 0; ringIdx < RING_ID_MAX; ringIdx++) {
 		memset(&ring_status, 0, sizeof(wifi_ring_buffer_status));
 		woal_get_ring_status(priv, ringIdx, &ring_status);
-		memcpy(&status[ring_cnt++], &ring_status,
-		       sizeof(wifi_ring_buffer_status));
+		moal_memcpy_ext(priv->phandle, &status[ring_cnt++],
+				&ring_status, sizeof(wifi_ring_buffer_status),
+				sizeof(wifi_ring_buffer_status));
 	}
 
 	if (nla_put_u32(skb, ATTR_NUM_RINGS, ring_cnt) ||
@@ -929,6 +1059,7 @@ woal_cfg80211_subcmd_get_ring_buff_status(struct wiphy *wiphy,
 		ret = -ENOMEM;
 		goto done;
 	}
+
 	ret = cfg80211_vendor_cmd_reply(skb);
 
 	if (ret)
@@ -996,7 +1127,7 @@ woal_start_logging(moal_private *priv, char *ring_name, int log_level,
 
 	PRINTM(MCMND,
 	       "%s , log_level : %d, time_intval : %d, threshod %d Bytes\n",
-	       __FUNCTION__, log_level, time_intval, threshold);
+	       __func__, log_level, time_intval, threshold);
 
 	ring_buffer = (wifi_ring_buffer *) priv->rings[ring_id];
 	if (!ring_buffer || ring_buffer->state == RING_STOP) {
@@ -1040,8 +1171,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_start_logging(struct wiphy *wiphy,
-				   struct wireless_dev *wdev, const void *data,
-				   int len)
+				   struct wireless_dev *wdev,
+				   const void *data, int len)
 {
 	int ret = 0, rem, type;
 	char ring_name[RING_NAME_MAX] = { 0 };
@@ -1080,9 +1211,8 @@ woal_cfg80211_subcmd_start_logging(struct wiphy *wiphy,
 
 	ret = woal_start_logging(priv, ring_name, log_level, flags, time_intval,
 				 threshold);
-	if (ret < 0) {
+	if (ret < 0)
 		PRINTM(MERROR, "Start_logging is failed ret: %d\n", ret);
-	}
 done:
 	LEAVE();
 	return ret;
@@ -1107,14 +1237,14 @@ woal_trigger_get_ring_data(moal_private *priv, char *ring_name)
 
 	ring_id = woal_get_ring_id_by_name(priv, ring_name);
 	if (!VALID_RING(ring_id)) {
-		PRINTM(MERROR, "invalid ring_id \n");
+		PRINTM(MERROR, "invalid ring_id\n");
 		ret = -EINVAL;
 		goto done;
 	}
 
 	ring_buffer = (wifi_ring_buffer *) priv->rings[ring_id];
 	if (!ring_buffer) {
-		PRINTM(MERROR, "invalid ring_buffer \n");
+		PRINTM(MERROR, "invalid ring_buffer\n");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -1139,8 +1269,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_get_ring_data(struct wiphy *wiphy,
-				   struct wireless_dev *wdev, const void *data,
-				   int len)
+				   struct wireless_dev *wdev,
+				   const void *data, int len)
 {
 	int ret = 0, rem, type;
 	char ring_name[RING_NAME_MAX] = { 0 };
@@ -1165,9 +1295,8 @@ woal_cfg80211_subcmd_get_ring_data(struct wiphy *wiphy,
 	}
 
 	ret = woal_trigger_get_ring_data(priv, ring_name);
-	if (ret < 0) {
+	if (ret < 0)
 		PRINTM(MERROR, "trigger_get_data failed ret:%d\n", ret);
-	}
 
 done:
 	LEAVE();
@@ -1192,7 +1321,6 @@ woal_ring_reset(wifi_ring_buffer * ring)
 	memset(ring->ring_buf, 0, ring->ring_size);
 
 	LEAVE();
-	return;
 }
 
 /**
@@ -1245,9 +1373,8 @@ woal_get_ring_next_entry(wifi_ring_buffer * ring, t_u32 offset)
 		LEAVE();
 		return 0;
 	}
-	next_entry =
-		(wifi_ring_buffer_entry *) (ring->ring_buf + offset +
-					    ENTRY_LENGTH(entry));
+	next_entry = (wifi_ring_buffer_entry *) (ring->ring_buf + offset +
+						 ENTRY_LENGTH(entry));
 	if (!next_entry->entry_size) {
 		/* move to head */
 		LEAVE();
@@ -1284,7 +1411,8 @@ woal_ring_pull_data(moal_private *priv, int ring_id, void *data, t_s32 buf_len)
 		hdr = woal_get_ring_entry(ring, ring->rp);
 		if (buf_left < ENTRY_LENGTH(hdr))
 			break;
-		memcpy(data, hdr, ENTRY_LENGTH(hdr));
+		moal_memcpy_ext(priv->phandle, data, hdr, ENTRY_LENGTH(hdr),
+				buf_left);
 		r_len += ENTRY_LENGTH(hdr);
 		data += ENTRY_LENGTH(hdr);
 		buf_left -= ENTRY_LENGTH(hdr);
@@ -1314,8 +1442,8 @@ woal_ring_pull_data(moal_private *priv, int ring_id, void *data, t_s32 buf_len)
  * @return      0: success  1: fail
  */
 int
-woal_ring_buffer_data_vendor_event(IN moal_private *priv, IN int ring_id,
-				   IN t_u8 *data, IN int len,
+woal_ring_buffer_data_vendor_event(moal_private *priv, int ring_id,
+				   t_u8 *data, int len,
 				   wifi_ring_buffer_status * ring_status)
 {
 	struct wiphy *wiphy = NULL;
@@ -1326,22 +1454,21 @@ woal_ring_buffer_data_vendor_event(IN moal_private *priv, IN int ring_id,
 	ENTER();
 
 	if (!priv || !priv->wdev || !priv->wdev->wiphy) {
-		PRINTM(MERROR, "priv is null \n");
+		PRINTM(MERROR, "priv is null\n");
 		ret = -EINVAL;
 		goto done;
 	}
 	wiphy = priv->wdev->wiphy;
-	PRINTM(MEVENT, "woal_ring_buffer_data_vendor_event ring_id:%d\n",
-	       ring_id);
+	PRINTM(MEVENT, "%s ring_id:%d\n", __func__, ring_id);
 	event_id = woal_get_event_id(event_wifi_logger_ring_buffer_data);
 	if (event_max == event_id) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		ret = -EINVAL;
 		goto done;
 	}
 
 /**allocate skb*/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
 	skb = cfg80211_vendor_event_alloc(wiphy, priv->wdev,
 					  len + sizeof(wifi_ring_buffer_status),
 					  event_id, GFP_ATOMIC);
@@ -1361,7 +1488,7 @@ woal_ring_buffer_data_vendor_event(IN moal_private *priv, IN int ring_id,
 	DBG_HEXDUMP(MEVT_D, "ring_buffer_data", data, len);
 	nla_put(skb, ATTR_RING_BUFFER, len, data);
 
-    /**send event*/
+	/**send event*/
 	cfg80211_vendor_event(skb, GFP_ATOMIC);
 
 done:
@@ -1381,10 +1508,12 @@ done:
  * @return void
  */
 static void
-woal_ring_data_send(moal_private *priv, int ring_id, const void *data,
-		    const t_u32 len, wifi_ring_buffer_status * ring_status)
+woal_ring_data_send(moal_private *priv, int ring_id,
+		    const void *data, const t_u32 len,
+		    wifi_ring_buffer_status * ring_status)
 {
 	struct net_device *ndev = priv->netdev;
+
 	ENTER();
 
 	if (!ndev)
@@ -1394,7 +1523,6 @@ woal_ring_data_send(moal_private *priv, int ring_id, const void *data,
 
 done:
 	LEAVE();
-	return;
 }
 
 /**
@@ -1452,8 +1580,8 @@ woal_ring_poll_worker(struct work_struct *work)
 	hdr = (wifi_ring_buffer_entry *) buf;
 	while (rlen > 0) {
 		ring_status.read_bytes += ENTRY_LENGTH(hdr);
-		woal_ring_data_send(priv, ringid, hdr, ENTRY_LENGTH(hdr),
-				    &ring_status);
+		woal_ring_data_send(priv, ringid, hdr,
+				    ENTRY_LENGTH(hdr), &ring_status);
 		rlen -= ENTRY_LENGTH(hdr);
 		hdr = (wifi_ring_buffer_entry *) ((void *)hdr +
 						  ENTRY_LENGTH(hdr));
@@ -1464,7 +1592,6 @@ exit:
 		schedule_delayed_work(&ring_info->work, ring_info->interval);
 
 	LEAVE();
-	return;
 }
 
 /**
@@ -1516,12 +1643,10 @@ woal_ring_push_data(moal_private *priv, int ring_id,
 			} else {
 				/* full, we should drop one entry */
 				w_entry =
-					(wifi_ring_buffer_entry *) (ring->
-								    ring_buf +
+					(wifi_ring_buffer_entry
+					 *) (ring->ring_buf + ring->rp);
+				ring->rp = woal_get_ring_next_entry(ring,
 								    ring->rp);
-				ring->rp =
-					woal_get_ring_next_entry(ring,
-								 ring->rp);
 				ring->ctrl.written_bytes -=
 					ENTRY_LENGTH(w_entry);
 				memset((u8 *)w_entry, 0, ENTRY_LENGTH(w_entry));
@@ -1534,10 +1659,10 @@ woal_ring_push_data(moal_private *priv, int ring_id,
 				break;
 			} else if (ring->ring_size - ring->wp < w_len) {
 				if (ring->rp == 0) {
-		    /** drop one entry */
-					w_entry =
-						(wifi_ring_buffer_entry
-						 *) (ring->ring_buf + ring->rp);
+					/** drop one entry */
+					w_entry = (wifi_ring_buffer_entry
+						   *) (ring->ring_buf +
+						       ring->rp);
 					ring->rp =
 						woal_get_ring_next_entry(ring,
 									 ring->
@@ -1554,14 +1679,12 @@ woal_ring_push_data(moal_private *priv, int ring_id,
 		}
 		if (ring->rp > ring->wp) {
 			if (ring->rp - ring->wp < w_len) {
-		/** drop one entry */
+				/** drop one entry */
 				w_entry =
-					(wifi_ring_buffer_entry *) (ring->
-								    ring_buf +
+					(wifi_ring_buffer_entry
+					 *) (ring->ring_buf + ring->rp);
+				ring->rp = woal_get_ring_next_entry(ring,
 								    ring->rp);
-				ring->rp =
-					woal_get_ring_next_entry(ring,
-								 ring->rp);
 				ring->ctrl.written_bytes -=
 					ENTRY_LENGTH(w_entry);
 				memset((u8 *)w_entry, 0, ENTRY_LENGTH(w_entry));
@@ -1576,16 +1699,18 @@ woal_ring_push_data(moal_private *priv, int ring_id,
 	if ((ring->wp + w_len) > ring->ring_size ||
 	    (ring->ctrl.written_bytes + w_len) > ring->ring_size) {
 		PRINTM(MERROR,
-		       "Ring push buffer overflow: rp=%d  wp=%d, write_bytes=%d \n",
+		       "Ring push buffer overflow: rp=%d  wp=%d, write_bytes=%d\n",
 		       ring->rp, ring->wp, ring->ctrl.written_bytes);
 		goto done;
 	}
 
 	w_entry = (wifi_ring_buffer_entry *) (ring->ring_buf + ring->wp);
 	/* header */
-	memcpy(w_entry, hdr, RING_ENTRY_SIZE);
+	moal_memcpy_ext(priv->phandle, w_entry, hdr, RING_ENTRY_SIZE,
+			ENTRY_LENGTH(w_entry));
 	/* payload */
-	memcpy((char *)w_entry + RING_ENTRY_SIZE, data, w_entry->entry_size);
+	moal_memcpy_ext(priv->phandle, (char *)w_entry + RING_ENTRY_SIZE, data,
+			w_entry->entry_size, w_entry->entry_size);
 	/* update write pointer */
 	ring->wp += w_len;
 	/* update statistics */
@@ -1623,11 +1748,12 @@ done:
  *  @return        0 - success
  */
 static int
-woal_init_ring_buffer_internal(moal_private *priv, void **ring, t_u16 ringIdx,
-			       t_u8 *name, t_u32 ring_sz)
+woal_init_ring_buffer_internal(moal_private *priv, void **ring,
+			       t_u16 ringIdx, t_u8 *name, t_u32 ring_sz)
 {
 	unsigned long flags;
 	wifi_ring_buffer *ring_buff;
+
 	ENTER();
 
 	*ring = vmalloc(sizeof(wifi_ring_buffer));
@@ -1650,7 +1776,8 @@ woal_init_ring_buffer_internal(moal_private *priv, void **ring, t_u16 ringIdx,
 	spin_lock_irqsave(&ring_buff->lock, flags);
 	ring_buff->rp = ring_buff->wp = 0;
 	INIT_DELAYED_WORK(&ring_buff->work, woal_ring_poll_worker);
-	memcpy(ring_buff->name, name, MIN(strlen(name), RING_NAME_MAX));
+	moal_memcpy_ext(priv->phandle, ring_buff->name, name, strlen(name),
+			RING_NAME_MAX - 1);
 	ring_buff->name[RING_NAME_MAX - 1] = 0;
 	ring_buff->ring_id = ringIdx;
 	ring_buff->ring_size = ring_sz;
@@ -1698,6 +1825,7 @@ woal_deinit_ring_buffer(moal_private *priv)
 	enum ring_state ring_state = RING_STOP;
 	unsigned long lock_flags = 0;
 	wifi_ring_buffer *ring_buff;
+
 	ENTER();
 
 	for (i = 0; i < RING_ID_MAX - 1; i++) {
@@ -1706,9 +1834,8 @@ woal_deinit_ring_buffer(moal_private *priv)
 			continue;
 		spin_lock_irqsave(&ring_buff->lock, lock_flags);
 		ring_state = ring_buff->state;
-		if (ring_state == RING_ACTIVE) {
+		if (ring_state == RING_ACTIVE)
 			ring_buff->state = RING_STOP;
-		}
 		spin_unlock_irqrestore(&ring_buff->lock, lock_flags);
 		if (ring_state == RING_ACTIVE)
 			cancel_delayed_work_sync(&ring_buff->work);
@@ -1767,22 +1894,31 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 			tlv = (tlv_log *) pos;
 			tlv->tag = WIFI_TAG_VENDOR_SPECIFIC;
 			tlv->length = MLAN_MAC_ADDR_LENGTH / 2;
-			memcpy(tlv->value, pbss_desc->oui, tlv->length);
+			moal_memcpy_ext(priv->phandle, tlv->value,
+					pbss_desc->oui, tlv->length,
+					sizeof(event_buf) -
+					(tlv->value - event_buf));
 			msg_hdr.entry_size += tlv->length + TLV_LOG_HEADER_LEN;
 			pos = pos + tlv->length + TLV_LOG_HEADER_LEN;
 
 			tlv = (tlv_log *) pos;
 			tlv->tag = WIFI_TAG_BSSID;
 			tlv->length = sizeof(pbss_desc->bssid);
-			memcpy(tlv->value, pbss_desc->bssid,
-			       sizeof(pbss_desc->bssid));
+			moal_memcpy_ext(priv->phandle, tlv->value,
+					pbss_desc->bssid,
+					sizeof(pbss_desc->bssid),
+					sizeof(event_buf) - (tlv->value -
+							     event_buf));
 			msg_hdr.entry_size += tlv->length + TLV_LOG_HEADER_LEN;
 			pos = pos + tlv->length + TLV_LOG_HEADER_LEN;
 
 			tlv = (tlv_log *) pos;
 			tlv->tag = WIFI_TAG_SSID;
 			tlv->length = strlen(pbss_desc->ssid);
-			memcpy(tlv->value, pbss_desc->ssid, tlv->length);
+			moal_memcpy_ext(priv->phandle, tlv->value,
+					pbss_desc->ssid, tlv->length,
+					sizeof(event_buf) -
+					(tlv->value - event_buf));
 			msg_hdr.entry_size += tlv->length + TLV_LOG_HEADER_LEN;
 			pos = pos + tlv->length + TLV_LOG_HEADER_LEN;
 
@@ -1790,8 +1926,10 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 				tlv = (tlv_log *) pos;
 				tlv->tag = WIFI_TAG_RSSI;
 				tlv->length = sizeof(pbss_desc->rssi);
-				memcpy(tlv->value, &pbss_desc->rssi,
-				       tlv->length);
+				moal_memcpy_ext(priv->phandle, tlv->value,
+						&pbss_desc->rssi, tlv->length,
+						sizeof(event_buf) -
+						(tlv->value - event_buf));
 				msg_hdr.entry_size +=
 					tlv->length + TLV_LOG_HEADER_LEN;
 				pos = pos + tlv->length + TLV_LOG_HEADER_LEN;
@@ -1800,8 +1938,11 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 				tlv = (tlv_log *) pos;
 				tlv->tag = WIFI_TAG_CHANNEL;
 				tlv->length = sizeof(pbss_desc->channel);
-				memcpy(tlv->value, &pbss_desc->channel,
-				       sizeof(pbss_desc->channel));
+				moal_memcpy_ext(priv->phandle, tlv->value,
+						&pbss_desc->channel,
+						sizeof(pbss_desc->channel),
+						sizeof(event_buf) -
+						(tlv->value - event_buf));
 				msg_hdr.entry_size +=
 					tlv->length + TLV_LOG_HEADER_LEN;
 			}
@@ -1816,6 +1957,7 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 	case MLAN_EVENT_ID_DRV_ASSOC_FAILURE_LOGGER:
 		if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA) {
 			int status_code = *(int *)pmevent->event_buf;
+
 			memset(&msg_hdr, 0, sizeof(msg_hdr));
 			msg_hdr.flags |= RING_BUFFER_ENTRY_FLAGS_HAS_TIMESTAMP;
 			msg_hdr.type = ENTRY_TYPE_CONNECT_EVENT;
@@ -1827,7 +1969,10 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 			tlv = (tlv_log *) pos;
 			tlv->tag = WIFI_TAG_STATUS;
 			tlv->length = sizeof(status_code);
-			memcpy(tlv->value, &status_code, sizeof(status_code));
+			moal_memcpy_ext(priv->phandle, tlv->value, &status_code,
+					sizeof(status_code),
+					sizeof(event_buf) -
+					(tlv->value - event_buf));
 			msg_hdr.entry_size += tlv->length + 4;
 			msg_hdr.entry_size += sizeof(connectivity_event->event);
 			woal_ring_push_data(priv, ring_id, &msg_hdr,
@@ -1837,6 +1982,7 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 	case MLAN_EVENT_ID_DRV_DISCONNECT_LOGGER:
 		if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA) {
 			t_u16 reason_code = *(t_u16 *)pmevent->event_buf;
+
 			memset(&msg_hdr, 0, sizeof(msg_hdr));
 			msg_hdr.flags |= RING_BUFFER_ENTRY_FLAGS_HAS_TIMESTAMP;
 			msg_hdr.type = ENTRY_TYPE_CONNECT_EVENT;
@@ -1848,7 +1994,10 @@ woal_ring_event_logger(moal_private *priv, int ring_id, pmlan_event pmevent)
 			tlv = (tlv_log *) pos;
 			tlv->tag = WIFI_TAG_REASON_CODE;
 			tlv->length = sizeof(reason_code);
-			memcpy(tlv->value, &reason_code, sizeof(reason_code));
+			moal_memcpy_ext(priv->phandle, tlv->value, &reason_code,
+					sizeof(reason_code),
+					sizeof(event_buf) -
+					(tlv->value - event_buf));
 			msg_hdr.entry_size += tlv->length + 4;
 			msg_hdr.entry_size += sizeof(connectivity_event->event);
 			woal_ring_push_data(priv, ring_id, &msg_hdr,
@@ -1872,8 +2021,8 @@ done:
  * @return      0: success  1: fail
  */
 int
-woal_wake_reason_vendor_event(IN moal_private *priv,
-			      IN mlan_ds_hs_wakeup_reason wake_reason)
+woal_wake_reason_vendor_event(moal_private *priv,
+			      mlan_ds_hs_wakeup_reason wake_reason)
 {
 	struct wiphy *wiphy = NULL;
 	struct sk_buff *skb = NULL;
@@ -1883,7 +2032,7 @@ woal_wake_reason_vendor_event(IN moal_private *priv,
 	ENTER();
 
 	if (!priv || !priv->wdev || !priv->wdev->wiphy) {
-		PRINTM(MERROR, "priv is null \n");
+		PRINTM(MERROR, "priv is null\n");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -1891,13 +2040,13 @@ woal_wake_reason_vendor_event(IN moal_private *priv,
 
 	event_id = woal_get_event_id(event_wake_reason_report);
 	if (event_max == event_id) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		ret = MLAN_STATUS_FAILURE;
 		goto done;
 	}
 
 /**allocate skb*/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
 	skb = cfg80211_vendor_event_alloc(wiphy, priv->wdev,
 					  sizeof(wake_reason.hs_wakeup_reason),
 					  event_id, GFP_ATOMIC);
@@ -1916,7 +2065,7 @@ woal_wake_reason_vendor_event(IN moal_private *priv,
 	PRINTM(MINFO, "wake_reason.hs_wakeup_reason = %d\n",
 	       wake_reason.hs_wakeup_reason);
 	nla_put_u16(skb, ATTR_WAKE_REASON_STAT, wake_reason.hs_wakeup_reason);
-    /**send event*/
+	/**send event*/
 	cfg80211_vendor_event(skb, GFP_ATOMIC);
 
 done:
@@ -1938,6 +2087,7 @@ woal_wake_reason_logger(moal_private *priv,
 			mlan_ds_hs_wakeup_reason wake_reason)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = woal_wake_reason_vendor_event(priv, wake_reason);
@@ -1961,15 +2111,17 @@ woal_cfg80211_subcmd_start_packet_fate_monitor(struct wiphy *wiphy,
 					       struct wireless_dev *wdev,
 					       const void *data, int data_len)
 {
-	struct net_device *dev = wdev->netdev;
-	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
 	struct sk_buff *skb = NULL;
 	t_u32 reply_len = 0;
 	int ret = 0;
 
+	/* TODO: Tune pkt fate monitor for TP, Disabling it for now */
+	// struct net_device *dev = wdev->netdev;
+	// moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
+
 	ENTER();
 
-    /** Allocate skb for cmd reply*/
+	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, reply_len);
 	if (!skb) {
 		PRINTM(MERROR, "allocate memory fail for vendor cmd\n");
@@ -1977,7 +2129,8 @@ woal_cfg80211_subcmd_start_packet_fate_monitor(struct wiphy *wiphy,
 		goto done;
 	}
 
-	priv->pkt_fate_monitor_enable = MTRUE;
+	/* TODO: Tune pkt fate monitor for TP, Disabling it for now */
+	// priv->pkt_fate_monitor_enable = MTRUE;
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 
@@ -2003,10 +2156,11 @@ done:
  * @return      0: success  1: fail
  */
 int
-woal_packet_fate_vendor_event(IN moal_private *priv,
-			      IN packet_fate_packet_type pkt_type, IN t_u8 fate,
-			      IN frame_type payload_type, IN t_u32 drv_ts_usec,
-			      IN t_u32 fw_ts_usec, IN t_u8 *data, IN t_u32 len)
+woal_packet_fate_vendor_event(moal_private *priv,
+			      packet_fate_packet_type pkt_type,
+			      t_u8 fate, frame_type payload_type,
+			      t_u32 drv_ts_usec, t_u32 fw_ts_usec,
+			      t_u8 *data, t_u32 len)
 {
 	struct wiphy *wiphy = NULL;
 	struct sk_buff *skb = NULL;
@@ -2017,7 +2171,7 @@ woal_packet_fate_vendor_event(IN moal_private *priv,
 	ENTER();
 
 	if (!priv || !priv->wdev || !priv->wdev->wiphy) {
-		PRINTM(MERROR, "priv is null \n");
+		PRINTM(MERROR, "priv is null\n");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -2025,13 +2179,13 @@ woal_packet_fate_vendor_event(IN moal_private *priv,
 
 	event_id = woal_get_event_id(event_packet_fate_monitor);
 	if (event_max == event_id) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		ret = MLAN_STATUS_FAILURE;
 		goto done;
 	}
 
 /**allocate skb*/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
 	skb = cfg80211_vendor_event_alloc(wiphy, priv->wdev,
 					  len + sizeof(PACKET_FATE_REPORT),
 					  event_id, GFP_ATOMIC);
@@ -2075,7 +2229,7 @@ woal_packet_fate_vendor_event(IN moal_private *priv,
 	nla_put(skb, ATTR_PACKET_FATE_DATA, len, data);
 	DBG_HEXDUMP(MCMD_D, "packet_fate_data", data, len);
 
-    /**send event*/
+	/**send event*/
 	cfg80211_vendor_event(skb, GFP_ATOMIC);
 
 done:
@@ -2099,8 +2253,9 @@ done:
  * @return      0: success  -1: fail
  */
 int
-woal_packet_fate_monitor(moal_private *priv, packet_fate_packet_type pkt_type,
-			 t_u8 fate, frame_type payload_type, t_u32 drv_ts_usec,
+woal_packet_fate_monitor(moal_private *priv,
+			 packet_fate_packet_type pkt_type, t_u8 fate,
+			 frame_type payload_type, t_u32 drv_ts_usec,
 			 t_u32 fw_ts_usec, t_u8 *data, t_u32 len)
 {
 	int ret = 0;
@@ -2172,9 +2327,8 @@ woal_deinit_packet_filter(moal_private *priv)
 
 	pkt_filter = priv->packet_filter;
 
-	if (!unlikely(pkt_filter)) {
+	if (!unlikely(pkt_filter))
 		goto done;
-	}
 
 	spin_lock_irqsave(&pkt_filter->lock, flags);
 	pkt_filter->state = PACKET_FILTER_STATE_INIT;
@@ -2236,8 +2390,8 @@ woal_cfg80211_subcmd_set_packet_filter(struct wiphy *wiphy,
 		case ATTR_PACKET_FILTER_PROGRAM:
 			spin_lock_irqsave(&pkt_filter->lock, flags);
 			strncpy(pkt_filter->packet_filter_program,
-				nla_data(iter), MIN(packet_filter_len,
-						    nla_len(iter)));
+				nla_data(iter),
+				MIN(packet_filter_len, nla_len(iter)));
 			pkt_filter->packet_filter_len =
 				MIN(packet_filter_len, nla_len(iter));
 			pkt_filter->state = PACKET_FILTER_STATE_START;
@@ -2291,10 +2445,9 @@ woal_cfg80211_subcmd_get_packet_filter_capability(struct wiphy *wiphy,
 		goto done;
 	}
 
-	reply_len =
-		sizeof(pkt_filter->packet_filter_version) +
+	reply_len = sizeof(pkt_filter->packet_filter_version) +
 		sizeof(pkt_filter->packet_filter_max_len);
-    /** Allocate skb for cmd reply*/
+	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, reply_len);
 	if (!skb) {
 		PRINTM(MERROR, "allocate memory fail for vendor cmd\n");
@@ -2302,15 +2455,16 @@ woal_cfg80211_subcmd_get_packet_filter_capability(struct wiphy *wiphy,
 		goto done;
 	}
 
-	if (nla_put_u32
-	    (skb, ATTR_PACKET_FILTER_VERSION, pkt_filter->packet_filter_version)
-	    || nla_put_u32(skb, ATTR_PACKET_FILTER_MAX_LEN,
-			   pkt_filter->packet_filter_max_len)) {
+	if (nla_put_u32(skb, ATTR_PACKET_FILTER_VERSION,
+			pkt_filter->packet_filter_version) ||
+	    nla_put_u32(skb, ATTR_PACKET_FILTER_MAX_LEN,
+			pkt_filter->packet_filter_max_len)) {
 		PRINTM(MERROR, "nla_put failed!\n");
 		kfree_skb(skb);
 		ret = -ENOMEM;
 		goto done;
 	}
+
 	ret = cfg80211_vendor_cmd_reply(skb);
 
 	if (ret)
@@ -2321,32 +2475,34 @@ done:
 }
 
 /**
- * Perform a packet filtering program over a packet.
+ * Runs a packet filtering program over a packet.
  *
  * @param program the program bytecode.
  * @param program_len the length of {@code apf_program} in bytes.
  * @param packet the packet bytes, starting from the 802.3 header and not
  *               including any CRC bytes at the end.
- * @param pkt_len the length of {@code packet} in bytes.
+ * @param packet_len the length of {@code packet} in bytes.
  * @param filter_age the number of seconds since the filter was programmed.
  *
  * @return non-zero if packet should be passed to AP, zero if
  *         packet should be dropped.
  */
 int
-process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
-	       t_u32 pkt_len, t_u32 filter_age)
+process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *packet,
+	       t_u32 packet_len, t_u32 filter_age)
 {
 	/* Program counter */
 	t_u32 pc = 0;
-	/* Memory values */
+	/* Memory slot values. */
 	t_u32 mem[MEM_ITEMS] = { };
-	/* Register values */
+	/* Register values. */
 	t_u32 reg[2] = { };
-	/* Number of instructions remaining to execute. This is done to make sure
-	 * there is upper bound on execution time. It should never be hit and is only for
-	 * safety. Initialize to the number of bytes in the program which is an
-	 * upper bound on the number of instructions in the program. */
+	/* Number of instructions remaining to execute. This is done to make
+	 * sure there is upper bound on execution time. It should never be hit
+	 * and is only for safety. Initialize to the number of bytes in the
+	 * program which is an
+	 * upper bound on the number of instructions in the program.
+	 */
 	t_u32 instructions_left = program_len;
 
 	t_u8 bytecode;
@@ -2366,39 +2522,43 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 /* Is offset within program bounds? */
 #define WITHIN_PROGRAM_BOUNDS(p) (ENFORCE_UNSIGNED(p) && (p) < program_len)
 /* Is offset within packet bounds? */
-#define WITHIN_PKT_BOUNDS(p) (ENFORCE_UNSIGNED(p) && (p) < pkt_len)
+#define WITHIN_PACKET_BOUNDS(p) (ENFORCE_UNSIGNED(p) && (p) < packet_len)
 /* Verify an internal condition and accept packet if it fails. */
-#define ASSERT_RETURN(c) if (!(c)) return PASS_PKT
+#define ASSERT_RETURN(c)						       \
+do {									       \
+	if (!(c))							       \
+		return PASS_PKT;					       \
+} while (0)
 /* If not within program bounds, Accept the packet */
 #define ASSERT_WITHIN_PROGRAM_BOUNDS(p) ASSERT_RETURN(WITHIN_PROGRAM_BOUNDS(p))
 /* If not within packet bounds, Accept the packet */
-#define ASSERT_WITHIN_PKT_BOUNDS(p) ASSERT_RETURN(WITHIN_PKT_BOUNDS(p))
+#define ASSERT_WITHIN_PKT_BOUNDS(p) ASSERT_RETURN(WITHIN_PACKET_BOUNDS(p))
 /* If not within program or not ahead of program counter, Accept the packet */
-#define ASSERT_FORWARD_WITHIN_PROGRAM(p) ASSERT_RETURN(WITHIN_PROGRAM_BOUNDS(p) && (p) >= pc)
+#define ASSERT_FORWARD_WITHIN_PROGRAM(p)                                       \
+	ASSERT_RETURN(WITHIN_PROGRAM_BOUNDS(p) && (p) >= pc)
 
 	/* Fill in pre-filled memory slot values. */
-	mem[MEM_OFFSET_PKT_SIZE] = pkt_len;
+	mem[MEM_OFFSET_PKT_SIZE] = packet_len;
 	mem[MEM_OFFSET_FILTER_AGE] = filter_age;
 	ASSERT_WITHIN_PKT_BOUNDS(APF_FRAME_HEADER_SIZE);
 
 	/* Only populate if IP version is IPv4. */
-	if ((pkt[APF_FRAME_HEADER_SIZE] & 0xf0) == 0x40) {
+	if ((packet[APF_FRAME_HEADER_SIZE] & 0xf0) == 0x40) {
 		mem[MEM_OFFSET_IPV4_HEADER_SIZE] =
-			(pkt[APF_FRAME_HEADER_SIZE] & 15) * 4;
+			(packet[APF_FRAME_HEADER_SIZE] & 15) * 4;
 	}
 
 	do {
-		if (pc == program_len) {
+		if (pc == program_len)
 			return PASS_PKT;
-		} else if (pc == (program_len + 1)) {
+		else if (pc == (program_len + 1))
 			return DROP_PKT;
-		}
 		ASSERT_WITHIN_PROGRAM_BOUNDS(pc);
 		bytecode = program[pc++];
 		opcode = GET_OPCODE(bytecode);
 		reg_num = GET_REGISTER(bytecode);
 
-		/* All instructions have immediate fields, load them here now */
+		/* All instructions have immediate fields, so load them now. */
 		len_field = GET_IMM_LENGTH(bytecode);
 		imm = 0;
 		sign_imm = 0;
@@ -2424,7 +2584,9 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 		case NXP_LDWX_OPCODE:{
 				offs = imm;
 				if (opcode >= NXP_LDBX_OPCODE) {
-					/* Note: this can overflow and actually decrease offs. */
+					/* Note: this can overflow and actually decrease
+					 * offs.
+					 */
 					offs += reg[1];
 				}
 				ASSERT_WITHIN_PKT_BOUNDS(offs);
@@ -2441,8 +2603,10 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 				case NXP_LDWX_OPCODE:
 					load_size = 4;
 					break;
-					/* Immediately enclosing switch statement guarantees
-					 * opcode cannot be any other value. */
+					/* Immediately enclosing switch statement
+					 * guarantees
+					 * opcode cannot be any other value.
+					 */
 				}
 				end_offs = offs + (load_size - 1);
 				/* Catch overflow/wrap-around. */
@@ -2450,12 +2614,14 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 				ASSERT_WITHIN_PKT_BOUNDS(end_offs);
 				val = 0;
 				while (load_size--)
-					val = (val << 8) | pkt[offs++];
+					val = (val << 8) | packet[offs++];
 				REG = val;
 				break;
 			}
 		case NXP_JMP_OPCODE:
-			/* This can jump backwards. Infinite looping prevented by instructions_left. */
+			/* This can jump backwards. Infinite looping prevented
+			 * by instructions_remaining.
+			 */
 			pc += imm;
 			break;
 		case NXP_JEQ_OPCODE:
@@ -2466,11 +2632,13 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 		case NXP_JNEBS_OPCODE:{
 				/* Load second immediate field. */
 				t_u32 cmp_imm = 0;
+
 				if (reg_num == 1) {
 					cmp_imm = reg[1];
 				} else if (len_field != 0) {
 					t_u32 cmp_imm_len =
 						1 << (len_field - 1);
+
 					ASSERT_FORWARD_WITHIN_PROGRAM(pc +
 								      cmp_imm_len
 								      - 1);
@@ -2504,7 +2672,8 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 						/* cmp_imm is size in bytes of data to compare.
 						 * pc is offset of program bytes to compare.
 						 * imm is jump target offset.
-						 * REG is offset of pkt bytes to compare. */
+						 * REG is offset of packet bytes to compare.
+						 */
 						ASSERT_FORWARD_WITHIN_PROGRAM(pc
 									      +
 									      cmp_imm
@@ -2518,7 +2687,7 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 						ASSERT_WITHIN_PKT_BOUNDS
 							(last_pkt_offs);
 						if (memcmp
-						    (program + pc, pkt + REG,
+						    (program + pc, packet + REG,
 						     cmp_imm))
 							pc += imm;
 						/* skip past comparison bytes */
@@ -2537,6 +2706,7 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 		case NXP_DIV_OPCODE:{
 				const t_u32 div_operand =
 					reg_num ? reg[1] : imm;
+
 				ASSERT_RETURN(div_operand);
 				reg[0] /= div_operand;
 				break;
@@ -2561,8 +2731,11 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 			break;
 		case NXP_EXT_OPCODE:
 			if (
-/* If LDM_EXT_OPCODE is 0 and imm is compared with it, a compiler error will result,
- * instead just enforce that imm is unsigned (so it's always greater or equal to 0). */
+/* If LDM_EXT_OPCODE is 0 and imm is compared with it, a compiler error will
+ * result,
+ * instead just enforce that imm is unsigned (so it's always greater or equal to
+ * 0).
+ */
 #if NXP_LDM_EXT_OPCODE == 0
 				   ENFORCE_UNSIGNED(imm) &&
 #else
@@ -2583,6 +2756,7 @@ process_packet(const t_u8 *program, t_u32 program_len, const t_u8 *pkt,
 					break;
 				case NXP_SWAP_EXT_OPCODE:{
 						t_u32 tmp = REG;
+
 						REG = OTHER_REG;
 						OTHER_REG = tmp;
 						break;
@@ -2657,7 +2831,7 @@ done:
  * @return      0: success  1: fail
  */
 int
-woal_nan_vendor_event(IN moal_private *priv, nan_cmd cmd)
+woal_nan_vendor_event(moal_private *priv, nan_cmd cmd)
 {
 	struct wiphy *wiphy = NULL;
 	struct sk_buff *skb = NULL;
@@ -2667,7 +2841,7 @@ woal_nan_vendor_event(IN moal_private *priv, nan_cmd cmd)
 	ENTER();
 
 	if (!priv || !priv->wdev || !priv->wdev->wiphy) {
-		PRINTM(MERROR, "priv is null \n");
+		PRINTM(MERROR, "priv is null\n");
 		ret = -EINVAL;
 		goto done;
 	}
@@ -2675,13 +2849,13 @@ woal_nan_vendor_event(IN moal_private *priv, nan_cmd cmd)
 	PRINTM(MEVENT, "woal_nan_worker\n");
 	event_id = woal_get_event_id(event_nan_cb);
 	if (event_max == event_id) {
-		PRINTM(MERROR, "Not find this event %d \n", event_id);
+		PRINTM(MERROR, "Not find this event %d\n", event_id);
 		ret = -EINVAL;
 		goto done;
 	}
 
 /**allocate skb*/
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
 	skb = cfg80211_vendor_event_alloc(wiphy, priv->wdev, sizeof(nan_cmd),
 					  event_id, GFP_ATOMIC);
 #else
@@ -2697,16 +2871,16 @@ woal_nan_vendor_event(IN moal_private *priv, nan_cmd cmd)
 
 	nla_put(skb, ATTR_NAN_FAKE, sizeof(NanHeader_Ext), &cmd.nan_header_ext);
 
-	if (cmd.indicate_enable) {
+	if (cmd.indicate_enable)
 		nla_put_u32(skb, ATTR_NAN_IND, cmd.indicate_type);
-	}
 
-	PRINTM(MCMND, "woal_nan_vendor_event %d, %d, %d,%d\n",
+	PRINTM(MCMND, "%s %d, %d, %d,%d\n",
+	       __func__,
 	       cmd.nan_header_ext.nan_header.MsgId,
 	       cmd.nan_header_ext.nan_header.transactionId, cmd.indicate_enable,
 	       cmd.indicate_type);
 
-    /**send event*/
+	/**send event*/
 	cfg80211_vendor_event(skb, GFP_ATOMIC);
 
 done:
@@ -2729,6 +2903,7 @@ woal_nan_worker(struct work_struct *work)
 	moal_private *priv = nan->priv;
 	nan_cmd cmd;
 	int ret;
+
 	ENTER();
 
 	PRINTM(MCMND, "fifo len: %u\n", kfifo_len(&nan->cmd_fifo));
@@ -2752,7 +2927,6 @@ woal_nan_worker(struct work_struct *work)
 
 done:
 	LEAVE();
-	return;
 }
 
 /**
@@ -2768,6 +2942,7 @@ woal_init_nan(moal_private *priv)
 	int ret = 0;
 	nan_cb *nan;
 	moal_handle *phandle = priv->phandle;
+
 	ENTER();
 
 	nan = vmalloc(sizeof(nan_cb));
@@ -2795,12 +2970,8 @@ woal_init_nan(moal_private *priv)
 	}
 
 	priv->nan_cb = nan;
-	LEAVE();
-	return ret;
 
 done:
-	if (nan)
-		vfree(nan);
 	LEAVE();
 	return ret;
 }
@@ -2822,9 +2993,8 @@ woal_deinit_nan(moal_private *priv)
 
 	nan = priv->nan_cb;
 
-	if (!unlikely(nan)) {
+	if (!unlikely(nan))
 		goto done;
-	}
 
 	cancel_delayed_work_sync(&nan->response_work);
 
@@ -2869,7 +3039,7 @@ nan_handler(struct wiphy *wiphy, struct wireless_dev *wdev,
 	ENTER();
 
 	memset(&cmd, 0, sizeof(nan_cmd));
-    /** Allocate skb for cmd reply*/
+	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, reply_len);
 	if (!skb) {
 		PRINTM(MERROR, "allocate memory fail for vendor cmd\n");
@@ -2887,7 +3057,8 @@ nan_handler(struct wiphy *wiphy, struct wireless_dev *wdev,
 		type = nla_type(iter);
 		switch (type) {
 		case ATTR_NAN_FAKE:
-			memcpy(&cmd, nla_data(iter), sizeof(NanHeader));
+			moal_memcpy_ext(priv->phandle, &cmd, nla_data(iter),
+					sizeof(NanHeader), sizeof(nan_cmd));
 			PRINTM(MCMND, "ATTR_NAN_FAKE %d, %d\n",
 			       cmd.nan_header_ext.nan_header.MsgId,
 			       cmd.nan_header_ext.nan_header.transactionId);
@@ -2944,10 +3115,11 @@ done:
  */
 static int
 woal_cfg80211_subcmd_nan_enable_req(struct wiphy *wiphy,
-				    struct wireless_dev *wdev, const void *data,
-				    int len)
+				    struct wireless_dev *wdev,
+				    const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -2972,6 +3144,7 @@ woal_cfg80211_subcmd_nan_disable_req(struct wiphy *wiphy,
 				     const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -2996,6 +3169,7 @@ woal_cfg80211_subcmd_nan_publish_req(struct wiphy *wiphy,
 				     const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3020,6 +3194,7 @@ woal_cfg80211_subcmd_nan_publish_cancel(struct wiphy *wiphy,
 					const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3044,6 +3219,7 @@ woal_cfg80211_subcmd_nan_subscribe_req(struct wiphy *wiphy,
 				       const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3068,6 +3244,7 @@ woal_cfg80211_subcmd_nan_subscribe_cancel(struct wiphy *wiphy,
 					  const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3092,6 +3269,7 @@ woal_cfg80211_subcmd_nan_trasmit_followup(struct wiphy *wiphy,
 					  const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3112,10 +3290,11 @@ woal_cfg80211_subcmd_nan_trasmit_followup(struct wiphy *wiphy,
  */
 static int
 woal_cfg80211_subcmd_nan_stats_req(struct wiphy *wiphy,
-				   struct wireless_dev *wdev, const void *data,
-				   int len)
+				   struct wireless_dev *wdev,
+				   const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3136,10 +3315,11 @@ woal_cfg80211_subcmd_nan_stats_req(struct wiphy *wiphy,
  */
 static int
 woal_cfg80211_subcmd_nan_config_req(struct wiphy *wiphy,
-				    struct wireless_dev *wdev, const void *data,
-				    int len)
+				    struct wireless_dev *wdev,
+				    const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3159,10 +3339,12 @@ woal_cfg80211_subcmd_nan_config_req(struct wiphy *wiphy,
  * @return      0: success  -1: fail
  */
 static int
-woal_cfg80211_subcmd_nan_tca_req(struct wiphy *wiphy, struct wireless_dev *wdev,
+woal_cfg80211_subcmd_nan_tca_req(struct wiphy *wiphy,
+				 struct wireless_dev *wdev,
 				 const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3187,6 +3369,7 @@ woal_cfg80211_subcmd_nan_beacon_sdf_payload(struct wiphy *wiphy,
 					    const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3211,6 +3394,7 @@ woal_cfg80211_subcmd_nan_get_version(struct wiphy *wiphy,
 				     const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3235,6 +3419,7 @@ woal_cfg80211_subcmd_nan_get_capability(struct wiphy *wiphy,
 					const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3259,6 +3444,7 @@ woal_cfg80211_subcmd_nan_data_if_create(struct wiphy *wiphy,
 					const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3283,6 +3469,7 @@ woal_cfg80211_subcmd_nan_data_if_delete(struct wiphy *wiphy,
 					const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3307,6 +3494,7 @@ woal_cfg80211_subcmd_nan_data_req_initor(struct wiphy *wiphy,
 					 const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3331,6 +3519,7 @@ woal_cfg80211_subcmd_nan_data_indi_resp(struct wiphy *wiphy,
 					const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3351,10 +3540,11 @@ woal_cfg80211_subcmd_nan_data_indi_resp(struct wiphy *wiphy,
  */
 static int
 woal_cfg80211_subcmd_nan_data_end(struct wiphy *wiphy,
-				  struct wireless_dev *wdev, const void *data,
-				  int len)
+				  struct wireless_dev *wdev,
+				  const void *data, int len)
 {
 	int ret = 0;
+
 	ENTER();
 
 	ret = nan_handler(wiphy, wdev, data, len);
@@ -3378,6 +3568,7 @@ woal_init_wifi_hal(moal_private *priv)
 	priv->pkt_fate_monitor_enable = MFALSE;
 	woal_init_packet_filter(priv);
 	woal_init_nan(priv);
+
 	LEAVE();
 	return 0;
 }
@@ -3397,6 +3588,7 @@ woal_deinit_wifi_hal(moal_private *priv)
 	priv->pkt_fate_monitor_enable = MFALSE;
 	woal_deinit_packet_filter(priv);
 	woal_deinit_nan(priv);
+
 	LEAVE();
 	return 0;
 }
@@ -3462,9 +3654,8 @@ woal_cfg80211_subcmd_get_correlated_time(struct wiphy *wiphy,
 	nla_put_nohdr(skb, length, info);
 
 	err = cfg80211_vendor_cmd_reply(skb);
-	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
-	}
+	if (unlikely(err))
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
 
 done:
 	if (status != MLAN_STATUS_PENDING)
@@ -3536,9 +3727,8 @@ woal_cfg80211_subcmd_link_statistic_get(struct wiphy *wiphy,
 	ioctl_link_stats_buf = info->param.link_statistic;
 	num_radio = *((t_u32 *)info->param.link_statistic);
 
-	radio_stat =
-		(wifi_radio_stat *) (info->param.link_statistic +
-				     sizeof(num_radio));
+	radio_stat = (wifi_radio_stat *) (info->param.link_statistic +
+					  sizeof(num_radio));
 	radio_stat_len = num_radio * sizeof(wifi_radio_stat);
 
 	/* Re-write on_time/tx_time/rx_time/on_time_scan from moal handle */
@@ -3548,7 +3738,10 @@ woal_cfg80211_subcmd_link_statistic_get(struct wiphy *wiphy,
 		inter_msec = moal_do_div(cur_time - handle->on_time, 1000000);
 		PRINTM(MINFO, "cur_time=%llu inter_msec=%llu max_msec=%llu\n",
 		       cur_time, inter_msec, max_msec);
-		/* When we report the time up, u32 is not big enough(represent max 49days) and might out of range, make the max value to 24days. */
+		/* When we report the time up, u32 is not big enough(represent
+		 * max 49days) and might out of range, make the max value to
+		 * 24days.
+		 */
 		if (inter_msec > max_msec) {
 			PRINTM(MMSG,
 			       "Out of range, set inter_msec=%llu to max_msec=%llu\n",
@@ -3571,18 +3764,16 @@ woal_cfg80211_subcmd_link_statistic_get(struct wiphy *wiphy,
 		radio_stat_tmp++;
 	}
 
-	iface_stat =
-		(wifi_iface_stat *) (info->param.link_statistic +
-				     sizeof(num_radio) + radio_stat_len);
+	iface_stat = (wifi_iface_stat *) (info->param.link_statistic +
+					  sizeof(num_radio) + radio_stat_len);
 	iface_stat_len = sizeof(wifi_iface_stat);
 	/* Fill some fileds */
 	iface_stat->beacon_rx = stats.bcn_rcv_cnt;
 
-	/* could get peer info with seperate cmd */
+	/* could get peer info with separate cmd */
 	for (i = 0; i < iface_stat->num_peers; i++) {
 		/* no need copy, just increase iface_stat length */
-		iface_stat_len +=
-			sizeof(wifi_peer_info) +
+		iface_stat_len += sizeof(wifi_peer_info) +
 			sizeof(wifi_rate_stat) *
 			iface_stat->peer_info[i].num_rate;
 	}
@@ -3605,7 +3796,8 @@ woal_cfg80211_subcmd_link_statistic_get(struct wiphy *wiphy,
 		kfree_skb(skb);
 		goto done;
 	}
-	PRINTM(MCMD_D, "%s: <<< Start DUMP\n", __FUNCTION__);
+
+	PRINTM(MCMD_D, "%s: <<< Start DUMP\n", __func__);
 	PRINTM(MCMD_D, "sizeof(wifi_radio_stat)=%zu\n",
 	       sizeof(wifi_radio_stat));
 	DBG_HEXDUMP(MCMD_D, "radio_stat", (t_u8 *)radio_stat, radio_stat_len);
@@ -3636,12 +3828,11 @@ woal_cfg80211_subcmd_link_statistic_get(struct wiphy *wiphy,
 		       radio_stat_tmp->num_channels);
 		radio_stat_tmp++;
 	}
-	PRINTM(MCMD_D, "%s: >>> End DUMP\n", __FUNCTION__);
+	PRINTM(MCMD_D, "%s: >>> End DUMP\n", __func__);
 
 	err = cfg80211_vendor_cmd_reply(skb);
-	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
-	}
+	if (unlikely(err))
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
 
 done:
 	if (status != MLAN_STATUS_PENDING)
@@ -3676,10 +3867,8 @@ woal_cfg80211_subcmd_link_statistic_set(struct wiphy *wiphy,
 	mlan_status status = MLAN_STATUS_SUCCESS;
 	int err = 0;
 
-	priv->phandle->link_layer_en = MTRUE;
-
 	err = nla_parse(tb, ATTR_LL_STATS_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
@@ -3687,13 +3876,13 @@ woal_cfg80211_subcmd_link_statistic_set(struct wiphy *wiphy,
 		return err;
 
 	if (!tb[ATTR_LL_STATS_MPDU_SIZE_THRESHOLD] ||
-	    !tb[ATTR_LL_STATS_AGGRSSIVE_STATS_GATHERING])
+	    !tb[ATTR_LL_STATS_AGGRESSIVE_STATS_GATHERING])
 		return -EINVAL;
 
 	ll_params.mpdu_size_threshold =
 		nla_get_u32(tb[ATTR_LL_STATS_MPDU_SIZE_THRESHOLD]);
 	ll_params.aggressive_statistics_gathering =
-		nla_get_u32(tb[ATTR_LL_STATS_AGGRSSIVE_STATS_GATHERING]);
+		nla_get_u32(tb[ATTR_LL_STATS_AGGRESSIVE_STATS_GATHERING]);
 
 	PRINTM(MEVENT,
 	       "link layer params mpdu_size_threshold = 0x%x, aggressive_statistics_gathering = 0x%x\n",
@@ -3715,13 +3904,14 @@ woal_cfg80211_subcmd_link_statistic_set(struct wiphy *wiphy,
 	req->action = MLAN_ACT_SET;
 
 	/* Configure parameter to firmware */
-	memcpy(info->param.link_statistic, &ll_params, sizeof(ll_params));
+	moal_memcpy_ext(priv->phandle, info->param.link_statistic, &ll_params,
+			sizeof(ll_params),
+			sizeof(mlan_ds_get_info) - sizeof(t_u32));
 
 	/* Send IOCTL request to MLAN */
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status == MLAN_STATUS_SUCCESS) {
+	if (status == MLAN_STATUS_SUCCESS)
 		PRINTM(MMSG, "enable link layer statistic successfully\n");
-	}
 
 	if (status != MLAN_STATUS_PENDING)
 		kfree(req);
@@ -3730,7 +3920,7 @@ woal_cfg80211_subcmd_link_statistic_set(struct wiphy *wiphy,
 
 /**
  * @brief clear function should download command to fimrware,
- * 	so that firmware could cleanup per peer statistic number
+ *	  so that firmware could cleanup per peer statistic number
  *
  * @param wiphy    A pointer to wiphy struct
  * @param wdev     A pointer to wireless_dev struct
@@ -3755,7 +3945,7 @@ woal_cfg80211_subcmd_link_statistic_clr(struct wiphy *wiphy,
 	int err = 0, length = 0;
 
 	err = nla_parse(tb, ATTR_LL_STATS_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
@@ -3793,9 +3983,8 @@ woal_cfg80211_subcmd_link_statistic_clr(struct wiphy *wiphy,
 
 	/* Send IOCTL request to MLAN */
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
-	if (status == MLAN_STATUS_SUCCESS) {
+	if (status == MLAN_STATUS_SUCCESS)
 		PRINTM(MMSG, "enable link layer statistic successfully\n");
-	}
 
 	length = NLA_HDRLEN + sizeof(stats_clear_rsp_mask) + sizeof(stop_rsp);
 	/* Alloc the SKB for vendor_event */
@@ -3806,14 +3995,16 @@ woal_cfg80211_subcmd_link_statistic_clr(struct wiphy *wiphy,
 		goto exit;
 	}
 
-	/*  clear api to reset statistics, stats_clear_rsp_mask identifies what stats have been cleared
-	 *  stop_req = 1 will imply whether to stop the statistics collection.
-	 *  stop_rsp = 1 will imply that stop_req was honored and statistics collection was stopped.
+	/*  clear api to reset statistics, stats_clear_rsp_mask identifies what
+	 * stats have been cleared stop_req = 1 will imply whether to stop the
+	 * statistics collection. stop_rsp = 1 will imply that stop_req was
+	 * honored and statistics collection was stopped.
 	 */
 	stats_clear_rsp_mask = WIFI_STATS_RADIO | WIFI_STATS_IFACE;
 	stop_rsp = 1;
-	if (nla_put_u32(skb, ATTR_LL_STATS_CLEAR_RSP_MASK, stats_clear_rsp_mask)
-	    || nla_put_u8(skb, ATTR_LL_STATS_STOP_RSP, stop_rsp)) {
+	if (nla_put_u32(skb, ATTR_LL_STATS_CLEAR_RSP_MASK,
+			stats_clear_rsp_mask) ||
+	    nla_put_u8(skb, ATTR_LL_STATS_STOP_RSP, stop_rsp)) {
 		PRINTM(MERROR, "nla_put failed!\n");
 		kfree_skb(skb);
 		err = -EINVAL;
@@ -3822,8 +4013,9 @@ woal_cfg80211_subcmd_link_statistic_clr(struct wiphy *wiphy,
 
 	err = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
-		goto exit;;
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
+		goto exit;
+		;
 	}
 
 exit:
@@ -3848,8 +4040,8 @@ exit:
  */
 static int
 woal_cfg80211_subcmd_rssi_monitor(struct wiphy *wiphy,
-				  struct wireless_dev *wdev, const void *data,
-				  int len)
+				  struct wireless_dev *wdev,
+				  const void *data, int len)
 {
 	struct nlattr *tb[ATTR_RSSI_MONITOR_MAX + 1];
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(wdev->netdev);
@@ -3868,7 +4060,7 @@ woal_cfg80211_subcmd_rssi_monitor(struct wiphy *wiphy,
 	}
 
 	ret = nla_parse(tb, ATTR_RSSI_MONITOR_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
@@ -3903,7 +4095,9 @@ woal_cfg80211_subcmd_rssi_monitor(struct wiphy *wiphy,
 	} else if (rssi_monitor_control == RSSI_MONOTOR_STOP) {
 		/* stop rssi monitor */
 		PRINTM(MEVENT, "stop rssi monitor\n");
-		/* set both rssi_thold/hyst to 0, will trigger subscribe event clear */
+		/* set both rssi_thold/hyst to 0, will trigger subscribe event
+		 * clear
+		 */
 		priv->cqm_rssi_high_thold = 0;
 		priv->cqm_rssi_thold = 0;
 		priv->cqm_rssi_hyst = 0;
@@ -3922,10 +4116,10 @@ woal_cfg80211_subcmd_rssi_monitor(struct wiphy *wiphy,
 		goto done;
 	}
 	pos = skb_put(skb, len);
-	memcpy(pos, data, len);
+	moal_memcpy_ext(priv->phandle, pos, data, len, len);
 	err = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
 		ret = err;
 	}
 done:
@@ -3954,8 +4148,8 @@ woal_cfg80211_rssi_monitor_event(moal_private *priv, t_s16 rssi)
 		goto done;
 	/* convert t_s16 to t_s8 */
 	rssi_value = -abs(rssi);
-	if (nla_put
-	    (skb, ATTR_RSSI_MONITOR_CUR_BSSID, ETH_ALEN, priv->conn_bssid) ||
+	if (nla_put(skb, ATTR_RSSI_MONITOR_CUR_BSSID, ETH_ALEN,
+		    priv->conn_bssid) ||
 	    nla_put_s8(skb, ATTR_RSSI_MONITOR_CUR_RSSI, rssi_value)) {
 		PRINTM(MERROR, "nla_put failed!\n");
 		kfree(skb);
@@ -4014,9 +4208,8 @@ woal_cfg80211_subcmd_get_roaming_capability(struct wiphy *wiphy,
 		sizeof(wifi_roaming_capabilities), (t_u8 *)&capa);
 
 	err = cfg80211_vendor_cmd_reply(skb);
-	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
-	}
+	if (unlikely(err))
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
 
 done:
 	LEAVE();
@@ -4091,9 +4284,8 @@ woal_cfg80211_subcmd_fw_roaming_enable(struct wiphy *wiphy,
 	nla_put(skb, MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_CONTROL, sizeof(t_u32),
 		&fw_roaming_enable);
 	err = cfg80211_vendor_cmd_reply(skb);
-	if (unlikely(err)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", err);
-	}
+	if (unlikely(err))
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", err);
 
 done:
 	LEAVE();
@@ -4143,12 +4335,14 @@ woal_cfg80211_subcmd_fw_roaming_config(struct wiphy *wiphy,
 		type = nla_type(iter);
 		switch (type) {
 		case MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_CONFIG_BSSID:
-			memcpy((t_u8 *)&blacklist, nla_data(iter),
-			       MIN(nla_len(iter), sizeof(wifi_bssid_params)));
+			moal_memcpy_ext(priv->phandle, (t_u8 *)&blacklist,
+					nla_data(iter), nla_len(iter),
+					sizeof(wifi_bssid_params));
 			break;
 		case MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_CONFIG_SSID:
-			memcpy((t_u8 *)&whitelist, nla_data(iter),
-			       MIN(nla_len(iter), sizeof(wifi_ssid_params)));
+			moal_memcpy_ext(priv->phandle, (t_u8 *)&whitelist,
+					nla_data(iter), nla_len(iter),
+					sizeof(wifi_ssid_params));
 			break;
 		default:
 			PRINTM(MERROR, "Unknown type: %d\n", type);
@@ -4194,14 +4388,14 @@ woal_cfg80211_subcmd_11k_cfg(struct wiphy *wiphy,
 	dev = wdev->netdev;
 	priv = (moal_private *)woal_get_netdev_priv(dev);
 
-	nla_parse(tb_vendor, ATTR_ND_OFFLOAD_MAX,
-		  (struct nlattr *)data, data_len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+	nla_parse(tb_vendor, ATTR_ND_OFFLOAD_MAX, (struct nlattr *)data,
+		  data_len, NULL
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 		  , NULL
 #endif
 		);
 	if (!tb_vendor[ATTR_ND_OFFLOAD_CONTROL]) {
-		PRINTM(MINFO, "%s: ATTR_ND_OFFLOAD not found\n", __FUNCTION__);
+		PRINTM(MINFO, "%s: ATTR_ND_OFFLOAD not found\n", __func__);
 		ret = -EFAULT;
 		goto done;
 	}
@@ -4233,7 +4427,6 @@ done:
 
 	LEAVE();
 	return ret;
-
 }
 
 /**
@@ -4266,21 +4459,24 @@ woal_cfg80211_subcmd_set_scan_mac_oui(struct wiphy *wiphy,
 	dev = wdev->netdev;
 	priv = (moal_private *)woal_get_netdev_priv(dev);
 
-	nla_parse(tb_vendor, ATTR_WIFI_MAX,
-		  (struct nlattr *)data, data_len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+	nla_parse(tb_vendor, ATTR_WIFI_MAX, (struct nlattr *)data, data_len,
+		  NULL
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 		  , NULL
 #endif
 		);
 	if (!tb_vendor[ATTR_SCAN_MAC_OUI_SET]) {
 		PRINTM(MINFO, "%s: ATTR_SCAN_MAC_OUI_SET not found\n",
-		       __FUNCTION__);
+		       __func__);
 		ret = -EFAULT;
 		goto done;
 	}
-	memcpy(mac_oui, nla_data(tb_vendor[ATTR_SCAN_MAC_OUI_SET]), 3);
-	memcpy(priv->random_mac, priv->current_addr, 6);
-	memcpy(priv->random_mac, mac_oui, 3);
+	moal_memcpy_ext(priv->phandle, mac_oui,
+			nla_data(tb_vendor[ATTR_SCAN_MAC_OUI_SET]), 3, 3);
+	moal_memcpy_ext(priv->phandle, priv->random_mac, priv->current_addr,
+			ETH_ALEN, MLAN_MAC_ADDR_LENGTH);
+	moal_memcpy_ext(priv->phandle, priv->random_mac, mac_oui, 3,
+			MLAN_MAC_ADDR_LENGTH);
 	PRINTM(MCMND, "random_mac is " FULL_MACSTR "\n",
 	       FULL_MAC2STR(priv->random_mac));
 done:
@@ -4304,9 +4500,12 @@ woal_cfg80211_subcmd_set_dfs_offload(struct wiphy *wiphy,
 				     const void *data, int data_len)
 {
 	struct sk_buff *skb = NULL;
+	moal_handle *handle = (moal_handle *)woal_get_wiphy_priv(wiphy);
+	int dfs_offload;
 	int ret = 1;
 
 	ENTER();
+	dfs_offload = moal_extflg_isset(handle, EXT_DFS_OFFLOAD);
 
 	/** Allocate skb for cmd reply*/
 	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, sizeof(dfs_offload));
@@ -4335,8 +4534,8 @@ woal_cfg80211_subcmd_set_dfs_offload(struct wiphy *wiphy,
  */
 static int
 woal_cfg80211_subcmd_rtt_get_capa(struct wiphy *wiphy,
-				  struct wireless_dev *wdev, const void *data,
-				  int len)
+				  struct wireless_dev *wdev,
+				  const void *data, int len)
 {
 	struct net_device *dev = wdev->netdev;
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
@@ -4356,7 +4555,7 @@ woal_cfg80211_subcmd_rtt_get_capa(struct wiphy *wiphy,
 								  rtt_capa)) +
 						  VENDOR_REPLY_OVERHEAD);
 	if (unlikely(!skb)) {
-		PRINTM(MERROR, "skb alloc failed in %s\n", __FUNCTION__);
+		PRINTM(MERROR, "skb alloc failed in %s\n", __func__);
 		goto done;
 	}
 
@@ -4378,7 +4577,7 @@ woal_cfg80211_subcmd_rtt_get_capa(struct wiphy *wiphy,
 	DBG_HEXDUMP(MCMD_D, "output data skb->data", (t_u8 *)skb->data, 50);
 	err = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(err))
-		PRINTM(MERROR, "Vendor Command reply failed err:%d \n", err);
+		PRINTM(MERROR, "Vendor Command reply failed err:%d\n", err);
 
 done:
 	LEAVE();
@@ -4458,23 +4657,23 @@ woal_cfg80211_subcmd_rtt_range_request(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_range_request()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	err = nla_parse(tb, ATTR_RTT_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
 	if (err) {
 		err = -EFAULT;
-		PRINTM(MERROR, "%s: nla_parse fail\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: nla_parse fail\n", __func__);
 		goto done;
 	}
 
 	if (!tb[ATTR_RTT_TARGET_NUM] || !tb[ATTR_RTT_TARGET_CONFIG]) {
 		PRINTM(MERROR,
 		       "%s: null attr: tb[ATTR_RTT_TARGET_NUM]=%p tb[ATTR_RTT_TARGET_CONFIG]=%p\n",
-		       __FUNCTION__, tb[ATTR_RTT_TARGET_NUM],
+		       __func__, tb[ATTR_RTT_TARGET_NUM],
 		       tb[ATTR_RTT_TARGET_CONFIG]);
 		err = -EINVAL;
 		goto done;
@@ -4482,11 +4681,10 @@ woal_cfg80211_subcmd_rtt_range_request(struct wiphy *wiphy,
 
 	rtt_config_num = nla_get_u8(tb[ATTR_RTT_TARGET_NUM]);
 
-	if ((rtt_config_num == 0) ||
-	    ((handle->rtt_params.rtt_config_num + rtt_config_num) >
-	     MAX_RTT_CONFIG_NUM)) {
+	if ((rtt_config_num == 0) || ((handle->rtt_params.rtt_config_num +
+				       rtt_config_num) > MAX_RTT_CONFIG_NUM)) {
 		PRINTM(MERROR, "%s: invalid num=%d  num in handle=%d  MAX=%d\n",
-		       __FUNCTION__, rtt_config_num,
+		       __func__, rtt_config_num,
 		       handle->rtt_params.rtt_config_num, MAX_RTT_CONFIG_NUM);
 		err = -EINVAL;
 		goto done;
@@ -4494,7 +4692,7 @@ woal_cfg80211_subcmd_rtt_range_request(struct wiphy *wiphy,
 	if (nla_len(tb[ATTR_RTT_TARGET_CONFIG]) !=
 	    sizeof(rtt_params.rtt_config[0]) * rtt_config_num) {
 		PRINTM(MERROR, "%s: invalid %d(total) != %d(num) * %lu(each)\n",
-		       __FUNCTION__, nla_len(tb[ATTR_RTT_TARGET_CONFIG]),
+		       __func__, nla_len(tb[ATTR_RTT_TARGET_CONFIG]),
 		       rtt_config_num, sizeof(rtt_params.rtt_config[0]));
 		err = -EINVAL;
 		goto done;
@@ -4504,42 +4702,46 @@ woal_cfg80211_subcmd_rtt_range_request(struct wiphy *wiphy,
 	memset(&rtt_params, 0, sizeof(rtt_params));
 	/** Strip the zero mac config */
 	for (i = 0; i < rtt_config_num; i++) {
-		if (!memcmp
-		    (rtt_config[i].addr, zero_mac, sizeof(rtt_config[i].addr)))
+		if (!memcmp(rtt_config[i].addr, zero_mac,
+			    sizeof(rtt_config[i].addr)))
 			continue;
 		else {
-			memcpy(&rtt_params.
-			       rtt_config[rtt_params.rtt_config_num],
-			       &rtt_config[i],
-			       sizeof(rtt_params.
-				      rtt_config[rtt_params.rtt_config_num]));
+			moal_memcpy_ext(handle,
+					&rtt_params.rtt_config[rtt_params.
+							       rtt_config_num],
+					&rtt_config[i],
+					sizeof(rtt_params.
+					       rtt_config[rtt_params.
+							  rtt_config_num]),
+					sizeof(wifi_rtt_config));
 			rtt_params.rtt_config_num++;
 		}
 	}
 	if (!rtt_params.rtt_config_num) {
-		PRINTM(MERROR, "%s: no valid mac addr\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: no valid mac addr\n", __func__);
 		goto done;
 	}
 	woal_dump_rtt_params(&rtt_params);
 
 	ret = woal_config_rtt(priv, MOAL_IOCTL_WAIT, &rtt_params);
 	if (ret != MLAN_STATUS_SUCCESS) {
-		PRINTM(MERROR, "%s: woal_config_rtt() failed\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: woal_config_rtt() failed\n", __func__);
 		err = -EFAULT;
 		goto done;
 	}
 
 	for (i = 0; i < rtt_params.rtt_config_num; i++) {
 		for (j = 0; j < handle->rtt_params.rtt_config_num; j++) {
-			if (!memcmp
-			    (handle->rtt_params.rtt_config[j].addr,
-			     rtt_params.rtt_config[i].addr,
-			     sizeof(handle->rtt_params.rtt_config[j].addr)))
+			if (!memcmp(handle->rtt_params.rtt_config[j].addr,
+				    rtt_params.rtt_config[i].addr,
+				    sizeof(handle->rtt_params.rtt_config[j]
+					   .addr)))
 				break;
 		}
-		memcpy(&(handle->rtt_params.rtt_config[j]),
-		       &(rtt_params.rtt_config[i]),
-		       sizeof(handle->rtt_params.rtt_config[j]));
+		moal_memcpy_ext(handle, &(handle->rtt_params.rtt_config[j]),
+				&(rtt_params.rtt_config[i]),
+				sizeof(handle->rtt_params.rtt_config[j]),
+				sizeof(wifi_rtt_config));
 		if (j == handle->rtt_params.rtt_config_num)
 			handle->rtt_params.rtt_config_num++;
 	}
@@ -4578,22 +4780,22 @@ woal_cfg80211_subcmd_rtt_range_cancel(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_range_cancel()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	err = nla_parse(tb, ATTR_RTT_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
 	if (err) {
-		PRINTM(MERROR, "%s: nla_parse fail\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: nla_parse fail\n", __func__);
 		goto done;
 	}
 
 	if (!tb[ATTR_RTT_TARGET_NUM] || !tb[ATTR_RTT_TARGET_ADDR]) {
 		PRINTM(MERROR,
 		       "%s: null attr: tb[ATTR_RTT_TARGET_NUM]=%p tb[ATTR_RTT_TARGET_ADDR]=%p\n",
-		       __FUNCTION__, tb[ATTR_RTT_TARGET_NUM],
+		       __func__, tb[ATTR_RTT_TARGET_NUM],
 		       tb[ATTR_RTT_TARGET_ADDR]);
 		err = -EINVAL;
 		goto done;
@@ -4605,7 +4807,7 @@ woal_cfg80211_subcmd_rtt_range_cancel(struct wiphy *wiphy,
 	    (nla_len(tb[ATTR_RTT_TARGET_ADDR]) !=
 	     sizeof(t_u8) * MLAN_MAC_ADDR_LENGTH * target_num)) {
 		PRINTM(MERROR, "%s: Check if %din[1-%d] or %d*%lu=%d\n",
-		       __FUNCTION__, target_num, MAX_RTT_CONFIG_NUM, target_num,
+		       __func__, target_num, MAX_RTT_CONFIG_NUM, target_num,
 		       sizeof(t_u8) * MLAN_MAC_ADDR_LENGTH,
 		       nla_len(tb[ATTR_RTT_TARGET_ADDR]));
 		err = -EINVAL;
@@ -4613,8 +4815,8 @@ woal_cfg80211_subcmd_rtt_range_cancel(struct wiphy *wiphy,
 	}
 	woal_dump_rtt_params(&(handle->rtt_params));
 
-	memcpy(addr, nla_data(tb[ATTR_RTT_TARGET_ADDR]),
-	       nla_len(tb[ATTR_RTT_TARGET_ADDR]));
+	moal_memcpy_ext(handle, addr, nla_data(tb[ATTR_RTT_TARGET_ADDR]),
+			nla_len(tb[ATTR_RTT_TARGET_ADDR]), sizeof(addr));
 
 	for (i = 0; i < target_num; i++)
 		PRINTM(MMSG, "cancel[%d].addr=" MACSTR "\n", i,
@@ -4622,9 +4824,9 @@ woal_cfg80211_subcmd_rtt_range_cancel(struct wiphy *wiphy,
 
 	for (i = 0; i < target_num; i++) {
 		for (j = 0; j < handle->rtt_params.rtt_config_num; j++) {
-			if (!memcmp
-			    (addr[i], handle->rtt_params.rtt_config[j].addr,
-			     sizeof(addr[0]))) {
+			if (!memcmp(addr[i],
+				    handle->rtt_params.rtt_config[j].addr,
+				    sizeof(addr[0]))) {
 				memset(&(handle->rtt_params.rtt_config[j]),
 				       0x00,
 				       sizeof(handle->rtt_params.
@@ -4655,13 +4857,13 @@ woal_cfg80211_subcmd_rtt_range_cancel(struct wiphy *wiphy,
 
 	if (handle->rtt_params.rtt_config_num >= rtt_config_num) {
 		PRINTM(MERROR, "%s: No matched mac addr in rtt_config\n",
-		       __FUNCTION__);
+		       __func__);
 		goto done;
 	}
 
 	ret = woal_cancel_rtt(priv, MOAL_IOCTL_WAIT, target_num, addr);
 	if (ret != MLAN_STATUS_SUCCESS) {
-		PRINTM(MERROR, "%s: woal_cancel_rtt() failed\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: woal_cancel_rtt() failed\n", __func__);
 		err = -EFAULT;
 		goto done;
 	}
@@ -4682,9 +4884,9 @@ done:
  * @return      mlan_status
  */
 mlan_status
-woal_cfg80211_event_rtt_result(IN moal_private *priv, IN t_u8 *data, IN int len)
+woal_cfg80211_event_rtt_result(moal_private *priv, t_u8 *data, int len)
 {
-	//moal_handle *handle = priv->phandle;
+	// moal_handle *handle = priv->phandle;
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	t_u8 *pos = data;
 	t_u32 event_left_len = len;
@@ -4696,12 +4898,12 @@ woal_cfg80211_event_rtt_result(IN moal_private *priv, IN t_u8 *data, IN int len)
 
 	ENTER();
 
-	PRINTM(MEVENT, "Enter woal_cfg80211_event_rtt_result()\n");
+	PRINTM(MEVENT, "Enter %s()\n", __func__);
 
 	vdr_event_len = nla_total_size(sizeof(complete)) +
 		nla_total_size(sizeof(num_results)) +
-		nla_total_size(len) + NLA_ALIGNTO * num_results
-		+ VENDOR_REPLY_OVERHEAD;
+		nla_total_size(len) + NLA_ALIGNTO * num_results +
+		VENDOR_REPLY_OVERHEAD;
 	PRINTM(MEVENT, "vdr_event_len = %d\n", vdr_event_len);
 	skb = woal_cfg80211_alloc_vendor_event(priv, event_rtt_result,
 					       vdr_event_len);
@@ -4761,14 +4963,14 @@ woal_cfg80211_subcmd_rtt_get_responder_info(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_get_responder_info()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	memset(&rtt_rsp_cfg, 0x00, sizeof(rtt_rsp_cfg));
 	rtt_rsp_cfg.action = RTT_GET_RESPONDER_INFO;
 	ret = woal_rtt_responder_cfg(priv, MOAL_IOCTL_WAIT, &rtt_rsp_cfg);
 	if (ret != MLAN_STATUS_SUCCESS) {
 		PRINTM(MERROR, "%s: woal_rtt_responder_cfg() failed\n",
-		       __FUNCTION__);
+		       __func__);
 		err = -EFAULT;
 		goto done;
 	}
@@ -4798,7 +5000,7 @@ woal_cfg80211_subcmd_rtt_get_responder_info(struct wiphy *wiphy,
 								 (rtt_rsp)) +
 						  VENDOR_REPLY_OVERHEAD);
 	if (unlikely(!skb)) {
-		PRINTM(MERROR, "skb alloc failed in %s\n", __FUNCTION__);
+		PRINTM(MERROR, "skb alloc failed in %s\n", __func__);
 		goto done;
 	}
 
@@ -4812,7 +5014,7 @@ woal_cfg80211_subcmd_rtt_get_responder_info(struct wiphy *wiphy,
 
 	err = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(err))
-		PRINTM(MERROR, "Vendor Command reply failed err:%d \n", err);
+		PRINTM(MERROR, "Vendor Command reply failed err:%d\n", err);
 
 done:
 	LEAVE();
@@ -4846,30 +5048,30 @@ woal_cfg80211_subcmd_rtt_enable_responder(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_enable_responder()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	err = nla_parse(tb, ATTR_RTT_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
 	if (err) {
 		err = -EFAULT;
-		PRINTM(MERROR, "%s: nla_parse fail\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: nla_parse fail\n", __func__);
 		goto done;
 	}
 
 	if (!tb[ATTR_RTT_CHANNEL_INFO] || !tb[ATTR_RTT_MAX_DUR_SEC]) {
 		PRINTM(MERROR,
 		       "%s: null attr: tb[ATTR_RTT_TARGET_NUM]=%p tb[ATTR_RTT_TARGET_CONFIG]=%p\n",
-		       __FUNCTION__, tb[ATTR_RTT_CHANNEL_INFO],
+		       __func__, tb[ATTR_RTT_CHANNEL_INFO],
 		       tb[ATTR_RTT_MAX_DUR_SEC]);
 		err = -EINVAL;
 		goto done;
 	}
 	ch_info = (wifi_channel_info *) nla_data(tb[ATTR_RTT_CHANNEL_INFO]);
 	max_dur_sec = nla_get_u32(tb[ATTR_RTT_MAX_DUR_SEC]);
-	PRINTM(MCMD_D, "HAL input: \n");
+	PRINTM(MCMD_D, "HAL input:\n");
 	PRINTM(MCMD_D,
 	       "wifi_channel_info: width=%d center_freq=%d center_freq0=%d center_freq1=%d\n",
 	       ch_info->width, ch_info->center_freq, ch_info->center_freq0,
@@ -4883,7 +5085,7 @@ woal_cfg80211_subcmd_rtt_enable_responder(struct wiphy *wiphy,
 	woal_channel_info_to_bandcfg(priv, ch_info,
 				     &(rtt_rsp_cfg.u.encfg.bandcfg));
 	rtt_rsp_cfg.u.encfg.max_dur_sec = max_dur_sec;
-	PRINTM(MCMD_D, "HAL input to rtt_responder_encfg: \n");
+	PRINTM(MCMD_D, "HAL input to rtt_responder_encfg:\n");
 	PRINTM(MCMD_D,
 	       "channel=%d bandcfg=[chanBand=%d chanWidth=%d chan2Offset=%d scanMode=%d]\n",
 	       rtt_rsp_cfg.u.encfg.channel,
@@ -4895,7 +5097,7 @@ woal_cfg80211_subcmd_rtt_enable_responder(struct wiphy *wiphy,
 	ret = woal_rtt_responder_cfg(priv, MOAL_IOCTL_WAIT, &rtt_rsp_cfg);
 	if (ret != MLAN_STATUS_SUCCESS) {
 		PRINTM(MERROR, "%s: woal_rtt_responder_cfg() failed\n",
-		       __FUNCTION__);
+		       __func__);
 		err = -EFAULT;
 		goto done;
 	}
@@ -4918,7 +5120,7 @@ woal_cfg80211_subcmd_rtt_enable_responder(struct wiphy *wiphy,
 								 (rtt_rsp)) +
 						  VENDOR_REPLY_OVERHEAD);
 	if (unlikely(!skb)) {
-		PRINTM(MERROR, "skb alloc failed in %s\n", __FUNCTION__);
+		PRINTM(MERROR, "skb alloc failed in %s\n", __func__);
 		goto done;
 	}
 
@@ -4932,7 +5134,7 @@ woal_cfg80211_subcmd_rtt_enable_responder(struct wiphy *wiphy,
 
 	err = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(err))
-		PRINTM(MERROR, "Vendor Command reply failed err:%d \n", err);
+		PRINTM(MERROR, "Vendor Command reply failed err:%d\n", err);
 
 done:
 	LEAVE();
@@ -4961,14 +5163,14 @@ woal_cfg80211_subcmd_rtt_disable_responder(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_disable_responder()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	memset(&rtt_rsp_cfg, 0x00, sizeof(rtt_rsp_cfg));
 	rtt_rsp_cfg.action = RTT_SET_RESPONDER_DISABLE;
 	ret = woal_rtt_responder_cfg(priv, MOAL_IOCTL_WAIT, &rtt_rsp_cfg);
 	if (ret != MLAN_STATUS_SUCCESS) {
 		PRINTM(MERROR, "%s: woal_rtt_responder_cfg() failed\n",
-		       __FUNCTION__);
+		       __func__);
 		err = -EFAULT;
 		goto done;
 	}
@@ -4989,8 +5191,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_rtt_set_lci(struct wiphy *wiphy,
-				 struct wireless_dev *wdev, const void *data,
-				 int len)
+				 struct wireless_dev *wdev,
+				 const void *data, int len)
 {
 	struct net_device *dev = wdev->netdev;
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
@@ -5001,29 +5203,29 @@ woal_cfg80211_subcmd_rtt_set_lci(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_set_lci()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	err = nla_parse(tb, ATTR_RTT_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
 	if (err) {
 		err = -EFAULT;
-		PRINTM(MERROR, "%s: nla_parse fail\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: nla_parse fail\n", __func__);
 		goto done;
 	}
 
 	if (!tb[ATTR_RTT_LCI_INFO]) {
 		PRINTM(MERROR, "%s: null attr: tb[ATTR_RTT_LCI_INFO]=%p\n",
-		       __FUNCTION__, tb[ATTR_RTT_LCI_INFO]);
+		       __func__, tb[ATTR_RTT_LCI_INFO]);
 		err = -EINVAL;
 		goto done;
 	}
 	lci_info = (wifi_lci_information *) nla_data(tb[ATTR_RTT_LCI_INFO]);
-	PRINTM(MCMD_D, "HAL input: \n");
+	PRINTM(MCMD_D, "HAL input:\n");
 	PRINTM(MCMD_D,
-	       "wifi_lci_information: latitude=%lu longitude=%lu altitude=%d latitude_unc=%d longitude_unc=%d altitude_unc=%d \n",
+	       "wifi_lci_information: latitude=%lu longitude=%lu altitude=%d latitude_unc=%d longitude_unc=%d altitude_unc=%d\n",
 	       lci_info->latitude, lci_info->longitude, lci_info->altitude,
 	       lci_info->latitude_unc, lci_info->longitude_unc,
 	       lci_info->altitude_unc);
@@ -5034,11 +5236,12 @@ woal_cfg80211_subcmd_rtt_set_lci(struct wiphy *wiphy,
 
 	memset(&rtt_rsp_cfg, 0x00, sizeof(rtt_rsp_cfg));
 	rtt_rsp_cfg.action = RTT_SET_RESPONDER_LCI;
-	memcpy(&(rtt_rsp_cfg.u.lci), lci_info, sizeof(rtt_rsp_cfg.u.lci));
+	moal_memcpy_ext(priv->phandle, &(rtt_rsp_cfg.u.lci), lci_info,
+			sizeof(rtt_rsp_cfg.u.lci), sizeof(rtt_rsp_cfg.u.lci));
 	ret = woal_rtt_responder_cfg(priv, MOAL_IOCTL_WAIT, &rtt_rsp_cfg);
 	if (ret != MLAN_STATUS_SUCCESS) {
 		PRINTM(MERROR, "%s: woal_rtt_responder_cfg() failed\n",
-		       __FUNCTION__);
+		       __func__);
 		err = -EFAULT;
 		goto done;
 	}
@@ -5060,8 +5263,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_rtt_set_lcr(struct wiphy *wiphy,
-				 struct wireless_dev *wdev, const void *data,
-				 int len)
+				 struct wireless_dev *wdev,
+				 const void *data, int len)
 {
 	struct net_device *dev = wdev->netdev;
 	moal_private *priv = (moal_private *)woal_get_netdev_priv(dev);
@@ -5072,27 +5275,27 @@ woal_cfg80211_subcmd_rtt_set_lcr(struct wiphy *wiphy,
 	int err = 0;
 
 	ENTER();
-	PRINTM(MCMND, "Enter woal_cfg80211_subcmd_rtt_set_lcr()\n");
+	PRINTM(MCMND, "Enter %s()\n", __func__);
 
 	err = nla_parse(tb, ATTR_RTT_MAX, data, len, NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			, NULL
 #endif
 		);
 	if (err) {
 		err = -EFAULT;
-		PRINTM(MERROR, "%s: nla_parse fail\n", __FUNCTION__);
+		PRINTM(MERROR, "%s: nla_parse fail\n", __func__);
 		goto done;
 	}
 
 	if (!tb[ATTR_RTT_LCR_INFO]) {
 		PRINTM(MERROR, "%s: null attr: tb[ATTR_RTT_LCR_INFO]=%p\n",
-		       __FUNCTION__, tb[ATTR_RTT_LCR_INFO]);
+		       __func__, tb[ATTR_RTT_LCR_INFO]);
 		err = -EINVAL;
 		goto done;
 	}
 	lcr_info = (wifi_lcr_information *) nla_data(tb[ATTR_RTT_LCR_INFO]);
-	PRINTM(MCMD_D, "HAL input: \n");
+	PRINTM(MCMD_D, "HAL input:\n");
 	PRINTM(MCMD_D, "wifi_lcr_information: country_code='%c' '%c'\n",
 	       lcr_info->country_code[0], lcr_info->country_code[1]);
 	PRINTM(MCMD_D, "wifi_lci_information: length=%d civic_info=%s\n",
@@ -5100,11 +5303,12 @@ woal_cfg80211_subcmd_rtt_set_lcr(struct wiphy *wiphy,
 
 	memset(&rtt_rsp_cfg, 0x00, sizeof(rtt_rsp_cfg));
 	rtt_rsp_cfg.action = RTT_SET_RESPONDER_LCR;
-	memcpy(&(rtt_rsp_cfg.u.lcr), lcr_info, sizeof(rtt_rsp_cfg.u.lcr));
+	moal_memcpy_ext(priv->phandle, &(rtt_rsp_cfg.u.lcr), lcr_info,
+			sizeof(rtt_rsp_cfg.u.lcr), sizeof(rtt_rsp_cfg.u.lcr));
 	ret = woal_rtt_responder_cfg(priv, MOAL_IOCTL_WAIT, &rtt_rsp_cfg);
 	if (ret != MLAN_STATUS_SUCCESS) {
 		PRINTM(MERROR, "%s: woal_rtt_responder_cfg() failed\n",
-		       __FUNCTION__);
+		       __func__);
 		err = -EFAULT;
 		goto done;
 	}
@@ -5129,8 +5333,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_set_csi(struct wiphy *wiphy,
-			     struct wireless_dev *wdev, const void *data,
-			     int len, int csi_enable)
+			     struct wireless_dev *wdev,
+			     const void *data, int len, int csi_enable)
 {
 	struct net_device *dev = NULL;
 	moal_private *priv = NULL;
@@ -5163,7 +5367,7 @@ woal_cfg80211_subcmd_set_csi(struct wiphy *wiphy,
 	if (csi_enable == 1) {
 		nla_parse(tb_vendor, ATTR_CSI_MAX, (struct nlattr *)data, len,
 			  NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			  , NULL
 #endif
 			);
@@ -5171,19 +5375,22 @@ woal_cfg80211_subcmd_set_csi(struct wiphy *wiphy,
 			ret = -EFAULT;
 			goto done;
 		}
-		memcpy(&cfg->param.csi_params,
-		       (mlan_ds_csi_params *)
-		       nla_data(tb_vendor[ATTR_CSI_CONFIG]),
-		       sizeof(mlan_ds_csi_params));
-		memcpy(&priv->csi_config, &cfg->param.csi_params,
-		       sizeof(mlan_ds_csi_params));
+		moal_memcpy_ext(priv->phandle, &cfg->param.csi_params,
+				(mlan_ds_csi_params *)
+				nla_data(tb_vendor[ATTR_CSI_CONFIG]),
+				sizeof(mlan_ds_csi_params),
+				sizeof(mlan_ds_csi_params));
+		moal_memcpy_ext(priv->phandle, &priv->csi_config,
+				&cfg->param.csi_params,
+				sizeof(mlan_ds_csi_params),
+				sizeof(mlan_ds_csi_params));
 		if (tb_vendor[ATTR_CSI_DUMP_FORMAT])
 			priv->csi_dump_format =
 				nla_get_u8(tb_vendor[ATTR_CSI_DUMP_FORMAT]);
 	} else if (csi_enable == 0) {
 		nla_parse(tb_vendor, ATTR_CSI_MAX, (struct nlattr *)data, len,
 			  NULL
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#if KERNEL_VERSION(4, 12, 0) <= CFG80211_VERSION_CODE
 			  , NULL
 #endif
 			);
@@ -5192,9 +5399,10 @@ woal_cfg80211_subcmd_set_csi(struct wiphy *wiphy,
 			goto done;
 		}
 		memset(&cfg->param.csi_params, 0, sizeof(mlan_ds_csi_params));
-		memcpy(cfg->param.csi_params.csi_filter[0].mac_addr,
-		       (t_u8 *)nla_data(tb_vendor[ATTR_PEER_MAC_ADDR]),
-		       MLAN_MAC_ADDR_LENGTH);
+		moal_memcpy_ext(priv->phandle,
+				cfg->param.csi_params.csi_filter[0].mac_addr,
+				(t_u8 *)nla_data(tb_vendor[ATTR_PEER_MAC_ADDR]),
+				MLAN_MAC_ADDR_LENGTH, MLAN_MAC_ADDR_LENGTH);
 	}
 
 	status = woal_request_ioctl(priv, req, MOAL_IOCTL_WAIT);
@@ -5222,8 +5430,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_csi_enable(struct wiphy *wiphy,
-				struct wireless_dev *wdev, const void *data,
-				int len)
+				struct wireless_dev *wdev,
+				const void *data, int len)
 {
 	int ret = 0;
 
@@ -5247,8 +5455,8 @@ woal_cfg80211_subcmd_csi_enable(struct wiphy *wiphy,
  */
 static int
 woal_cfg80211_subcmd_csi_disable(struct wiphy *wiphy,
-				 struct wireless_dev *wdev, const void *data,
-				 int len)
+				 struct wireless_dev *wdev,
+				 const void *data, int len)
 {
 	int ret = 0;
 
@@ -5303,7 +5511,7 @@ woal_cfg80211_subcmd_get_csi_dump_path(struct wiphy *wiphy,
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(ret)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", ret);
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", ret);
 		goto done;
 	}
 
@@ -5324,8 +5532,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_get_csi_config(struct wiphy *wiphy,
-				    struct wireless_dev *wdev, const void *data,
-				    int len)
+				    struct wireless_dev *wdev,
+				    const void *data, int len)
 {
 	int ret = 0;
 	struct net_device *dev = NULL;
@@ -5354,7 +5562,7 @@ woal_cfg80211_subcmd_get_csi_config(struct wiphy *wiphy,
 
 	ret = cfg80211_vendor_cmd_reply(skb);
 	if (unlikely(ret)) {
-		PRINTM(MERROR, "Vendor Command reply failed ret:%d \n", ret);
+		PRINTM(MERROR, "Vendor Command reply failed ret:%d\n", ret);
 		goto done;
 	}
 
@@ -5375,8 +5583,8 @@ done:
  */
 static int
 woal_cfg80211_subcmd_get_csi_capa(struct wiphy *wiphy,
-				  struct wireless_dev *wdev, const void *data,
-				  int len)
+				  struct wireless_dev *wdev,
+				  const void *data, int len)
 {
 	ENTER();
 	LEAVE();
@@ -5394,9 +5602,9 @@ woal_cfg80211_subcmd_get_csi_capa(struct wiphy *wiphy,
  *
  * @return      0: success  -1: fail
  */
-mlan_status
-woal_save_csi_dump_to_file(char *dir_name, char *file_name, t_u8 *buf,
-			   int buf_len, t_u8 format, char *name)
+static mlan_status
+woal_save_csi_dump_to_file(char *dir_name, char *file_name,
+			   t_u8 *buf, int buf_len, t_u8 format, char *name)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	struct file *pfile = NULL;
@@ -5404,7 +5612,6 @@ woal_save_csi_dump_to_file(char *dir_name, char *file_name, t_u8 *buf,
 	char dw_string[10];
 	int i = 0;
 	t_u32 *tmp = NULL;
-
 	ENTER();
 
 	if (!dir_name || !file_name || !buf) {
@@ -5412,7 +5619,6 @@ woal_save_csi_dump_to_file(char *dir_name, char *file_name, t_u8 *buf,
 		ret = MLAN_STATUS_FAILURE;
 		goto done;
 	}
-
 	sprintf(name, "%s/%s", dir_name, file_name);
 	pfile = filp_open(name, O_CREAT | O_RDWR | O_APPEND, 0644);
 
@@ -5434,8 +5640,8 @@ woal_save_csi_dump_to_file(char *dir_name, char *file_name, t_u8 *buf,
 	pos = 0;
 	/* Save CSI dump directly to file */
 	if (format == 1) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-		vfs_write(pfile, buf, buf_len, &pos);
+#if KERNEL_VERSION(4, 14, 0) > LINUX_VERSION_CODE
+		vfs_write(pfile, (const char __user *)buf, buf_len, &pos);
 #else
 		kernel_write(pfile, buf, buf_len, &pos);
 #endif
@@ -5448,8 +5654,9 @@ woal_save_csi_dump_to_file(char *dir_name, char *file_name, t_u8 *buf,
 			else
 				snprintf(dw_string, sizeof(dw_string), "%08x ",
 					 *tmp);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-			vfs_write(pfile, dw_string, 9, &pos);
+#if KERNEL_VERSION(4, 14, 0) > LINUX_VERSION_CODE
+			vfs_write(pfile, (const char __user *)dw_string, 9,
+				  &pos);
 #else
 			kernel_write(pfile, dw_string, 9, &pos);
 #endif
@@ -5459,7 +5666,6 @@ woal_save_csi_dump_to_file(char *dir_name, char *file_name, t_u8 *buf,
 	filp_close(pfile, NULL);
 
 	PRINTM(MMSG, "Dump data saved in %s successfully\n", name);
-
 done:
 	LEAVE();
 	return ret;
@@ -5475,7 +5681,7 @@ done:
  * @return      mlan_status
  */
 mlan_status
-woal_cfg80211_event_csi_dump(IN moal_private *priv, IN t_u8 *data, IN int len)
+woal_cfg80211_event_csi_dump(moal_private *priv, t_u8 *data, int len)
 {
 	mlan_status ret = MLAN_STATUS_SUCCESS;
 	char path_name[20];
@@ -5509,556 +5715,690 @@ done:
 	return ret;
 }
 
-const struct wiphy_vendor_command vendor_commands[] = {
+// clang-format off
+static const struct wiphy_vendor_command vendor_commands[] = {
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_set_drvdbg,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_set_drvdbg,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_drvdbg,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_valid_channels,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_valid_channels,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_valid_channels,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_attr_policy,
+	 .maxattr = ATTR_WIFI_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_set_scan_mac_oui,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_set_scan_mac_oui,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_scan_mac_oui,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_attr_policy,
+	 .maxattr = ATTR_WIFI_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_link_statistic_set,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_link_statistic_set,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_link_statistic_set,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_ll_stat_policy,
+	 .maxattr = ATTR_LL_STATS_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_link_statistic_get,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_link_statistic_get,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_link_statistic_get,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_link_statistic_clr,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_link_statistic_clr,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_link_statistic_clr,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_ll_stat_policy,
+	 .maxattr = ATTR_LL_STATS_MAX,
 #endif
 	 },
 #ifdef STA_CFG80211
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_rssi_monitor,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_rssi_monitor,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rssi_monitor,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rssi_monitor_policy,
+	 .maxattr = ATTR_RSSI_MONITOR_MAX,
 #endif
 	 },
 #endif
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_roaming_capability,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_roaming_capability,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_roaming_capability,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_fw_roaming_enable,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_fw_roaming_enable,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_fw_roaming_enable,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_fw_roaming_policy,
+	 .maxattr = MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_fw_roaming_config,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_fw_roaming_config,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_fw_roaming_config,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_fw_roaming_policy,
+	 .maxattr = MRVL_WLAN_VENDOR_ATTR_FW_ROAMING_MAX,
 #endif
 	 },
-
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_dfs_capability,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_dfs_capability,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_dfs_offload,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_correlated_time,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_correlated_time,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_correlated_time,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = SUBCMD_RTT_GET_CAPA,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_GET_CAPA,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_get_capa,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
+
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  SUBCMD_RTT_RANGE_REQUEST,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_RANGE_REQUEST,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_range_request,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  SUBCMD_RTT_RANGE_CANCEL,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_RANGE_CANCEL,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_range_cancel,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  SUBCMD_RTT_GET_RESPONDER_INFO,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_GET_RESPONDER_INFO,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_get_responder_info,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  SUBCMD_RTT_ENABLE_RESPONDER,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_ENABLE_RESPONDER,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_enable_responder,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  SUBCMD_RTT_DISABLE_RESPONDER,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_DISABLE_RESPONDER,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_disable_responder,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = SUBCMD_RTT_SET_LCI,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_SET_LCI,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_set_lci,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = SUBCMD_RTT_SET_LCR,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = SUBCMD_RTT_SET_LCR,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_rtt_set_lcr,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_rtt_policy,
+	 .maxattr = ATTR_RTT_MAX,
 #endif
 	 },
 
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_nd_offload},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_nd_offload},
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_11k_cfg,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_nd_offload_policy,
+	 .maxattr = ATTR_ND_OFFLOAD_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_drv_version,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_drv_version,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_drv_version,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_fw_version,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_fw_version,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_fw_version,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_wifi_supp_feature_set,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_wifi_supp_feature_set,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_supp_feature_set,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_set_country_code,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_set_country_code,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_set_country_code,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
-
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_wifi_logger_supp_feature_set,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_wifi_logger_supp_feature_set,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_wifi_logger_supp_feature_set,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_logger_policy,
+	 .maxattr = ATTR_WIFI_LOGGER_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_ring_buff_status,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_ring_buff_status,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_get_ring_buff_status,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_logger_policy,
+	 .maxattr = ATTR_WIFI_LOGGER_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = sub_cmd_start_logging,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_start_logging,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_start_logging,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_logger_policy,
+	 .maxattr = ATTR_WIFI_LOGGER_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_ring_buff_data,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_ring_buff_data,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_get_ring_data,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_logger_policy,
+	 .maxattr = ATTR_WIFI_LOGGER_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_start_packet_fate_monitor,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_start_packet_fate_monitor,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_start_packet_fate_monitor,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_fw_mem_dump,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_fw_mem_dump,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_get_fw_dump,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_drv_mem_dump,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_drv_mem_dump,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_get_drv_dump,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_set_packet_filter,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_set_packet_filter,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_set_packet_filter,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
-	 .policy = VENDOR_CMD_RAW_DATA,
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
+	 .policy = woal_packet_filter_policy,
+	 .maxattr = ATTR_PACKET_FILTER_MAX,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  sub_cmd_get_packet_filter_capability,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = sub_cmd_get_packet_filter_capability,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_get_packet_filter_capability,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_nan_enable_req,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_enable_req,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_enable_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_disable_req,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_disable_req,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_disable_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_publish_req,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_publish_req,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_publish_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_publish_cancel,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_publish_cancel,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_publish_cancel,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_subscribe_req,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_subscribe_req,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_subscribe_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_subscribe_cancel,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_subscribe_cancel,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_subscribe_cancel,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_trasmit_followup,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_trasmit_followup,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_trasmit_followup,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_nan_stats_req,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_stats_req,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_stats_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_nan_config_req,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_config_req,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_config_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_nan_tca_req,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_tca_req,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_tca_req,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_beacon_sdf_payload,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_beacon_sdf_payload,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_beacon_sdf_payload,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_get_version,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_get_version,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_get_version,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_nan_get_capa,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_get_capa,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_get_capability,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_data_if_create,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_data_if_create,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_data_if_create,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_data_if_delete,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_data_if_delete,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_data_if_delete,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_data_req_initor,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_data_req_initor,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_data_req_initor,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_nan_data_indi_resp,},
-	 .flags =
-	 WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV |
-	 WIPHY_VENDOR_CMD_NEED_RUNNING,
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_data_indi_resp,
+		  },
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_data_indi_resp,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_nan_data_end,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_nan_data_end,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV |
 	 WIPHY_VENDOR_CMD_NEED_NETDEV | WIPHY_VENDOR_CMD_NEED_RUNNING,
 	 .doit = woal_cfg80211_subcmd_nan_data_end,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_cfr_request,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_cfr_request,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_csi_enable,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_cfr_cancel,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_cfr_cancel,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_csi_disable,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd =
-		  subcmd_get_csi_dump_path,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_get_csi_dump_path,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_csi_dump_path,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_get_csi_config,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_get_csi_config,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_csi_config,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 	{
-	 .info = {.vendor_id = MRVL_VENDOR_ID,.subcmd = subcmd_get_csi_capa,},
+	 .info = {
+		  .vendor_id = MRVL_VENDOR_ID,
+		  .subcmd = subcmd_get_csi_capa,
+		  },
 	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 	 .doit = woal_cfg80211_subcmd_get_csi_capa,
-#if CFG80211_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#if KERNEL_VERSION(5, 3, 0) <= CFG80211_VERSION_CODE
 	 .policy = VENDOR_CMD_RAW_DATA,
 #endif
 	 },
 };
+
+// clang-format on
 
 /**
  * @brief register vendor commands and events

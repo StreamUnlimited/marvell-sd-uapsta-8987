@@ -1,6 +1,6 @@
 #  File: Makefile
 #
-#  Copyright 2014-2020 NXP
+#  Copyright 2008-2021 NXP
 #
 #  This software file (the File) is distributed by NXP
 #  under the terms of the GNU General Public License Version 2, June 1991
@@ -16,26 +16,24 @@
 #  this warranty disclaimer.
 #
 
+CONFIG_COMPATDIR=n
+ifeq ($(CONFIG_COMPATDIR), y)
 COMPATDIR=/lib/modules/$(KERNELVERSION_X86)/build/compat-wireless-3.2-rc1-1/include
-CC=		$(CROSS_COMPILE)gcc -I$(COMPATDIR)
-LD=		$(CROSS_COMPILE)ld
+CC =		$(CROSS_COMPILE)gcc -I$(COMPATDIR)
+else
+CC =		$(CROSS_COMPILE)gcc
+endif
+
+LD ?=		$(CROSS_COMPILE)ld
 BACKUP=		/root/backup
 YMD=		`date +%Y%m%d%H%M`
-
-ifneq ($(COMPAT_VERSION_CODE),)
-DRV_DIR ?= $(shell pwd)
-export DRV_DIR
-COMPAT_VERSION=$(shell echo $(COMPAT_VERSION_CODE) | awk -F '.' '{print $$1}')
-COMPAT_PATCHLEVEL=$(shell echo $(COMPAT_VERSION_CODE) | awk -F '.' '{print $$2}')
-COMPAT_SUBLEVEL=$(shell echo $(COMPAT_VERSION_CODE) | awk -F '.' '{print $$3}')
-DECL_HEADER_FILE=$(DRV_DIR)/mlinux/moal_main.h
-$(shell sed -i 's/COMPAT_VERSION_CODE KERNEL_VERSION.*/COMPAT_VERSION_CODE KERNEL_VERSION(\
-		$(COMPAT_VERSION), $(COMPAT_PATCHLEVEL), $(COMPAT_SUBLEVEL))/g' $(DECL_HEADER_FILE))
-endif
 
 #############################################################################
 # Configuration Options
 #############################################################################
+# Multi-chipsets
+CONFIG_SD8987=y
+
 
 # Debug Option
 # DEBUG LEVEL n/1/2:
@@ -43,9 +41,6 @@ endif
 # 1: Only PRINTM(MMSG,...), PRINTM(MFATAL,...), ...
 # 2: All PRINTM()
 CONFIG_DEBUG=1
-
-# Proc debug file
-CONFIG_PROC_DEBUG=y
 
 # Enable STA mode support
 CONFIG_STA_SUPPORT=y
@@ -72,7 +67,6 @@ CONFIG_BIG_ENDIAN=n
 
 
 
-
 ifeq ($(CONFIG_DRV_EMBEDDED_SUPPLICANT), y)
 CONFIG_EMBEDDED_SUPP_AUTH=y
 else
@@ -80,14 +74,6 @@ ifeq ($(CONFIG_DRV_EMBEDDED_AUTHENTICATOR), y)
 CONFIG_EMBEDDED_SUPP_AUTH=y
 endif
 endif
-
-CONFIG_SDIO_OOB_IRQ=n
-
-# Enable SDIO multi-port Tx aggregation
-CONFIG_SDIO_MULTI_PORT_TX_AGGR=y
-
-# Enable SDIO multi-port Rx aggregation
-CONFIG_SDIO_MULTI_PORT_RX_AGGR=y
 
 # SDIO suspend/resume
 CONFIG_SDIO_SUSPEND_RESUME=y
@@ -111,8 +97,10 @@ CONFIG_USERSPACE_32BIT_OVER_KERNEL_64BIT=n
 #############################################################################
 
 MODEXT = ko
-ccflags-y += -I$(M)/mlan
+ccflags-y += -I$(PWD)/mlan
 ccflags-y += -DLINUX
+
+
 
 
 
@@ -122,6 +110,8 @@ KERNELDIR ?= /lib/modules/$(KERNELVERSION_X86)/build
 LD += -S
 
 BINDIR = ../bin_sd8987
+
+
 APPDIR= $(shell if test -d "mapp"; then echo mapp; fi)
 
 #############################################################################
@@ -129,7 +119,6 @@ APPDIR= $(shell if test -d "mapp"; then echo mapp; fi)
 #############################################################################
 
 	ccflags-y += -I$(KERNELDIR)/include
-
 
 	ccflags-y += -DFPNUM='"87"'
 
@@ -141,11 +130,6 @@ ifeq ($(CONFIG_DEBUG),2)
 	ccflags-y += -DDEBUG_LEVEL1
 	ccflags-y += -DDEBUG_LEVEL2
 	DBG=	-dbg
-endif
-
-ifeq ($(CONFIG_PROC_DEBUG),y)
-	ccflags-y += -DPROC_DEBUG
-	export CONFIG_PROC_DEBUG
 endif
 
 ifeq ($(CONFIG_64BIT), y)
@@ -187,14 +171,6 @@ ifeq ($(CONFIG_USERSPACE_32BIT_OVER_KERNEL_64BIT),y)
 	ccflags-y += -DUSERSPACE_32BIT_OVER_KERNEL_64BIT
 endif
 
-ifeq ($(CONFIG_SDIO_MULTI_PORT_TX_AGGR),y)
-	ccflags-y += -DSDIO_MULTI_PORT_TX_AGGR
-endif
-
-ifeq ($(CONFIG_SDIO_MULTI_PORT_RX_AGGR),y)
-	ccflags-y += -DSDIO_MULTI_PORT_RX_AGGR
-endif
-
 ifeq ($(CONFIG_SDIO_SUSPEND_RESUME),y)
 	ccflags-y += -DSDIO_SUSPEND_RESUME
 endif
@@ -216,19 +192,40 @@ ifeq ($(CONFIG_OPENWRT_SUPPORT), y)
 	ccflags-y += -DOPENWRT
 endif
 
-
 ifeq ($(CONFIG_T50), y)
 	ccflags-y += -DT50
 	ccflags-y += -DT40
 	ccflags-y += -DT3T
 endif
 
+ifeq ($(CONFIG_SD8987),y)
+	CONFIG_SDIO=y
+	ccflags-y += -DSD8987
+endif
+
+
 # add -Wno-packed-bitfield-compat when GCC version greater than 4.4
 GCC_VERSION := $(shell echo `gcc -dumpversion | cut -f1-2 -d.` \>= 4.4 | sed -e 's/\./*100+/g' | bc )
 ifeq ($(GCC_VERSION),1)
 	ccflags-y += -Wno-packed-bitfield-compat
 endif
-
+WimpGCC_VERSION := $(shell echo `gcc -dumpversion | cut -f1 -d.`| bc )
+ifeq ($(shell test $(WimpGCC_VERSION) -ge 7; echo $$?),0)
+ccflags-y += -Wimplicit-fallthrough=3
+endif
+#ccflags-y += -Wunused-but-set-variable
+#ccflags-y += -Wmissing-prototypes
+#ccflags-y += -Wold-style-definition
+#ccflags-y += -Wtype-limits
+#ccflags-y += -Wsuggest-attribute=format
+#ccflags-y += -Wmissing-include-dirs
+#ccflags-y += -Wshadow
+#ccflags-y += -Wsign-compare
+#ccflags-y += -Wunused-macros
+#ccflags-y += -Wmissing-field-initializers
+#ccflags-y += -Wstringop-truncation
+#ccflags-y += -Wmisleading-indentation
+#ccflags-y += -Wunused-const-variable
 #############################################################################
 # Make Targets
 #############################################################################
@@ -287,12 +284,12 @@ endif
 # OpenWrt
 ifeq ($(CONFIG_OPENWRT_SUPPORT), y)
 ifeq ($(CPTCFG_CFG80211),y)
-	CONFIG_UAP_CFG80211=y
+	CONFIG_STA_CFG80211=y
 else
 ifeq ($(CPTCFG_CFG80211),m)
-	CONFIG_UAP_CFG80211=y
+	CONFIG_STA_CFG80211=y
 else
-	CONFIG_UAP_CFG80211=n
+	CONFIG_STA_CFG80211=n
 endif
 endif
 endif
@@ -347,14 +344,12 @@ endif
 
 
 
-ifeq ($(CONFIG_SDIO_OOB_IRQ), y)
-    ccflags-y += -DSDIO_OOB_IRQ
-endif
 
 MOALOBJS =	mlinux/moal_main.o \
 		mlinux/moal_ioctl.o \
 		mlinux/moal_shim.o \
-		mlinux/moal_eth_ioctl.o
+		mlinux/moal_eth_ioctl.o \
+		mlinux/moal_init.o
 
 MLANOBJS =	mlan/mlan_shim.o mlan/mlan_init.o \
 		mlan/mlan_txrx.o \
@@ -397,21 +392,19 @@ endif
 endif
 ifeq ($(CONFIG_STA_CFG80211),y)
 MOALOBJS += mlinux/moal_cfg80211.o
-MOALOBJS += mlinux/moal_cfgvendor.o
+MOALOBJS += mlinux/moal_cfg80211_util.o
 MOALOBJS += mlinux/moal_sta_cfg80211.o
 endif
 ifeq ($(CONFIG_UAP_CFG80211),y)
 MOALOBJS += mlinux/moal_cfg80211.o
-MOALOBJS += mlinux/moal_cfgvendor.o
+MOALOBJS += mlinux/moal_cfg80211_util.o
 MOALOBJS += mlinux/moal_uap_cfg80211.o
 endif
 
 ifdef CONFIG_PROC_FS
 MOALOBJS += mlinux/moal_proc.o
-ifeq ($(CONFIG_PROC_DEBUG),y)
 MOALOBJS += mlinux/moal_debug.o
 endif
-endif
 
 
 
@@ -420,16 +413,12 @@ endif
 
 
 
-ifeq ($(CONFIG_CONCURRENT_DRIVER),y)
-obj-m := mlan_sdio.o
-mlan_sdio-objs := $(MLANOBJS)
-else
 obj-m := mlan.o
 mlan-objs := $(MLANOBJS)
-endif
+
 MOALOBJS += mlinux/moal_sdio_mmc.o
-obj-m += sd8xxx.o
-sd8xxx-objs := $(MOALOBJS)
+obj-m += sdxxx.o
+sdxxx-objs := $(MOALOBJS)
 
 # Otherwise we were called directly from the command line; invoke the kernel build system.
 else
@@ -483,20 +472,14 @@ build:		echo default
 		mkdir $(BINDIR); \
 	fi
 
-ifeq ($(CONFIG_CONCURRENT_DRIVER),y)
-	cp -f mlan_sdio.$(MODEXT) $(BINDIR)/mlan_sdio$(DBG).$(MODEXT)
-else
 	cp -f mlan.$(MODEXT) $(BINDIR)/mlan$(DBG).$(MODEXT)
-endif
-	cp -f sd8xxx.$(MODEXT) $(BINDIR)/sd8987$(DBG).$(MODEXT)
+
+	cp -f sdxxx.$(MODEXT) $(BINDIR)/sd8987$(DBG).$(MODEXT)
 	cp -rpf script/sdio_mmc/* $(BINDIR)/
 
 ifeq ($(CONFIG_STA_SUPPORT),y)
 	cp -f README $(BINDIR)
 	cp -f README_MLAN $(BINDIR)
-ifeq ($(CONFIG_OPENWRT_SUPPORT),y)
-	cp -f README_OPENWRT $(BINDIR)
-endif
 ifneq ($(APPDIR),)
 	$(MAKE) -C mapp/mlanconfig $@ INSTALLDIR=$(BINDIR)
 	$(MAKE) -C mapp/mlanutl $@ INSTALLDIR=$(BINDIR)
@@ -550,7 +533,7 @@ install: default
 
 	cp -f mlan.$(MODEXT) $(INSTALLDIR)/mlan$(DBG).$(MODEXT)
 	cp -f ../io/sdio/$(PLATFORM)/sdio.$(MODEXT) $(INSTALLDIR)
-	cp -f sd8xxx.$(MODEXT) $(INSTALLDIR)/sd8987$(DBG).$(MODEXT)
+	cp -f sdxxx.$(MODEXT) $(INSTALLDIR)/sd8987$(DBG).$(MODEXT)
 	echo "sd8987 Driver Installed"
 
 distclean:

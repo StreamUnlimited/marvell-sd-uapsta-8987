@@ -1,51 +1,52 @@
 /**  @file moal_proc.c
-  *
-  * @brief This file contains functions for proc file.
-  *
-  *
-  * Copyright 2014-2020 NXP
-  *
-  * This software file (the File) is distributed by NXP
-  * under the terms of the GNU General Public License Version 2, June 1991
-  * (the License).  You may use, redistribute and/or modify the File in
-  * accordance with the terms and conditions of the License, a copy of which
-  * is available by writing to the Free Software Foundation, Inc.,
-  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
-  * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
-  *
-  * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
-  * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
-  * this warranty disclaimer.
-  *
-  */
+ *
+ * @brief This file contains functions for proc file.
+ *
+ *
+ * Copyright 2008-2021 NXP
+ *
+ * This software file (the File) is distributed by NXP
+ * under the terms of the GNU General Public License Version 2, June 1991
+ * (the License).  You may use, redistribute and/or modify the File in
+ * accordance with the terms and conditions of the License, a copy of which
+ * is available by writing to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA or on the
+ * worldwide web at http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt.
+ *
+ * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE
+ * ARE EXPRESSLY DISCLAIMED.  The License provides additional details about
+ * this warranty disclaimer.
+ *
+ */
 
 /********************************************************
 Change log:
     10/21/2008: initial version
 ********************************************************/
 
-#include	"moal_main.h"
+#include "moal_main.h"
 #ifdef UAP_SUPPORT
-#include    "moal_uap.h"
+#include "moal_uap.h"
 #endif
-#include    "moal_sdio.h"
+#include "moal_sdio.h"
 
 /********************************************************
 		Local Variables
 ********************************************************/
 #ifdef CONFIG_PROC_FS
+#define STATUS_PROC "wifi_status"
+#define MWLAN_PROC "mwlan"
+#define WLAN_PROC "adapter%d"
+/** Proc mwlan directory entry */
+static struct proc_dir_entry *proc_mwlan;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
-#define PROC_DIR	NULL
-#define MWLAN_PROC_DIR  "mwlan/"
-#define MWLAN_PROC  "mwlan"
-/** Proc top level directory entry */
-struct proc_dir_entry *proc_mwlan;
-int proc_dir_entry_use_count;
+#define PROC_DIR NULL
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
-#define PROC_DIR	(&proc_root)
+#define PROC_DIR (&proc_root)
 #else
-#define PROC_DIR	proc_net
+#define PROC_DIR proc_net
 #endif
 
 #ifdef STA_SUPPORT
@@ -57,11 +58,10 @@ static char *szModes[] = {
 };
 #endif
 
-extern int drv_mode;
-
 /********************************************************
 		Global Variables
 ********************************************************/
+int wifi_status;
 
 /********************************************************
 		Local Functions
@@ -70,7 +70,7 @@ extern int drv_mode;
  *  @brief Proc read function for info
  *
  *  @param sfp      pointer to seq_file structure
- *  @param data     void pointer to data
+ *  @param data
  *
  *  @return         Number of output data
  */
@@ -99,6 +99,10 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 #ifdef UAP_SUPPORT
 	mlan_ds_uap_stats ustats;
 #endif
+	union {
+		t_u32 l;
+		t_u8 c[4];
+	} ver;
 
 	ENTER();
 
@@ -144,6 +148,9 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 #endif
 	seq_printf(sfp, "driver_version = %s", fmt);
 	seq_printf(sfp, "\ninterface_name=\"%s\"\n", netdev->name);
+	ver.l = handle->fw_release_number;
+	seq_printf(sfp, "firmware_major_version=%u.%u.%u\n", ver.c[2], ver.c[1],
+		   ver.c[0]);
 	if (priv->bss_type == MLAN_BSS_TYPE_WIFIDIRECT) {
 		if (GET_BSS_ROLE(priv) == MLAN_BSS_ROLE_STA)
 			seq_printf(sfp, "bss_mode = \"WIFIDIRECT-Client\"\n");
@@ -155,8 +162,8 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 		seq_printf(sfp, "bss_mode =\"%s\"\n", szModes[info.bss_mode]);
 #endif
 	seq_printf(sfp, "media_state=\"%s\"\n",
-		   ((priv->media_connected ==
-		     MFALSE) ? "Disconnected" : "Connected"));
+		   ((priv->media_connected == MFALSE) ? "Disconnected" :
+		    "Connected"));
 	seq_printf(sfp, "mac_address=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
 		   netdev->dev_addr[0], netdev->dev_addr[1],
 		   netdev->dev_addr[2], netdev->dev_addr[3],
@@ -166,9 +173,8 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 		seq_printf(sfp, "multicast_count=\"%d\"\n", mc_count);
 		seq_printf(sfp, "essid=\"%s\"\n", info.ssid.ssid);
 		seq_printf(sfp, "bssid=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
-			   info.bssid[0], info.bssid[1],
-			   info.bssid[2], info.bssid[3],
-			   info.bssid[4], info.bssid[5]);
+			   info.bssid[0], info.bssid[1], info.bssid[2],
+			   info.bssid[3], info.bssid[4], info.bssid[5]);
 		seq_printf(sfp, "channel=\"%d\"\n", (int)info.bss_chan);
 		seq_printf(sfp, "region_code = \"%02x\"\n",
 			   (t_u8)info.region_code);
@@ -180,8 +186,7 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 		for (i = 0; i < netdev->mc_count; i++) {
 			seq_printf(sfp,
 				   "multicast_address[%d]=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
-				   i,
-				   mcptr->dmi_addr[0], mcptr->dmi_addr[1],
+				   i, mcptr->dmi_addr[0], mcptr->dmi_addr[1],
 				   mcptr->dmi_addr[2], mcptr->dmi_addr[3],
 				   mcptr->dmi_addr[4], mcptr->dmi_addr[5]);
 
@@ -191,8 +196,7 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 		netdev_for_each_mc_addr(mcptr, netdev)
 			seq_printf(sfp,
 				   "multicast_address[%d]=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
-				   i++,
-				   mcptr->addr[0], mcptr->addr[1],
+				   i++, mcptr->addr[0], mcptr->addr[1],
 				   mcptr->addr[2], mcptr->addr[3],
 				   mcptr->addr[4], mcptr->addr[5]);
 #endif /* < 2.6.35 */
@@ -209,7 +213,7 @@ woal_info_proc_read(struct seq_file *sfp, void *data)
 	seq_printf(sfp, "carrier %s\n",
 		   ((netif_carrier_ok(priv->netdev)) ? "on" : "off"));
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 29)
-	for (i = 0; i < netdev->num_tx_queues; i++) {
+	for (i = 0; i < (int)netdev->num_tx_queues; i++) {
 		seq_printf(sfp, "tx queue %d:  %s\n", i,
 			   ((netif_tx_queue_stopped
 			     (netdev_get_tx_queue(netdev, 0))) ? "stopped" :
@@ -274,6 +278,14 @@ woal_info_proc_open(struct inode *inode, struct file *file)
 #endif
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static const struct proc_ops info_proc_fops = {
+	.proc_open = woal_info_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+#else
 static const struct file_operations info_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = woal_info_proc_open,
@@ -281,8 +293,9 @@ static const struct file_operations info_proc_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
 
-#define     CMD52_STR_LEN   50
+#define CMD52_STR_LEN 50
 /*
  *  @brief Parse cmd52 string
  *
@@ -294,8 +307,8 @@ static const struct file_operations info_proc_fops = {
  *  @return         BT_STATUS_SUCCESS
  */
 static int
-parse_cmd52_string(const char *buffer, size_t len, int *func, int *reg,
-		   int *val)
+parse_cmd52_string(const char *buffer, size_t len, int *func,
+		   int *reg, int *val)
 {
 	int ret = MLAN_STATUS_SUCCESS;
 	char *string = NULL;
@@ -308,8 +321,8 @@ parse_cmd52_string(const char *buffer, size_t len, int *func, int *reg,
 	if (string == NULL)
 		return -ENOMEM;
 
-	memcpy(string, buffer + strlen("sdcmd52rw="),
-	       MIN((CMD52_STR_LEN - 1), (len - strlen("sdcmd52rw="))));
+	moal_memcpy_ext(NULL, string, buffer + strlen("sdcmd52rw="),
+			len - strlen("sdcmd52rw="), CMD52_STR_LEN - 1);
 	string = strstrip(string);
 
 	*func = -1;
@@ -346,8 +359,8 @@ parse_cmd52_string(const char *buffer, size_t len, int *func, int *reg,
  *  @return         number of data
  */
 static ssize_t
-woal_config_write(struct file *f, const char __user * buf, size_t count,
-		  loff_t * off)
+woal_config_write(struct file *f, const char __user * buf,
+		  size_t count, loff_t * off)
 {
 	char databuf[101];
 	char *line = NULL;
@@ -391,29 +404,31 @@ woal_config_write(struct file *f, const char __user * buf, size_t count,
 		line += strlen("drv_mode") + 1;
 		config_data = (t_u32)woal_string_to_number(line);
 		PRINTM(MINFO, "drv_mode: %d\n", (int)config_data);
-		if (config_data != (t_u32)drv_mode)
+		if (config_data != (t_u32)handle->params.drv_mode)
 			if (woal_switch_drv_mode(handle, config_data) !=
 			    MLAN_STATUS_SUCCESS) {
 				PRINTM(MERROR, "Could not switch drv mode\n");
 			}
 	}
-	if (!strncmp(databuf, "sdcmd52rw=", strlen("sdcmd52rw=")) &&
-	    count > strlen("sdcmd52rw=")) {
-		parse_cmd52_string((const char *)databuf, (size_t) count, &func,
-				   &reg, &val);
-		woal_sdio_read_write_cmd52(handle, func, reg, val);
+	if (IS_SD(handle->card_type)) {
+		if (!strncmp(databuf, "sdcmd52rw=", strlen("sdcmd52rw=")) &&
+		    count > strlen("sdcmd52rw=")) {
+			parse_cmd52_string((const char *)databuf,
+					   (size_t) count, &func, &reg, &val);
+			woal_sdio_read_write_cmd52(handle, func, reg, val);
+		}
 	}
 	if (!strncmp(databuf, "debug_dump", strlen("debug_dump"))) {
+		PRINTM(MERROR, "Recevie debug_dump command\n");
+		handle->driver_status = MTRUE;
 		priv = woal_get_priv(handle, MLAN_BSS_ROLE_ANY);
 		if (priv) {
-			PRINTM(MERROR, "Recevie debug_dump command\n");
 #ifdef DEBUG_LEVEL1
 			drvdbg &= ~MFW_D;
 #endif
 			woal_mlan_debug_info(priv);
 			woal_moal_debug_info(priv, NULL, MFALSE);
-
-			woal_dump_firmware_info_v3(handle);
+			handle->ops.dump_fw_info(handle);
 		}
 	}
 
@@ -422,20 +437,21 @@ woal_config_write(struct file *f, const char __user * buf, size_t count,
 		gfp_t flag;
 		if (len) {
 			kfree(handle->fwdump_fname);
-			flag = (in_atomic() ||
-				irqs_disabled())? GFP_ATOMIC : GFP_KERNEL;
+			flag = (in_atomic() || irqs_disabled())? GFP_ATOMIC :
+				GFP_KERNEL;
 			handle->fwdump_fname = kzalloc(len, flag);
 			if (handle->fwdump_fname)
-				memcpy(handle->fwdump_fname,
-				       databuf + strlen("fwdump_file="),
-				       len - 1);
+				moal_memcpy_ext(handle, handle->fwdump_fname,
+						databuf +
+						strlen("fwdump_file="),
+						len - 1, len - 1);
 		}
 	}
 	if (!strncmp(databuf, "fw_reload", strlen("fw_reload"))) {
 		if (!strncmp(databuf, "fw_reload=", strlen("fw_reload="))) {
 			line += strlen("fw_reload") + 1;
 			config_data = (t_u32)woal_string_to_number(line);
-		} else
+		} else if (IS_SD(handle->card_type))
 			config_data = FW_RELOAD_SDIO_INBAND_RESET;
 		PRINTM(MMSG, "Request fw_reload=%d\n", config_data);
 		woal_request_fw_reload(handle, config_data);
@@ -449,7 +465,7 @@ woal_config_write(struct file *f, const char __user * buf, size_t count,
  *  @brief config proc read function
  *
  *  @param sfp      pointer to seq_file structure
- *  @param data     Void pointer to data
+ *  @param data
  *
  *  @return         number of output data
  */
@@ -467,10 +483,12 @@ woal_config_read(struct seq_file *sfp, void *data)
 
 	seq_printf(sfp, "hardware_status=%d\n", (int)handle->hardware_status);
 	seq_printf(sfp, "netlink_num=%d\n", (int)handle->netlink_num);
-	seq_printf(sfp, "drv_mode=%d\n", (int)drv_mode);
-	seq_printf(sfp, "sdcmd52rw=%d 0x%0x 0x%02X\n", handle->cmd52_func,
-		   handle->cmd52_reg, handle->cmd52_val);
-
+	seq_printf(sfp, "drv_mode=%d\n", (int)handle->params.drv_mode);
+	if (IS_SD(handle->card_type)) {
+		seq_printf(sfp, "sdcmd52rw=%d 0x%0x 0x%02X\n",
+			   handle->cmd52_func, handle->cmd52_reg,
+			   handle->cmd52_val);
+	}
 	MODULE_PUT;
 	LEAVE();
 	return 0;
@@ -486,6 +504,15 @@ woal_config_proc_open(struct inode *inode, struct file *file)
 #endif
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static const struct proc_ops config_proc_fops = {
+	.proc_open = woal_config_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+	.proc_write = woal_config_write,
+};
+#else
 static const struct file_operations config_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = woal_config_proc_open,
@@ -494,75 +521,59 @@ static const struct file_operations config_proc_fops = {
 	.release = single_release,
 	.write = woal_config_write,
 };
+#endif
 
+/**
+ *  @brief wifi status proc read function
+ *
+ *  @param sfp      pointer to seq_file structure
+ *  @param data
+ *
+ *  @return         number of output data
+ */
 static int
-woal_power_read(struct seq_file *sfp, void *data)
+woal_wifi_status_read(struct seq_file *sfp, void *data)
 {
-	moal_handle *handle = (moal_handle *)sfp->private;
-	moal_private *priv = NULL;
-	t_u64 nsec = 0;
-	t_u64 cumulate_on_time = 0;
-	int ret = 0;
-	mlan_ds_power_info power;
-
 	ENTER();
 
-	if (MODULE_GET == 0) {
+	if (!MODULE_GET) {
 		LEAVE();
-		return ret;
+		return 0;
 	}
 
-	priv = woal_get_priv(handle, MLAN_BSS_ROLE_ANY);
-	if (priv == NULL) {
-		PRINTM(MERROR, "priv is NULL\n");
-		ret = -EFAULT;
-		goto done;
-	}
-	memset(&power, 0, sizeof(mlan_ds_power_info));
-	ret = woal_get_power_info(priv, MOAL_IOCTL_WAIT, &power);
-	if ((t_u32)ret != MLAN_STATUS_SUCCESS) {
-		PRINTM(MERROR, "Failed to get power info\n");
-		ret = -EFAULT;
-		goto done;
-	}
-	moal_get_boot_ktime(handle, &nsec);
-	PRINTM(MINFO, "In proc, current time is %lu ms\n",
-	       (long unsigned int)moal_do_div(nsec, 1000000));
-	cumulate_on_time =
-		moal_do_div(nsec, 1000000) - moal_do_div(handle->on_time,
-							 1000000);
-	seq_printf(sfp, "cumulative_on_time_ms=%lu\n",
-		   (long unsigned int)cumulate_on_time);
-	seq_printf(sfp, "cumulative_sleep_time_ms=%lu\n",
-		   (long unsigned int)(power.cumulative_sleep_time_ms));
-	seq_printf(sfp, "deep_sleep_enter_counter=%d\n",
-		   power.deep_sleep_enter_counter);
-	seq_printf(sfp, "last_deep_sleep_tstamp_ms=%lu\n",
-		   (long unsigned int)power.last_deep_sleep_tstamp_ms);
+	seq_printf(sfp, "%d\n", wifi_status);
 
-done:
 	MODULE_PUT;
 	LEAVE();
-	return ret;
+	return 0;
 }
 
 static int
-woal_proc_power_open(struct inode *inode, struct file *file)
+woal_wifi_status_proc_open(struct inode *inode, struct file *file)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
-	return single_open(file, woal_power_read, PDE_DATA(inode));
+	return single_open(file, woal_wifi_status_read, PDE_DATA(inode));
 #else
-	return single_open(file, woal_power_read, PDE(inode)->data);
+	return single_open(file, woal_wifi_status_read, PDE(inode)->data);
 #endif
 }
 
-static const struct file_operations power_fops = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+static const struct proc_ops wifi_status_proc_fops = {
+	.proc_open = woal_wifi_status_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+#else
+static const struct file_operations wifi_status_proc_fops = {
 	.owner = THIS_MODULE,
-	.open = woal_proc_power_open,
+	.open = woal_wifi_status_proc_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
 
 /********************************************************
 		Global Functions
@@ -591,7 +602,7 @@ woal_string_to_number(char *s)
 	} else
 		base = 10;
 
-	for (s = s; *s; s++) {
+	for (; *s; s++) {
 		if ((*s >= '0') && (*s <= '9'))
 			r = (r * base) + (*s - '0');
 		else if ((*s >= 'A') && (*s <= 'F'))
@@ -606,6 +617,54 @@ woal_string_to_number(char *s)
 }
 
 /**
+ *  @brief This function creates proc mwlan directory
+ *  directory structure
+ *
+ *  @return         MLAN_STATUS_SUCCESS or MLAN_STATUS_FAILURE
+ */
+mlan_status
+woal_root_proc_init(void)
+{
+	ENTER();
+
+	PRINTM(MINFO, "Create /proc/mwlan directory\n");
+
+	proc_mwlan = proc_mkdir(MWLAN_PROC, PROC_DIR);
+	if (!proc_mwlan) {
+		PRINTM(MERROR,
+		       "woal_root_proc_init: Cannot create /proc/mwlan\n");
+		LEAVE();
+		return MLAN_STATUS_FAILURE;
+	}
+
+	/* create /proc/mwlan/wifi_status */
+	proc_create_data(STATUS_PROC, 0666, proc_mwlan, &wifi_status_proc_fops,
+			 NULL);
+
+	LEAVE();
+	return MLAN_STATUS_SUCCESS;
+}
+
+/**
+ *  @brief This function removes proc mwlan directory
+ *  directory structure
+ *
+ *  @return         N/A
+ */
+void
+woal_root_proc_remove(void)
+{
+	ENTER();
+
+	remove_proc_entry(STATUS_PROC, proc_mwlan);
+
+	remove_proc_entry(MWLAN_PROC, PROC_DIR);
+	proc_mwlan = NULL;
+
+	LEAVE();
+}
+
+/**
  *  @brief Create the top level proc directory
  *
  *  @param handle   Pointer to woal_handle
@@ -617,94 +676,64 @@ woal_proc_init(moal_handle *handle)
 {
 	struct proc_dir_entry *r;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
-	struct proc_dir_entry *pde = PROC_DIR;
+	struct proc_dir_entry *pde = proc_mwlan;
 #endif
 	char config_proc_dir[20];
-	char power_dir[20];
 
 	ENTER();
 
-	PRINTM(MINFO, "Create Proc Interface\n");
-	if (!handle->proc_mwlan) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
-		/* Check if directory already exists */
-		for (pde = pde->subdir; pde; pde = pde->next) {
-			if (pde->namelen && !strcmp(MWLAN_PROC, pde->name)) {
-				/* Directory exists */
-				PRINTM(MWARN,
-				       "proc interface already exists!\n");
-				handle->proc_mwlan = pde;
-				break;
-			}
-		}
-		if (pde == NULL) {
-			handle->proc_mwlan = proc_mkdir(MWLAN_PROC, PROC_DIR);
-			if (!handle->proc_mwlan)
-				PRINTM(MERROR,
-				       "Cannot create proc interface!\n");
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
-			else
-				atomic_set(&handle->proc_mwlan->count, 1);
-#endif
-		}
-#else
-		if (!proc_mwlan) {
-			handle->proc_mwlan = proc_mkdir(MWLAN_PROC, PROC_DIR);
-			if (!handle->proc_mwlan) {
-				PRINTM(MERROR,
-				       "Cannot create proc interface!\n");
-			}
-		} else {
-			handle->proc_mwlan = proc_mwlan;
-		}
-#endif
-		if (handle->proc_mwlan) {
-			if (handle->handle_idx)
-				sprintf(config_proc_dir, "config%d",
-					handle->handle_idx);
-			else
-				strcpy(config_proc_dir, "config");
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
-			r = proc_create_data(config_proc_dir, 0644,
-					     handle->proc_mwlan,
-					     &config_proc_fops, handle);
-			if (r == NULL)
-#else
-			r = create_proc_entry(config_proc_dir, 0644,
-					      handle->proc_mwlan);
-			if (r) {
-				r->data = handle;
-				r->proc_fops = &config_proc_fops;
-			} else
-#endif
-				PRINTM(MERROR, "Fail to create proc config\n");
-			proc_dir_entry_use_count++;
-			if (handle->handle_idx)
-				sprintf(power_dir, "power%d",
-					handle->handle_idx);
-			else
-				strcpy(power_dir, "power");
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
-			r = proc_create_data(power_dir, 0644,
-					     handle->proc_mwlan, &power_fops,
-					     handle);
-			if (r == NULL)
-#else
-			r = create_proc_entry(power_dir, 0644,
-					      handle->proc_mwlan);
-			if (r) {
-				r->data = handle;
-				r->proc_fops = &power_fops;
-			} else
-#endif
-				PRINTM(MERROR, "Failed to create proc power\n");
-		}
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 26)
-		proc_mwlan = handle->proc_mwlan;
-#endif
+	if (handle->proc_wlan) {
+		PRINTM(MMSG, "woal_proc_init: proc_wlan is already exist %s\n",
+		       handle->proc_wlan_name);
+		goto done;
 	}
 
+	snprintf(handle->proc_wlan_name, sizeof(handle->proc_wlan_name),
+		 WLAN_PROC, handle->handle_idx);
+	PRINTM(MINFO, "Create Proc Interface %s\n", handle->proc_wlan_name);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
+	/* Check if directory already exists */
+	for (pde = pde->subdir; pde; pde = pde->next) {
+		if (pde->namelen && !strcmp(handle->proc_wlan_name, pde->name)) {
+			/* Directory exists */
+			PRINTM(MWARN, "proc interface already exists!\n");
+			handle->proc_wlan = pde;
+			break;
+		}
+	}
+	if (pde == NULL) {
+		handle->proc_wlan =
+			proc_mkdir(handle->proc_wlan_name, proc_mwlan);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
+		if (handle->proc_wlan)
+			atomic_set(&handle->proc_wlan->count, 1);
+#endif
+	}
+#else
+	handle->proc_wlan = proc_mkdir(handle->proc_wlan_name, proc_mwlan);
+#endif
+	if (!handle->proc_wlan) {
+		PRINTM(MERROR, "Cannot create proc interface %s!\n",
+		       handle->proc_wlan_name);
+		goto done;
+	}
+
+	strcpy(config_proc_dir, "config");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
+	r = proc_create_data(config_proc_dir, 0666, handle->proc_wlan,
+			     &config_proc_fops, handle);
+#else
+	r = create_proc_entry(config_proc_dir, 0644, handle->proc_wlan);
+	if (r) {
+		r->data = handle;
+		r->proc_fops = &config_proc_fops;
+	}
+#endif
+	if (!r)
+		PRINTM(MERROR, "Fail to create proc config\n");
+
+done:
 	LEAVE();
 }
 
@@ -718,41 +747,27 @@ woal_proc_init(moal_handle *handle)
 void
 woal_proc_exit(moal_handle *handle)
 {
+	char config_proc_dir[20];
+
 	ENTER();
 
-	PRINTM(MINFO, "Remove Proc Interface\n");
-	if (handle->proc_mwlan) {
-		char config_proc_dir[20];
-		char power_dir[20];
+	PRINTM(MINFO, "Remove Proc Interface %s\n", handle->proc_wlan_name);
+	if (handle->proc_wlan) {
+		strcpy(config_proc_dir, "config");
+		remove_proc_entry(config_proc_dir, handle->proc_wlan);
 
-		if (handle->handle_idx)
-			sprintf(config_proc_dir, "config%d",
-				handle->handle_idx);
-		else
-			strcpy(config_proc_dir, "config");
-		remove_proc_entry(config_proc_dir, handle->proc_mwlan);
-		if (handle->handle_idx)
-			sprintf(power_dir, "power%d", handle->handle_idx);
-		else
-			strcpy(power_dir, "power");
-		remove_proc_entry(power_dir, handle->proc_mwlan);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
 		/* Remove only if we are the only instance using this */
-		if (atomic_read(&(handle->proc_mwlan->count)) > 1) {
+		if (atomic_read(&(handle->proc_wlan->count)) > 1) {
 			PRINTM(MWARN, "More than one interface using proc!\n");
 		} else {
 #endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
-			atomic_dec(&(handle->proc_mwlan->count));
+			atomic_dec(&(handle->proc_wlan->count));
 #endif
-			if (!--proc_dir_entry_use_count) {
-				remove_proc_entry(MWLAN_PROC, PROC_DIR);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 26)
-				proc_mwlan = NULL;
-#endif
-			}
+			remove_proc_entry(handle->proc_wlan_name, proc_mwlan);
 
-			handle->proc_mwlan = NULL;
+			handle->proc_wlan = NULL;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
 		}
 #endif
@@ -781,50 +796,55 @@ woal_create_proc_entry(moal_private *priv)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
 	if (!priv->proc_entry) {
 		memset(proc_dir_name, 0, sizeof(proc_dir_name));
-		strcpy(proc_dir_name, MWLAN_PROC_DIR);
+		memcpy(proc_dir_name, priv->phandle->proc_wlan_name,
+		       sizeof(proc_dir_name) - 2);
+		proc_dir_name[strlen(proc_dir_name)] = '/';
 
 		if (strlen(dev->name) >
-		    ((sizeof(proc_dir_name) - 1) - strlen(MWLAN_PROC_DIR))) {
+		    ((sizeof(proc_dir_name) - 1) - (strlen(proc_dir_name)))) {
 			PRINTM(MERROR,
 			       "Failed to create proc entry, device name is too long\n");
 			LEAVE();
 			return;
 		}
 		strcat(proc_dir_name, dev->name);
-		/* Try to create mwlan/mlanX first */
-		priv->proc_entry = proc_mkdir(proc_dir_name, PROC_DIR);
+		/* Try to create adapterX/dev_name directory first under
+		 * /proc/mwlan/ */
+		priv->proc_entry = proc_mkdir(proc_dir_name, proc_mwlan);
 		if (priv->proc_entry) {
 			/* Success. Continue normally */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-			if (!priv->phandle->proc_mwlan) {
-				priv->phandle->proc_mwlan =
+			if (!priv->phandle->proc_wlan) {
+				priv->phandle->proc_wlan =
 					priv->proc_entry->parent;
 			}
-			atomic_inc(&(priv->phandle->proc_mwlan->count));
+			atomic_inc(&(priv->phandle->proc_wlan->count));
 #endif
 		} else {
-			/* Failure. mwlan may not exist. Try to create that first */
-			priv->phandle->proc_mwlan =
-				proc_mkdir(MWLAN_PROC, PROC_DIR);
-			if (!priv->phandle->proc_mwlan) {
+			/* Failure. adapterX/ may not exist. Try to create that
+			 * first */
+			priv->phandle->proc_wlan =
+				proc_mkdir(priv->phandle->proc_wlan_name,
+					   proc_mwlan);
+			if (!priv->phandle->proc_wlan) {
 				/* Failure. Something broken */
 				LEAVE();
 				return;
 			} else {
 				/* Success. Now retry creating mlanX */
 				priv->proc_entry =
-					proc_mkdir(proc_dir_name, PROC_DIR);
+					proc_mkdir(proc_dir_name, proc_mwlan);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-				atomic_inc(&(priv->phandle->proc_mwlan->count));
+				atomic_inc(&(priv->phandle->proc_wlan->count));
 #endif
 			}
 		}
 #else
-	if (priv->phandle->proc_mwlan && !priv->proc_entry) {
+	if (priv->phandle->proc_wlan && !priv->proc_entry) {
 		priv->proc_entry =
-			proc_mkdir(dev->name, priv->phandle->proc_mwlan);
+			proc_mkdir(dev->name, priv->phandle->proc_wlan);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-		atomic_inc(&(priv->phandle->proc_mwlan->count));
+		atomic_inc(&(priv->phandle->proc_wlan->count));
 #endif /* < 3.10.0 */
 #endif /* < 2.6.26 */
 		strcpy(priv->proc_entry_name, dev->name);
@@ -832,15 +852,15 @@ woal_create_proc_entry(moal_private *priv)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
 			r = proc_create_data("info", 0, priv->proc_entry,
 					     &info_proc_fops, dev);
-			if (r == NULL)
 #else
 			r = create_proc_entry("info", 0, priv->proc_entry);
 			if (r) {
 				r->data = dev;
 				r->proc_fops = &info_proc_fops;
-			} else
+			}
 #endif
-				PRINTM(MERROR, "Fail to create proc info\n");
+			if (!r)
+				PRINTM(MMSG, "Fail to create proc info\n");
 		}
 	}
 
@@ -858,12 +878,12 @@ void
 woal_proc_remove(moal_private *priv)
 {
 	ENTER();
-	if (priv->phandle->proc_mwlan && priv->proc_entry) {
+	if (priv->phandle->proc_wlan && priv->proc_entry) {
 		remove_proc_entry("info", priv->proc_entry);
 		remove_proc_entry(priv->proc_entry_name,
-				  priv->phandle->proc_mwlan);
+				  priv->phandle->proc_wlan);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-		atomic_dec(&(priv->phandle->proc_mwlan->count));
+		atomic_dec(&(priv->phandle->proc_wlan->count));
 #endif
 		priv->proc_entry = NULL;
 	}
